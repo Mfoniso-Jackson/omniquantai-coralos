@@ -2,11 +2,10 @@
 #
 # Needs: Docker Desktop running, Node 20+, and `just` (https://github.com/casey/just):
 #   cargo install just  |  brew install just  |  winget install Casey.Just
-# Runs from PowerShell (Windows) or any POSIX shell. No `just`? Every recipe below is plain
-# node/npm/docker commands — run them by hand.
+# Runs from any shell. No `just`? Every recipe below is plain node/npm/docker commands.
 
-# On Windows, use PowerShell so node/npm/docker (on the Windows PATH) are found.
-set windows-shell := ["powershell.exe", "-NoProfile", "-Command"]
+# On Windows, use cmd (full system PATH; npm.cmd/node/docker resolve; supports && and cd like sh).
+set windows-shell := ["cmd.exe", "/c"]
 
 # default: list the recipes
 default:
@@ -14,18 +13,17 @@ default:
 
 # ── one-shot: wallets + build images + start coral & bridge ──────────────────
 dev: setup build up
-    @echo ""
-    @echo "Agent economy is up (coral + bridge)."
-    @echo "FUND the two printed wallets at https://faucet.solana.com (sign in with GitHub) before the agents can pay."
-    @echo "Then open http://localhost:3010 and click Run in the Autonomous tab (give the agents ~20s on first run)."
-    @echo "Logs: just logs    Stop: just down"
+    @echo Agent economy is up: coral + bridge.
+    @echo FUND the 2 printed wallets at https://faucet.solana.com - sign in with GitHub - before the agents can pay.
+    @echo Then open http://localhost:3010 and click Run in the Autonomous tab. Give the agents ~20s on first run.
+    @echo Logs: just logs -- Stop: just down
 
 # generate the devnet wallets (fund them manually at the faucet)
 setup:
-    npm install --prefix scripts --silent --no-audit --no-fund
+    cd scripts && npm install --no-audit --no-fund
     node scripts/setup.js
 
-# build the agent images coral-server launches (shell-agnostic — no bash needed)
+# build the agent images coral-server launches (no bash needed)
 build:
     docker build -f coral-agents/seller-agent/Dockerfile -t seller-agent:0.1.0 .
     docker build -f coral-agents/buyer-agent/Dockerfile -t buyer-agent:0.1.0 .
@@ -37,8 +35,7 @@ up:
 
 # run the autonomous loop from the CLI (alternative to the UI button)
 auto:
-    npm install --prefix examples/agent-economy/autonomous --silent --no-audit --no-fund
-    npm --prefix examples/agent-economy/autonomous start
+    cd examples/agent-economy/autonomous && npm install --no-audit --no-fund && npm start
 
 # tail coral-server logs
 logs:
