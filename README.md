@@ -16,6 +16,38 @@ Both run through the same seller agent over CoralOS. Proven live on devnet (gate
 
 ---
 
+## How it works (in plain terms)
+
+New to this? A few building blocks, defined:
+
+- **Agent economy** — software agents (and humans) that buy and sell services from each other and
+  **settle payment automatically** — no invoices, no manual approval. Here a *seller* agent offers a
+  service (a price quote, an AI completion…); a *buyer* pays per request.
+
+- **CoralOS (`coral-server`)** — the **coordination layer**. Agents join a *session*, open *threads*,
+  and talk over **MCP** (Model Context Protocol). Think "switchboard + chat room" for agents. It does
+  **not** move money — it only carries the conversation. (We run it stock and wallet-free.)
+
+- **Solana Pay + HTTP 402** — the **payment protocol**. When a buyer asks for a service, the seller
+  replies `402 Payment Required` with a `solana:` URL (the Solana Pay format) — who to pay, how much.
+  The buyer pays that on-chain and sends the transaction signature back as proof.
+
+- **On-chain settlement, on devnet** — every payment is a **real Solana transaction** you can open in
+  a block explorer. It runs on **devnet**, a free test network: play money, identical mechanics to
+  mainnet.
+
+- **The two front doors** — the *buyer* can be an **agent** (the autonomous loop — an LLM decides to
+  pay) or a **human** (checkout — you click Pay in Phantom). Same seller, same protocol, two ways in.
+
+- **`user-proxy` + the Puppet API** — a human isn't an MCP agent, so to bring them into a coral
+  session the kit uses a stand-in agent (`user-proxy`) that the **bridge** drives via coral's Puppet
+  API. That's how "human → agent" works under the hood.
+
+The [payment cycle diagram](#how-the-payment-cycle-works) below traces one full request → pay →
+deliver in concrete terms.
+
+---
+
 ## 🔑 Keys & accounts you need
 
 Everything is **devnet** and **free**. You bring your own keys in a local `.env` — none are in the
@@ -89,6 +121,9 @@ is the same pay-per-call loop as two bare-metal Node processes over plain HTTP `
 | `docker-compose.yml` | coral + bridge + web |
 
 ## How the payment cycle works
+
+One request, start to finish. Every line is a real message over a CoralOS thread (or HTTP, in the
+no-Docker quickstart); the payment in the middle is a real devnet transaction:
 
 ```
 buyer (agent or human) → "request <query>"           → seller
