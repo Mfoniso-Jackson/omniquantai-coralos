@@ -1,4 +1,4 @@
-edition = 3
+edition = 4
 
 [agent]
 name = "seller-agent"
@@ -14,11 +14,13 @@ expression = "MIT"
 [options]
 SELLER_WALLET = { type = "string", description = "Devnet wallet pubkey that receives payments" }
 PRICE_SOL = { type = "f64", default = 0.0001, description = "Price per request in SOL" }
-SERVICE = { type = "string", default = "jupiter", description = "Service to sell: jupiter | coingecko | news" }
+SERVICE = { type = "string", default = "jupiter", description = "Service to sell: jupiter | coingecko | news | inference" }
 SOLANA_RPC_URL = { type = "string", default = "", description = "Solana RPC URL" }
 HELIUS_API_KEY = { type = "string", default = "", description = "Helius API key" }
 JUPITER_API_KEY = { type = "string", default = "", description = "Jupiter API key for higher rate limits (free at jup.ag/developers)" }
 NEWS_API_KEY = { type = "string", default = "", description = "NewsAPI key (only needed for SERVICE=news)" }
+ANTHROPIC_API_KEY = { type = "string", default = "", description = "Anthropic API key (only needed for SERVICE=inference)" }
+INFERENCE_MODEL = { type = "string", default = "claude-opus-4-8", description = "Model for SERVICE=inference; Opus for max quality, override with claude-haiku-4-5 for micropayment cost-fit" }
 
 [runtimes.docker]
 image = "seller-agent:0.1.0"

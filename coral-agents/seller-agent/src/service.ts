@@ -16,9 +16,57 @@ export async function deliverService(request: string): Promise<string> {
       return coingeckoPrice(request)
     case 'news':
       return newsHeadlines(request)
+    case 'inference':
+    case 'claude':
+      return claudeInference(request)
     default:
       return jupiterSwapQuote(request)
   }
+}
+
+// Claude inference — resell LLM completions for SOL. This is the on-thesis
+// agent-economy service: the buyer pays a micropayment, the seller runs a
+// Claude completion and returns it. Calls the Anthropic Messages API over raw
+// fetch (REST shape: x-api-key + anthropic-version: 2023-06-01) so the seller
+// needs no SDK dependency — matching the other fetch-based services here.
+//
+// Model defaults to claude-opus-4-8 for maximum completion quality. For a
+// micropayment reseller (~$0.015/call) where you want the economics to favour
+// cost, set INFERENCE_MODEL=claude-haiku-4-5 ($1/$5 per MTok) instead.
+async function claudeInference(request: string): Promise<string> {
+  const key = process.env.ANTHROPIC_API_KEY
+  if (!key) return JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' })
+  const model = process.env.INFERENCE_MODEL ?? 'claude-opus-4-8'
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: request || 'Say hello.' }],
+    }),
+  })
+  if (!res.ok) {
+    return JSON.stringify({ error: `anthropic ${res.status}`, detail: (await res.text()).slice(0, 200) })
+  }
+  // Response content is an array of blocks; concatenate the text blocks.
+  const data = await res.json() as { content?: Array<{ type: string; text?: string }> }
+  const completion = (data.content ?? [])
+    .filter(b => b.type === 'text')
+    .map(b => b.text ?? '')
+    .join('')
+  return JSON.stringify({
+    service: 'claude-inference',
+    model,
+    prompt: request,
+    completion,
+    timestamp: new Date().toISOString(),
+  })
 }
 
 // Jupiter DEX — best swap route SOL → USDC

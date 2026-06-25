@@ -28,15 +28,6 @@ build_buyer() {
   echo "    buyer-agent:0.1.0 done"
 }
 
-build_helius() {
-  echo "==> Building helius-monitor:0.1.0"
-  docker build \
-    -f "$ROOT/coral-agents/helius_monitor/Dockerfile" \
-    -t helius-monitor:0.1.0 \
-    "$ROOT/coral-agents/helius_monitor"
-  echo "    helius-monitor:0.1.0 done"
-}
-
 build_proxy() {
   echo "==> Building user-proxy:0.1.0"
   docker build \
@@ -67,14 +58,12 @@ build_web() {
 case "${1:-all}" in
   seller) build_seller ;;
   buyer)  build_buyer ;;
-  helius) build_helius ;;
   proxy)  build_proxy ;;
   api)    build_api ;;
   web)    build_web ;;
   all)
     build_seller
     build_buyer
-    build_helius
     build_proxy
     build_api
     build_web
@@ -82,5 +71,5 @@ case "${1:-all}" in
     echo "All images built. Run a track:"
     echo "  docker compose -f examples/track-1-pay-per-call/docker-compose.yml up"
     ;;
-  *) echo "Usage: bash build-agents.sh [seller|buyer|helius|proxy|api|web|all]"; exit 1 ;;
+  *) echo "Usage: bash build-agents.sh [seller|buyer|proxy|api|web|all]"; exit 1 ;;
 esac

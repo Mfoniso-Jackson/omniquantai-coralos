@@ -1,0 +1,21 @@
+edition = 4
+
+[agent]
+name = "echo-agent"
+version = "0.1.0"
+description = "Minimal smoke-test agent. Joins a CoralOS session and echoes any @mention back into the thread. Used to prove MCP connectivity before building real agents."
+summary = "Echoes mentions — the MCP connectivity gate."
+readme = "Waits for an @mention and replies 'echo: <text>'. No payment, no LLM. If this round-trips, the MCP transport works."
+
+[agent.license]
+type = "spdx"
+expression = "MIT"
+
+# Run as a container (coral-server in Docker launches it via the Docker socket).
+[runtimes.docker]
+image = "echo-agent:0.1.0"
+
+# Run directly (used when coral-server runs on the host).
+[runtimes.executable]
+path = "node"
+arguments = ["dist/index.js"]

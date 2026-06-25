@@ -10,8 +10,8 @@ keys = ["dev"]
 allowAnyHost = true
 
 [registry]
-# Scan mounted /agents/* for directories containing a coral-agent.toml.
-# helius-monitor lives at /agents/helius_monitor/coral-agent.toml.
+# Scan mounted /agents/* for directories containing a coral-agent.toml
+# (seller-agent, buyer-agent, echo-agent, user_proxy).
 localAgents = ["/agents/*"]
 includeCoralHomeAgents = true
 # Re-scan every 5s so newly added agents appear without a restart.

@@ -1,50 +1,29 @@
 # coral-agents
 
-Thin, standalone Python agents that run **alongside** the Tauri app and can be
-launched from it (Local Agents → "Python Agent" tab). They are the on-ramp to
-real Coral integration described in
-[`../../docs/HELIUS-AGENT-TO-CORAL.md`](../../docs/HELIUS-AGENT-TO-CORAL.md).
+Agents launched by CoralOS as Docker containers. They connect to a CoralOS
+session over MCP (via `startCoralAgent` in `sdk/agent-core-ts`) and exchange
+messages in the session thread.
 
-## helius_monitor
+| Agent | Language | Role |
+|-------|----------|------|
+| `seller-agent` | TypeScript | Sells data/services for SOL. Fork point: `src/service.ts` (`deliverService`). |
+| `buyer-agent`  | TypeScript | LLM-driven buyer. Requests data, pays in SOL, analyses the result. |
+| `echo-agent`   | TypeScript | Minimal smoke-test agent — echoes any `@mention`. Proves MCP connectivity. |
+| `user_proxy`   | Python     | Inert puppet. Lets the Puppet API inject test messages into a session. |
 
-The Python sibling of `agent-core`'s `TritonPaymentMonitorStrategy`. Opens a
-Solana PubSub websocket (works with **Helius** — pass a Helius key or full
-Helius URLs) and streams JSON payment events to stdout, which the Tauri backend
-forwards to the UI.
+The TypeScript agents build on `sdk/agent-core-ts` (the `Strategy` / `AgentManager`
+runtime). On-chain wallet monitoring lives there too, as `HeliusMonitorStrategy`.
 
-### Setup
-
-```sh
-cd agent_demo/coral-agents/helius_monitor
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-pip install -r requirements.txt
-```
-
-### Run by hand (without the app)
+## Build the images
 
 ```sh
-# Helius (mainnet): just give it your key
-python agent.py --wallet <PUBKEY> --amount 0.5 --helius-api-key <KEY>
-
-# Or explicit endpoints (e.g. devnet)
-python agent.py --wallet <PUBKEY> --amount 0.5 \
-  --rpc-url https://api.devnet.solana.com \
-  --ws-url  wss://api.devnet.solana.com
+# from the repo root (context must include sdk/)
+bash build-agents.sh seller     # seller-agent:0.1.0
+bash build-agents.sh buyer      # buyer-agent:0.1.0
+docker build -f coral-agents/echo-agent/Dockerfile -t echo-agent:0.1.0 .
+cd coral-agents/user_proxy && docker build -t user-proxy:0.1.0 .
 ```
 
-Each stdout line is one JSON event: `started`, `baseline`, `stream-connected`,
-`payment-received`, `partial-payment`, `error`, `exited`.
-
-### Launch from the Tauri app
-
-The app spawns `python agent.py …` for you and shows a live event log. It finds
-this script relative to the app, or via the `PAY_AGENTS_DIR` env var. Set
-`PYTHON` to choose a specific interpreter (defaults to `python`).
-
-### Coral mode (scaffold)
-
-`--mode coral --coral-url <url>` is a stub showing where the real MCP
-register / `wait_for_mentions` / `send_message` loop goes. The detection logic
-is framework-agnostic so it drops straight into that loop. See the migration
-doc for the full path.
+CoralOS discovers each agent from its `coral-agent.toml`. Start a session that
+references them (see `docs/coral/session.json` for a minimal example), and CoralOS
+launches the containers and injects each one's `CORAL_CONNECTION_URL`.

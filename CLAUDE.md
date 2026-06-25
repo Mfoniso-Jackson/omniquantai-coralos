@@ -14,7 +14,7 @@ A TypeScript-first monorepo for a Solana agent-economy starter kit. Agents reque
 | `sdk/agent-core-ts/` | TypeScript agent runtime: `AgentManager`, `Strategy`, `MessageBus`, `SharedState`, `WorkflowEngine`, Solana Pay strategies |
 | `sdk/sdk/` | `CoralClient` — typed HTTP wrapper for `api-ts/` |
 | `web/` | Next.js consumer marketplace — Phantom wallet payment flow (port 3000) |
-| `coral-agents/` | Python MCP agents launched by CoralOS: `helius_monitor`, `user_proxy` |
+| `coral-agents/` | Agents launched by CoralOS: `buyer-agent`, `seller-agent`, `echo-agent` (TypeScript); `user_proxy` (Python test puppet) |
 | `docs/` | Design documents, CoralOS config, restructure plan |
 | `e2e/` | Playwright end-to-end tests |
 
@@ -45,11 +45,13 @@ cd web && npm run dev      # :3000, points at api-ts :8081 by default
 cd web && npm run build
 ```
 
-### coral-agents (Python, requires Docker)
+### coral-agents (TypeScript + one Python utility, requires Docker)
 
 ```sh
-cd coral-agents/helius_monitor && docker build -t helius-monitor:0.1.0 .
-cd coral-agents/user_proxy    && docker build -t user-proxy:0.1.0 .
+# TypeScript agents (built from repo root so they can bundle sdk/):
+bash build-agents.sh seller   # seller-agent:0.1.0
+bash build-agents.sh buyer    # buyer-agent:0.1.0
+cd coral-agents/user_proxy && docker build -t user-proxy:0.1.0 .   # Python test puppet
 # Then start CoralOS: docker compose --profile coral up
 ```
 
@@ -80,10 +82,12 @@ Express server exposing `sdk/agent-core-ts` over HTTP at `/api/v1/`:
 
 Next.js 14 marketplace. Connects to `api-ts` via `NEXT_PUBLIC_CORAL_SERVER` (default `http://localhost:8081`).
 
-### coral-agents (Python + CoralOS)
+### coral-agents (CoralOS)
 
-`helius_monitor` — watches a Solana wallet via WebSocket, reports payments to CoralOS thread.  
-`user_proxy` — puppet agent; lets Claude Code send messages into a CoralOS session.
+`buyer-agent`, `seller-agent`, `echo-agent` — TypeScript agents (built on `sdk/agent-core-ts`).  
+`user_proxy` — Python puppet agent; lets the Puppet API inject test messages into a CoralOS session.
+
+(On-chain wallet monitoring lives in the TypeScript `HeliusMonitorStrategy` in `sdk/agent-core-ts`.)
 
 ## Key Constraints
 
