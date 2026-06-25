@@ -1,138 +1,178 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useWallet, useConnection } from '@solana/wallet-adapter-react'
+import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { Header } from '@/components/Header'
-
-interface AgentLog {
-  time: string
-  action: string
-  detail: string
-  txSig?: string
-}
 
 const API = process.env.NEXT_PUBLIC_API_SERVER ?? 'http://localhost:8081'
 const EXPLORER = 'https://explorer.solana.com/tx'
+const SELLER_WALLET = process.env.NEXT_PUBLIC_SELLER_WALLET ?? ''
+const PRICE_SOL = parseFloat(process.env.NEXT_PUBLIC_PRICE_SOL ?? '0.00005')
 
-function fmt(d: Date) { return d.toTimeString().slice(0, 8) }
+type Step = 'idle' | 'connecting' | 'paying' | 'confirming' | 'done' | 'error'
 
-function TxLink({ sig }: { sig: string }) {
-  return (
-    <a href={`${EXPLORER}/${sig}?cluster=devnet`} target="_blank" rel="noopener noreferrer"
-      className="text-solana-green underline text-xs ml-1">{sig.slice(0, 8)}…↗</a>
-  )
+interface Result {
+  txSig: string
+  data: string
 }
 
-export default function Track2Page() {
-  const [sellerLog, setSellerLog] = useState<AgentLog[]>([])
-  const [buyerLog, setBuyerLog] = useState<AgentLog[]>([])
-  const [totalPaid, setTotalPaid] = useState(0)
-  const [trades, setTrades] = useState(0)
-  const sellerRef = useRef<HTMLDivElement>(null)
-  const buyerRef = useRef<HTMLDivElement>(null)
+const TOPICS = ['solana', 'bitcoin', 'defi', 'nft', 'ai agents']
 
-  useEffect(() => {
-    const poll = async () => {
-      try {
-        const res = await fetch(`${API}/api/v1/agents`)
-        if (!res.ok) return
-        const data: { id: string; actions: { action: string; detail: string; timestamp?: string }[] }[] = await res.json()
+export default function Track3Page() {
+  const { publicKey, sendTransaction, connected } = useWallet()
+  const { connection } = useConnection()
+  const [topic, setTopic] = useState('solana')
+  const [step, setStep] = useState<Step>('idle')
+  const [result, setResult] = useState<Result | null>(null)
+  const [error, setError] = useState('')
 
-        const seller = data.find(d => d.id === 'seller-agent')
-        const buyer = data.find(d => d.id === 'buyer-agent')
+  const pay = async () => {
+    if (!publicKey || !SELLER_WALLET) return
+    setStep('paying')
+    setError('')
+    setResult(null)
 
-        if (seller) {
-          setSellerLog(seller.actions?.slice(-20).map(a => {
-            const sig = a.detail?.match(/sig[=:]\s*(\w{40,})/i)?.[1]
-            if (a.action === 'payment-received') setTrades(n => n + 1)
-            return { time: fmt(new Date(a.timestamp ?? Date.now())), action: a.action, detail: a.detail?.slice(0, 70) ?? '', txSig: sig }
-          }) ?? [])
-        }
+    try {
+      // Build transaction
+      const tx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey(SELLER_WALLET),
+          lamports: Math.round(PRICE_SOL * LAMPORTS_PER_SOL),
+        }),
+      )
+      const { blockhash } = await connection.getLatestBlockhash()
+      tx.recentBlockhash = blockhash
+      tx.feePayer = publicKey
 
-        if (buyer) {
-          setBuyerLog(buyer.actions?.slice(-20).map(a => {
-            const sig = a.detail?.match(/sig[=:]\s*(\w{40,})/i)?.[1]
-            if (a.action === 'paid') setTotalPaid(n => n + 0.0005)
-            return { time: fmt(new Date(a.timestamp ?? Date.now())), action: a.action, detail: a.detail?.slice(0, 70) ?? '', txSig: sig }
-          }) ?? [])
-        }
-      } catch { /* api not ready */ }
+      // Phantom signs + broadcasts
+      const sig = await sendTransaction(tx, connection)
+      setStep('confirming')
+
+      // Wait for confirmation
+      await connection.confirmTransaction(sig, 'confirmed')
+
+      // Call api-ts to deliver the service
+      setStep('confirming')
+      const deliveryRes = await fetch(`${API}/api/v1/weather`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-payment-proof': sig },
+        body: JSON.stringify({ city: topic }),
+      })
+
+      const delivery = await deliveryRes.json()
+      setResult({ txSig: sig, data: JSON.stringify(delivery, null, 2) })
+      setStep('done')
+    } catch (e) {
+      setError(String(e))
+      setStep('error')
     }
-
-    const id = setInterval(poll, 2_000)
-    return () => clearInterval(id)
-  }, [])
-
-  useEffect(() => { sellerRef.current?.scrollTo({ top: sellerRef.current.scrollHeight, behavior: 'smooth' }) }, [sellerLog])
-  useEffect(() => { buyerRef.current?.scrollTo({ top: buyerRef.current.scrollHeight, behavior: 'smooth' }) }, [buyerLog])
-
-  const actionColour = (action: string) => {
-    if (action.includes('payment') || action.includes('paid')) return 'text-solana-green'
-    if (action.includes('deliver') || action.includes('DELIVERED')) return 'text-blue-400'
-    if (action.includes('error')) return 'text-red-400'
-    if (action.includes('url') || action.includes('request')) return 'text-yellow-400'
-    return 'text-gray-400'
   }
 
-  const Panel = ({ title, subtitle, logs, ref: r }: { title: string; subtitle: string; logs: AgentLog[]; ref: React.RefObject<HTMLDivElement | null> }) => (
-    <div className="card flex-1">
-      <p className="text-sm font-semibold text-white mb-0.5">{title}</p>
-      <p className="text-xs text-gray-500 mb-3">{subtitle}</p>
-      <div ref={r as React.RefObject<HTMLDivElement>} className="space-y-1 max-h-64 overflow-y-auto font-mono text-xs">
-        {logs.length === 0 && <p className="text-gray-600 py-4 text-center">Waiting…</p>}
-        {logs.map((l, i) => (
-          <div key={i} className="flex gap-2 items-start">
-            <span className="text-gray-600 shrink-0">{l.time}</span>
-            <span className={`${actionColour(l.action)} shrink-0 w-28 truncate`}>{l.action}</span>
-            <span className="text-gray-500 truncate">
-              {l.detail}
-              {l.txSig && <TxLink sig={l.txSig} />}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  const stepLabel: Record<Step, string> = {
+    idle: `Pay ${PRICE_SOL} SOL →`,
+    connecting: 'Connecting…',
+    paying: 'Waiting for Phantom…',
+    confirming: 'Confirming on-chain…',
+    done: 'Delivered ✓',
+    error: 'Failed — try again',
+  }
 
   return (
     <div className="min-h-screen">
       <Header />
-      <main className="max-w-4xl mx-auto px-4 py-10">
+      <main className="max-w-lg mx-auto px-4 py-16">
 
-        <div className="mb-8">
-          <div className="inline-flex items-center gap-2 badge-green mb-3 px-3 py-1">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 badge-green mb-4 px-3 py-1">
             <span className="w-1.5 h-1.5 rounded-full bg-solana-green animate-pulse" />
-            <span className="text-xs">Track 2 — Agent-to-Agent Trading</span>
+            <span className="text-xs">Track 3 — Consumer Checkout</span>
           </div>
-          <h1 className="text-2xl font-bold mb-1">Autonomous Trading Session</h1>
-          <p className="text-gray-400 text-sm">Two agents trading autonomously. No human approves anything.</p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {[
-            { label: 'Trades completed', value: trades },
-            { label: 'Total SOL paid', value: `${totalPaid.toFixed(4)} SOL` },
-            { label: 'Cycle interval', value: '30s' },
-          ].map(s => (
-            <div key={s.label} className="card text-center">
-              <p className="text-lg font-bold text-white">{s.value}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Two-panel terminal */}
-        <div className="flex gap-4">
-          <Panel title="📈 Seller Agent" subtitle="Sells CoinGecko price data" logs={sellerLog} ref={sellerRef} />
-          <Panel title="🤖 Buyer Agent (Claude)" subtitle="Buys and analyses data" logs={buyerLog} ref={buyerRef} />
-        </div>
-
-        {/* On-chain settlement note */}
-        <div className="mt-4 card border-brand/20">
-          <p className="text-xs text-gray-400">
-            Every payment settles on <span className="text-white">Solana devnet</span> in under 1 second.
-            Click any transaction hash to verify on Solana Explorer.
+          <h1 className="text-3xl font-bold mb-2">⚡ Instant Crypto News</h1>
+          <p className="text-gray-400 text-sm">
+            Pay {PRICE_SOL} SOL (~${(PRICE_SOL * 200).toFixed(3)}) · Get top headlines instantly · No account needed
           </p>
+        </div>
+
+        <div className="card space-y-5">
+          {/* Topic selector */}
+          <div>
+            <label className="text-xs text-gray-400 font-medium block mb-2">Topic</label>
+            <div className="flex flex-wrap gap-2">
+              {TOPICS.map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTopic(t)}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                    topic === t ? 'bg-brand text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Wallet status */}
+          {connected && publicKey && (
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-solana-green" />
+              {publicKey.toBase58().slice(0, 8)}…{publicKey.toBase58().slice(-4)}
+            </div>
+          )}
+
+          {/* Pay button */}
+          {connected ? (
+            <button
+              onClick={pay}
+              disabled={step !== 'idle' && step !== 'error' && step !== 'done'}
+              className="btn-primary w-full text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {stepLabel[step]}
+            </button>
+          ) : (
+            <p className="text-center text-xs text-brand">Connect Phantom wallet (top right) to pay</p>
+          )}
+
+          {/* Error */}
+          {step === 'error' && (
+            <p className="text-xs text-red-400 text-center">{error}</p>
+          )}
+        </div>
+
+        {/* Result */}
+        {result && (
+          <div className="mt-6 card space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-solana-green">✅ Paid & Delivered</p>
+              <a
+                href={`${EXPLORER}/${result.txSig}?cluster=devnet`}
+                target="_blank" rel="noopener noreferrer"
+                className="text-xs text-gray-400 underline"
+              >
+                {result.txSig.slice(0, 8)}…↗
+              </a>
+            </div>
+            <pre className="text-xs text-gray-300 bg-black/40 rounded p-3 overflow-x-auto whitespace-pre-wrap">
+              {result.data}
+            </pre>
+            <button onClick={() => { setStep('idle'); setResult(null) }} className="text-xs text-brand underline">
+              Buy again
+            </button>
+          </div>
+        )}
+
+        {/* Fork hint */}
+        <div className="mt-8 card border-brand/20">
+          <p className="text-xs font-semibold text-brand uppercase tracking-wide mb-2">Fork this track</p>
+          <p className="text-xs text-gray-400">Change what users receive after paying — one file:</p>
+          <pre className="text-xs text-gray-300 bg-black/40 rounded p-3 mt-2 overflow-x-auto">
+{`// coral-agents/seller-agent/src/service.ts
+export async function deliverService(request: string) {
+  // ← your service here
+}`}
+          </pre>
         </div>
 
       </main>

@@ -31,3 +31,6 @@ bun.lockb
 *.log
 coverage*.json
 .vercel
+
+# Reference repos cloned for analysis (not part of project)
+ref/
