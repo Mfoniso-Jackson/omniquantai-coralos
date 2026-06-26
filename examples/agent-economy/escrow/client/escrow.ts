@@ -55,6 +55,26 @@ export async function release(
     .rpc()
 }
 
+/**
+ * Seller-side check: does a funded escrow exist for `(buyer, reference)` naming `seller`, holding at
+ * least `minAmountSol`? The seller calls this before delivering — "is there money locked for me?" —
+ * replacing the direct-transfer `verifyPayment` in the escrow settlement path. Returns false if the
+ * PDA doesn't exist, the parties don't match, or it's underfunded.
+ */
+export async function isFunded(
+  program: Program<any>,
+  buyer: PublicKey,
+  seller: PublicKey,
+  reference: PublicKey,
+  minAmountSol = 0,
+): Promise<boolean> {
+  const acct = await program.account.escrow.fetchNullable(escrowPda(buyer, reference))
+  if (!acct) return false
+  const partiesOk = acct.buyer.equals(buyer) && acct.seller.equals(seller)
+  const amountOk = acct.amount.toNumber() >= Math.round(minAmountSol * LAMPORTS_PER_SOL)
+  return partiesOk && amountOk
+}
+
 /** Buyer reclaims the deposit after the deadline (seller never delivered). */
 export async function refund(
   program: Program<any>,

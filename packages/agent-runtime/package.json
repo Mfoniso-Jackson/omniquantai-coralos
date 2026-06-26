@@ -13,11 +13,14 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@solana/web3.js": "^1.98.0"
+    "@solana/web3.js": "^1.98.0",
+    "@solana/pay": "^0.2.5",
+    "bignumber.js": "^9.1.2"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
     "@types/node": "^20.0.0",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "bs58": "^5.0.0"
   }
 }
