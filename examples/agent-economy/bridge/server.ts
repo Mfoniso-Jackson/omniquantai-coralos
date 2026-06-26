@@ -28,12 +28,24 @@ const PRICE_SOL = process.env.PRICE_SOL ?? '0.0001'
 const SERVICE = process.env.SERVICE ?? 'jupiter'
 const RPC = process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
 const ANTHROPIC = process.env.ANTHROPIC_API_KEY ?? ''
+const NEWS_API_KEY = process.env.NEWS_API_KEY ?? ''
+const JUPITER_API_KEY = process.env.JUPITER_API_KEY ?? ''
+const HELIUS_API_KEY = process.env.HELIUS_API_KEY ?? ''
 const BUYER_KEYPAIR_B58 = process.env.BUYER_KEYPAIR_B58 ?? '' // only for the autonomous demo
 const BUYER_MAX_SOL = Number(process.env.BUYER_MAX_SOL ?? '0.001')
 
 // ── Typed coral option values: { type: "string" | "f64", value } ──
 const str = (value: string) => ({ type: 'string', value })
 const f64 = (value: number) => ({ type: 'f64', value })
+
+/** Forward any configured service API keys to the seller agent (declared in its coral-agent.toml). */
+const addSellerKeys = (opts: Record<string, unknown>) => {
+  if (ANTHROPIC) opts.ANTHROPIC_API_KEY = str(ANTHROPIC)
+  if (NEWS_API_KEY) opts.NEWS_API_KEY = str(NEWS_API_KEY)
+  if (JUPITER_API_KEY) opts.JUPITER_API_KEY = str(JUPITER_API_KEY)
+  if (HELIUS_API_KEY) opts.HELIUS_API_KEY = str(HELIUS_API_KEY)
+  return opts
+}
 
 /** Agent descriptor for a session request. */
 const localAgent = (name: string, options: Record<string, unknown> = {}) => ({
@@ -54,7 +66,7 @@ function ensureSession(): Promise<string> {
       SOLANA_RPC_URL: str(RPC),
       SERVICE: str(SERVICE),
     }
-    if (ANTHROPIC) sellerOpts.ANTHROPIC_API_KEY = str(ANTHROPIC)
+    addSellerKeys(sellerOpts)
 
     const res = await fetch(`${BASE}/api/v1/local/session`, {
       method: 'POST', headers: AUTH,
@@ -195,7 +207,8 @@ app.post('/autonomous/start', async (_req, res) => {
 
     const sellerOpts: Record<string, unknown> = { SELLER_WALLET: str(SELLER_WALLET), SOLANA_RPC_URL: str(RPC), SERVICE: str(SERVICE) }
     const buyerOpts: Record<string, unknown> = { BUYER_KEYPAIR_B58: str(BUYER_KEYPAIR_B58), SOLANA_RPC_URL: str(RPC), BUYER_MAX_SOL: f64(BUYER_MAX_SOL) }
-    if (ANTHROPIC) { sellerOpts.ANTHROPIC_API_KEY = str(ANTHROPIC); buyerOpts.ANTHROPIC_API_KEY = str(ANTHROPIC) }
+    addSellerKeys(sellerOpts)
+    if (ANTHROPIC) buyerOpts.ANTHROPIC_API_KEY = str(ANTHROPIC)
 
     const r = await fetch(`${BASE}/api/v1/local/session`, {
       method: 'POST', headers: AUTH,
