@@ -189,6 +189,7 @@ The fork points: `coral-agents/seller-agent/src/service.ts → deliverService()`
 - **[docs/HACKATHON.md](docs/HACKATHON.md)** — composing a hackathon: where to build + what types of apps
 - **[docs/APIS.md](docs/APIS.md)** — APIs you can sell (free?/key?/devnet?), incl. the Codex/OpenAI option
 - **[docs/REACT_FRONTEND.md](docs/REACT_FRONTEND.md)** — build a full Vite + React + wallet-adapter UI e2e (every file)
+- **[docs/SWARM.md](docs/SWARM.md)** — build a multi-agent swarm (broker pattern) — money flowing through a graph
 - **[docs/PRODUCTION_HARDENING.md](docs/PRODUCTION_HARDENING.md)** — taking it past a devnet demo
 
 ## License
