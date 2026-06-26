@@ -1,13 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AutonomousTab } from './components/AutonomousTab'
 import { CheckoutTab } from './components/CheckoutTab'
 
+type Theme = 'dark' | 'light'
+
 export default function App() {
   const [tab, setTab] = useState<'auto' | 'checkout'>('auto')
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem('theme') as Theme) || 'dark',
+  )
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
   return (
     <div className="app">
       <header>
-        <h1>sol_coralOS</h1>
+        <div className="bar">
+          <h1>sol_coralOS</h1>
+          <button
+            className="theme"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label="Toggle color theme"
+          >
+            {theme === 'dark' ? 'Light' : 'Dark'}
+          </button>
+        </div>
         <p className="sub">An agent economy on Solana — one seller, two front doors.</p>
       </header>
 
@@ -21,10 +41,6 @@ export default function App() {
       </nav>
 
       {tab === 'auto' ? <AutonomousTab /> : <CheckoutTab />}
-
-      <footer className="foot">
-        Devnet · payments settle on-chain · CoralOS coordinates the agents
-      </footer>
     </div>
   )
 }

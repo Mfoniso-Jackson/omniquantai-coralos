@@ -1,3 +1,4 @@
+/* Dark (default) */
 :root {
   --bg: #0b0d12;
   --card: #151923;
@@ -7,16 +8,35 @@
   --accent: #7c5cff;
   --buyer: #3da9fc;
 }
+/* Light */
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --card: #f6f7f9;
+  --line: #e4e7ec;
+  --fg: #14161c;
+  --muted: #5b6675;
+  --accent: #6b46ff;
+  --buyer: #1f7ad4;
+}
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  background: radial-gradient(1200px 600px at 50% -10%, #161a26 0%, var(--bg) 60%);
+  background: var(--bg);
   color: var(--fg);
   font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  transition: background .2s, color .2s;
 }
 .app { max-width: 720px; margin: 0 auto; padding: 36px 20px 60px; }
+header .bar { display: flex; align-items: center; justify-content: space-between; }
 header h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
 .sub { color: var(--muted); margin: 6px 0 22px; }
+
+.theme {
+  background: var(--card); color: var(--fg);
+  border: 1px solid var(--line); padding: 6px 14px;
+  border-radius: 8px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600;
+}
+.theme:hover { border-color: var(--accent); }
 
 .tabs { display: flex; gap: 8px; margin-bottom: 22px; }
 .tabs button {
@@ -65,7 +85,10 @@ section > p { color: var(--fg); opacity: .9; }
 }
 .muted { color: var(--muted); }
 .error { color: #ff6b6b; }
-.foot { color: var(--muted); font-size: 13px; margin-top: 36px; border-top: 1px solid var(--line); padding-top: 14px; }
 
 /* tame the wallet-adapter button to match the theme */
-.wallet-adapter-button-trigger { background: var(--card) !important; border: 1px solid var(--line) !important; }
+.wallet-adapter-button-trigger {
+  background: var(--card) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--fg) !important;
+}
