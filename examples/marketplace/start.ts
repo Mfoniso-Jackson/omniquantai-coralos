@@ -81,6 +81,25 @@ async function main() {
 
   const sellers = ['seller-cheap', 'seller-premium', 'seller-lazy', ...(txlineKey ? ['seller-worldcup'] : [])]
 
+  // Optional broker swarm (ENABLE_BROKER=1, see docs/SWARM.md): the buyer buys from a broker, which
+  // resells from the real sellers. Needs a funded broker wallet — `node scripts/setup.js --broker`.
+  const brokerWanted = env.ENABLE_BROKER === '1'
+  const brokerReady = brokerWanted && !!env.BROKER_KEYPAIR_B58 && !!env.BROKER_WALLET
+  if (brokerWanted && !brokerReady) {
+    console.warn('[marketplace] ENABLE_BROKER=1 but BROKER_KEYPAIR_B58/BROKER_WALLET missing — run `node scripts/setup.js --broker`. Skipping broker.')
+  }
+  const brokerAgents = brokerReady
+    ? [agent('broker', {
+        BROKER_KEYPAIR_B58: str(env.BROKER_KEYPAIR_B58), BROKER_WALLET: str(env.BROKER_WALLET),
+        AGENT_NAME: str('broker'), SOLANA_RPC_URL: str(rpc), UPSTREAM_SELLERS: str(sellers.join(',')),
+        ...(env.BROKER_MARGIN_SOL ? { BROKER_MARGIN_SOL: f64(Number(env.BROKER_MARGIN_SOL)) } : {}),
+        ...llmOpts,
+      })]
+    : []
+  // Who the buyer shops + the payout wallet it binds the escrow to (F3): the broker if enabled, else the sellers.
+  const buyerSellers = brokerReady ? ['broker'] : sellers
+  const buyerExpectedWallet = brokerReady ? env.BROKER_WALLET : wallet
+
   // F8: a txline market needs both the World Cup token AND the worldcup seller. If .env still says
   // BUYER_SERVICE=txline but no token is present (e.g. a stale .env after a failed mint), fall back to
   // the generic market rather than broadcasting txline WANTs nothing can fill.
@@ -95,13 +114,13 @@ async function main() {
     BUYER_KEYPAIR_B58: str(keypair),
     AGENT_NAME: str('buyer-agent'),
     SOLANA_RPC_URL: str(rpc),
-    // F3: the expected seller payout wallet (personas share one) — the buyer binds the escrow seller= to it.
-    SELLER_WALLET: str(wallet),
+    // F3: the expected seller payout wallet — the buyer binds the escrow seller= to it (broker if enabled).
+    SELLER_WALLET: str(buyerExpectedWallet),
     BUYER_MAX_SOL: f64(Number(env.BUYER_MAX_SOL ?? '0.001')),
     BUYER_SERVICE: str(buyerService),
     BUYER_ARG: str(buyerArg),
     ...(buyerArgs ? { BUYER_ARGS: str(buyerArgs) } : {}),
-    MARKET_SELLERS: str(sellers.join(',')),
+    MARKET_SELLERS: str(buyerSellers.join(',')),
     ...llmOpts,
   }
 
@@ -115,6 +134,7 @@ async function main() {
           seller('seller-premium'),
           seller('seller-lazy'),
           ...worldcup,
+          ...brokerAgents,
         ],
       },
       namespaceProvider: { type: 'create_if_not_exists', namespaceRequest: { name: NS } },
@@ -124,7 +144,8 @@ async function main() {
   if (!sres.ok) throw new Error(`session create failed: ${sres.status} ${await sres.text()}`)
   const { sessionId } = await sres.json() as { sessionId: string }
 
-  console.log(`\n✅ Market session ${sessionId} — buyer + ${sellers.join(', ')}.`)
+  const lineup = brokerReady ? `broker (reselling ${sellers.join(', ')})` : sellers.join(', ')
+  console.log(`\n✅ Market session ${sessionId} — buyer + ${lineup}.`)
   console.log(`   receive wallet: ${wallet}`)
   console.log('   The buyer broadcasts a WANT; sellers bid; the winner settles via escrow.\n')
   console.log('   Watch the market:')

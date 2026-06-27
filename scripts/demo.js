@@ -44,6 +44,11 @@ run('node', ['scripts/setup.js'])
 // 3. Build the agent images directly (no bash) — repo root is the build context so they bundle packages/.
 run('docker', ['build', '-f', 'coral-agents/seller-agent/Dockerfile', '-t', 'seller-agent:0.1.0', '.'])
 run('docker', ['build', '-f', 'coral-agents/buyer-agent/Dockerfile', '-t', 'buyer-agent:0.1.0', '.'])
+// Optional broker (swarm extension) — build it too when .env opts in (node scripts/setup.js --broker).
+const envFile = join(root, '.env')
+if (existsSync(envFile) && /^ENABLE_BROKER=1$/m.test(readFileSync(envFile, 'utf8'))) {
+  run('docker', ['build', '-f', 'coral-agents/broker/Dockerfile', '-t', 'broker:0.1.0', '.'])
+}
 
 // 4. Remove orphaned agent containers from earlier sessions.
 run('node', ['scripts/clean.js'])

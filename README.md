@@ -260,7 +260,7 @@ Solana Pay binds it, the escrow settles it — all pointing at the same `referen
 
 - **A new seller** — its inventory (`deliverService`) + how it bids (`PERSONA`/`FLOOR_SOL`/`SERVICES` in its `coral-agent.toml`). `seller-worldcup` is a worked example: a specialist that wins only `txline` rounds.
 - **A new buyer** — what it wants + how it judges value (the selection prompt).
-- **A new role / mechanism** — a reseller, an escrow **arbiter** agent, open-cry bidding, on-chain reputation.
+- **A new role / mechanism** — a reseller, an escrow **arbiter** agent, open-cry bidding, on-chain reputation. Worked example: **[docs/SWARM.md](docs/SWARM.md)** (a broker agent that buys low upstream and resells, each leg escrow-settled).
 
 Deep dives: **[docs/DATA_PROVIDERS.md](docs/DATA_PROVIDERS.md)** (the data you can sell + where each key goes) ·
 **[examples/txodds/README.md](examples/txodds/README.md)** (the World Cup oracle) ·

@@ -1,0 +1,30 @@
+edition = 4
+
+[agent]
+name = "broker"
+version = "0.1.0"
+description = "Reseller/broker — wins a buyer's order, procures it from upstream sellers, keeps the spread."
+summary = "A two-sided swarm agent: a seller to the buyer, a buyer to the sellers; both legs settle via escrow."
+readme = "On a WANT it quotes the buyer's budget and (once the buyer escrows to it) runs a normal buyer round against UPSTREAM_SELLERS in its own thread, then resells the delivered good. Margin = downstream price - upstream price. See docs/SWARM.md."
+
+[agent.license]
+type = "spdx"
+expression = "MIT"
+
+[options]
+BROKER_KEYPAIR_B58 = { type = "string", description = "Base58 devnet keypair — signs the upstream deposit/release" }
+BROKER_WALLET = { type = "string", description = "Broker receive wallet (the downstream buyer deposits here)" }
+AGENT_NAME = { type = "string", default = "broker", description = "Market identity (matches the registry name)" }
+UPSTREAM_SELLERS = { type = "string", default = "seller-cheap,seller-premium", description = "Comma-separated sellers the broker shops upstream" }
+BROKER_MARGIN_SOL = { type = "f64", default = 0.0001, description = "Spread the broker keeps (offered-down minus paid-up)" }
+BID_WINDOW_MS = { type = "f64", default = 4000, description = "How long to collect upstream bids each round" }
+SOLANA_RPC_URL = { type = "string", default = "", description = "Solana RPC URL (devnet)" }
+ESCROW_DEADLINE_SECS = { type = "f64", default = 600, description = "Refund deadline for the downstream escrow it issues" }
+ANTHROPIC_API_KEY = { type = "string", default = "", description = "Anthropic key (unused by the default broker; forwarded for forks)" }
+OPENAI_API_KEY = { type = "string", default = "", description = "OpenAI key — set with LLM_PROVIDER=openai to flip any LLM use" }
+LLM_PROVIDER = { type = "string", default = "", description = "anthropic (default) | openai" }
+LLM_MODEL = { type = "string", default = "", description = "Override the LLM model id" }
+TRACE = { type = "string", default = "", description = "Set to 1 to log CoralOS calls + on-chain steps" }
+
+[runtimes.docker]
+image = "broker:0.1.0"
