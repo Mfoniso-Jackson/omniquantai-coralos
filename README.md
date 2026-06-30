@@ -38,7 +38,7 @@ Everything runs on **devnet** — free play money, real on-chain settlement. Key
 | Need | Why | Get it |
 |------|-----|--------|
 | **Node 20+** | the proxy + web UI + runtime | [nodejs.org](https://nodejs.org) |
-| **An LLM key** | the agent's one-line read | `ANTHROPIC_API_KEY` (default) — or `LLM_PROVIDER=openai` + `OPENAI_API_KEY` |
+| **An LLM key** | the agent's one-line read | `ANTHROPIC_API_KEY` (default) — or `LLM_PROVIDER=openai` + `OPENAI_API_KEY`. Full provider/key switching: **[LLM.md](LLM.md)** |
 | **A funded devnet wallet** | the buyer signs the escrow deposit→release | generated in step 1; fund at [faucet.solana.com](https://faucet.solana.com) |
 
 > The demo still renders without a key or funding — it shows clearly-labelled sample data and skips the
@@ -68,7 +68,9 @@ ANTHROPIC_API_KEY=sk-ant-…     # the agent's brain
 # OPENAI_API_KEY=…
 ```
 
-Re-running `setup.js` re-reads your `.env`, so it never clobbers the key you just added.
+Provider/model/key switching is its own short guide — **[LLM.md](LLM.md)** (which provider wins, how to
+change it, and the deterministic fallback when there's no key). Re-running `setup.js` re-reads your
+`.env`, so it never clobbers the key you just added.
 
 ### 2. Run it
 
@@ -112,8 +114,8 @@ The agent imports [`packages/agent-runtime`](packages/agent-runtime) and writes 
 modules, one per concern:
 
 - **`llm/`** — [`complete()`](packages/agent-runtime/src/llm/complete.ts), one provider-agnostic call
-  over `fetch` (no SDK). Anthropic by default; `LLM_PROVIDER=openai` flips it with no code change. The
-  model **proposes**, code **disposes** — callers guard every number.
+  over `fetch` (no SDK). Anthropic by default; `LLM_PROVIDER=openai` flips it with no code change (see
+  **[LLM.md](LLM.md)**). The model **proposes**, code **disposes** — callers guard every number.
 - **`solana/`** — Solana Pay helpers + [`solanaConnection()`](packages/agent-runtime/src/solana/connection.ts),
   the **devnet guard** that throws on a mainnet RPC unless `ALLOW_MAINNET=1`, so it applies everywhere
   value moves.
