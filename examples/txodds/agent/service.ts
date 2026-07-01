@@ -24,7 +24,7 @@
 import { TxLineClient } from './txline.js'
 import { analyzeEdge } from './edge.js'
 
-export async function deliverTxOdds(request: string): Promise<string> {
+export async function deliverService(request: string): Promise<string> {
   const tokens = request.trim().split(/\s+/).filter(Boolean)
   // A bare fixture id (single numeric token) is treated as `edge <id>` — the on-thesis product (so a
   // caller can pass just a fixture id, e.g. "17588245").

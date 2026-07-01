@@ -31,3 +31,18 @@ jobs:
         run: cd packages/agent-runtime && npm install && npm run build
       - name: txodds (typecheck + tests)
         run: cd examples/txodds && npm install && npm run typecheck && npm test
+
+  escrow:
+    name: Escrow + arbiter contracts (Rust compile check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: examples/txodds/escrow
+      # `cargo check` compiles both Anchor programs (escrow + arbiter) on the host toolchain — enough to
+      # catch a broken settlement spine on every push without the full Solana/Anchor SBF build. The demo
+      # runs against the already-deployed devnet program ids, so a redeploy isn't part of CI.
+      - name: cargo check (escrow + arbiter)
+        run: cd examples/txodds/escrow && cargo check --workspace

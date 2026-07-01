@@ -26,7 +26,7 @@ graph of agents" — the agent-economy headline.
 - **The markup** — `MARKUP`.
 
 Turn it into a best-price aggregator, a cheapest-compute router, a subcontractor, an auction house —
-see `docs/SWARM.md`.
+start from the fork points above.
 
 ## Options (coral-agent.toml)
 

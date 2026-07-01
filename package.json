@@ -2,7 +2,7 @@
   "name": "solana-coralos",
   "version": "0.1.0",
   "private": true,
-  "description": "TxODDS World Cup Oracle — an LLM agent that sells verified, Solana-escrow-settled sports data. Run it with `npm run dev`.",
+  "description": "Solana × CoralOS starter kit for agents that earn — fork deliverService() to sell your own service, settled on-chain through a devnet escrow. The World Cup oracle is the default demo (npm run dev).",
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {

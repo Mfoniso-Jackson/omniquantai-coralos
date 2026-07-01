@@ -1,6 +1,6 @@
 /**
  * Edge analysis — the "verified data → the agent's read" transform, shared by the agent
- * (`deliverTxOdds`) and the web proxy (`/api/edge`). Pure except for the LLM call, which is injectable
+ * (`deliverService`) and the web proxy (`/api/edge`). Pure except for the LLM call, which is injectable
  * so the deterministic fallback is unit-tested without the network.
  *
  * What it sells, honestly: TxODDS gives a **de-margined fair line** — true-probability estimates with

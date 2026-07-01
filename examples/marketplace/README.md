@@ -1,23 +1,29 @@
 # Marketplace — the headline example
 
 An open market where **LLM** seller agents compete in a shared **CoralOS** thread and the winner is
-settled through the **Solana escrow contract**. One buyer broadcasts a need; three persona sellers
-bid; the buyer awards best value; funds are escrowed, delivered against, and released on delivery.
+settled through the **Solana escrow contract**. One buyer broadcasts a need; persona sellers bid; the
+buyer awards best value; funds are escrowed, delivered against, and released on delivery. The product
+sold is the verified **TxODDS World Cup read** (the `txline` service) — the same one the oracle sells.
 
 ```
-WANT → (sellers bid) → AWARD best value → deposit (escrow) → DELIVERED → release
+WANT txline → (sellers bid) → AWARD best value → deposit (escrow) → DELIVERED → release
 ```
 
 ## Run it
 
-Prereqs: Docker, a funded devnet wallet pair (`node scripts/setup.js`), and an LLM key in `.env` — the
-kit's LLM is **Venice AI** (`LLM_PROVIDER=venice` + `VENICE_API_KEY`; new accounts get $50 free via code
-`IMPERIAL50` at [venice.ai/settings/api](https://venice.ai/settings/api)). `ANTHROPIC_API_KEY`, or
-`LLM_PROVIDER=openai` + `OPENAI_API_KEY`, run the whole market on that provider instead — no code change
-(see [../../LLM.md](../../LLM.md)). The escrow program is already deployed to devnet — no `anchor deploy`
-needed to run the demo.
+Prereqs:
+- Docker + a funded devnet wallet pair (`node scripts/setup.js`).
+- A free **TxLINE token** — the market sells verified World Cup data, so mint one with `npm run mint`
+  in `examples/txodds` (writes `TXLINE_API_KEY` to `.env`). Without it, `npm start` exits with a hint.
+- An LLM key — the kit's LLM is **Venice AI** (`LLM_PROVIDER=venice` + `VENICE_API_KEY`; new accounts get
+  $50 free via code `IMPERIAL50` at [venice.ai/settings/api](https://venice.ai/settings/api)).
+  `ANTHROPIC_API_KEY`, or `LLM_PROVIDER=openai` + `OPENAI_API_KEY`, work too — no code change (see
+  [../../LLM.md](../../LLM.md)).
+
+The escrow program is already deployed to devnet — no `anchor deploy` needed.
 
 ```sh
+(cd examples/txodds && npm run mint)       # one-time: free devnet TxLINE token → .env
 bash build-agents.sh seller buyer          # build the two agent images (sellers reuse the seller image)
 docker compose up -d coral                 # CoralOS (MCP coordinator)
 cd examples/marketplace && npm install && npm start
@@ -33,13 +39,13 @@ docker logs -f seller-cheap    # BID → ESCROW_REQUIRED → DELIVERED
 ## What you'll see
 
 ```
-[buyer]  round 1: WANT coingecko SOL-USDC budget=0.001
-seller-cheap   BID  round=1 price=0.0002 by=seller-cheap note=undercut
-seller-premium BID  round=1 price=0.0005 by=seller-premium note=verified
-seller-lazy    …silent — coingecko isn't in its inventory (self-selection)
-[buyer]  picked seller-cheap (0.0002 SOL): cheapest for a simple price lookup
+[buyer]  round 1: WANT txline fixtures budget=0.001
+seller-cheap    BID round=1 price=0.0002 by=seller-cheap note=undercut
+seller-premium  BID round=1 price=0.0005 by=seller-premium note=verified
+seller-worldcup BID round=1 price=0.00045 by=seller-worldcup note=specialist
+[buyer]  picked seller-cheap (0.0002 SOL): cheapest for the fixture list
 [buyer]  round 1: DEPOSITED 0.0002 SOL → seller-cheap
-seller-cheap   DELIVERED round=1 {"coin":"solana","usd":…}
+seller-cheap   DELIVERED round=1 {"service":"txline-fixtures","count":…}
 [buyer]  round 1: RELEASED to seller-cheap — https://explorer.solana.com/tx/…?cluster=devnet
 ```
 
@@ -47,7 +53,7 @@ seller-cheap   DELIVERED round=1 {"coin":"solana","usd":…}
 
 | Var | Effect |
 |-----|--------|
-| `BUYER_SERVICE` | what the buyer shops for (`coingecko` → cheap+premium bid, lazy sits out) |
+| `BUYER_ARG` | the txline request (`fixtures` default; `edge <fixtureId>` for the headline read) |
 | `LLM_PROVIDER=venice\|openai` | flip the whole market to another provider — no code change (Venice is the kit default) |
 | `TRACE=1` | log the `coral_*` calls + Explorer links for the escrow PDA, deposit, and release |
 | `BUYER_MAX_SOL` | the budget cap each round |
@@ -70,5 +76,6 @@ It's e2e-tested with fixtures (no devnet needed) — see [`web/`](web/README.md)
   zero buyer edits.
 - **Flip the brain:** set `LLM_PROVIDER=venice` (or `openai`) and re-run — same market, a different LLM stack.
 
-See [`docs/MARKETPLACE.md`](../../docs/MARKETPLACE.md) for the full protocol, the escrow flow, and the
-"under the hood" walkthrough.
+For the full protocol and escrow flow, see the agents that implement it:
+[`buyer-agent`](../../coral-agents/buyer-agent/README.md) (WANT → AWARD → deposit → release) and
+[`seller-agent`](../../coral-agents/seller-agent/README.md) (BID → ESCROW_REQUIRED → DELIVERED).

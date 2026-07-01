@@ -87,14 +87,15 @@ the autonomous buyer uses.
 ## Front door 3 — swarm (broker + multiple sellers)
 
 ```sh
-node ../../scripts/provision-swarm.js  # creates + funds a broker wallet and two seller wallets
+node ../../scripts/provision-swarm.js  # creates a broker wallet + two seller wallets → .env
+# then fund the broker at https://faucet.solana.com (it pays the upstream sellers)
 # open http://localhost:3010 → Swarm tab → Run the swarm demo
 ```
 
 A **broker** agent shops two priced sellers (`seller-cheap` / `seller-premium`), buys from the cheaper
 on-chain, and resells to the buyer at a markup — **two on-chain settlements per request**, money
 flowing through a graph of agents. The broker reuses the kit's payment/wallet code; the two sellers
-are thin manifests reusing the seller image. See [`../../docs/SWARM.md`](../../docs/SWARM.md).
+are thin manifests reusing the seller image. See [`coral-agents/broker/README.md`](../../coral-agents/broker/README.md).
 
 ## No Docker? — the quickstart
 

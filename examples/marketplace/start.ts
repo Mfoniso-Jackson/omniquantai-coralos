@@ -63,31 +63,36 @@ async function main() {
   if (env.LLM_MODEL) llmOpts.LLM_MODEL = str(env.LLM_MODEL)
   if (trace) llmOpts.TRACE = str(trace)
 
-  // Every seller shares the receive wallet + RPC; persona/floor/inventory come from each toml default.
-  const seller = (name: string) =>
-    agent(name, { SELLER_WALLET: str(wallet), SOLANA_RPC_URL: str(rpc), AGENT_NAME: str(name), ...llmOpts })
-
-  // World Cup specialist — only joins when a TxLINE token is present (see examples/txodds/DEMO.md).
-  // It carries SERVICES=txline + the token; the generalist personas decline txline WANTs automatically.
+  // The market sells one verified product: a TxODDS World Cup read (the `txline` service). Generic
+  // services (coingecko/jupiter/news) are no longer routed — the seller image only delivers txline —
+  // so the market needs a free devnet TxLINE token to have anything to sell.
   const txlineKey = env.TXLINE_API_KEY
-  const worldcup = txlineKey
-    ? [agent('seller-worldcup', {
-        SELLER_WALLET: str(wallet), SOLANA_RPC_URL: str(rpc), AGENT_NAME: str('seller-worldcup'),
-        SERVICES: str('txline'), FLOOR_SOL: f64(Number(env.WORLDCUP_FLOOR_SOL ?? '0.0005')),
-        TXLINE_API_KEY: str(txlineKey),
-        ...(env.TXLINE_BASE_URL ? { TXLINE_BASE_URL: str(env.TXLINE_BASE_URL) } : {}),
-        ...llmOpts,
-      })]
-    : []
+  if (!txlineKey) {
+    throw new Error(
+      'TXLINE_API_KEY missing — this market sells verified TxODDS World Cup data. Mint a free devnet ' +
+      'token with `npm run mint` in examples/txodds, then re-run `npm start`.',
+    )
+  }
 
-  const sellers = ['seller-cheap', 'seller-premium', 'seller-lazy', ...(txlineKey ? ['seller-worldcup'] : [])]
+  // Every seller is a txline seller sharing the receive wallet + token; they compete on persona/floor
+  // (set per coral-agent.toml), not code. The buyer awards best value and settles the winner via escrow.
+  const seller = (name: string) =>
+    agent(name, {
+      SELLER_WALLET: str(wallet), SOLANA_RPC_URL: str(rpc), AGENT_NAME: str(name),
+      SERVICES: str('txline'), TXLINE_API_KEY: str(txlineKey),
+      ...(env.TXLINE_BASE_URL ? { TXLINE_BASE_URL: str(env.TXLINE_BASE_URL) } : {}),
+      ...llmOpts,
+    })
 
-  // Optional broker swarm (ENABLE_BROKER=1, see docs/SWARM.md): the buyer buys from a broker, which
-  // resells from the real sellers. Needs a funded broker wallet — `node scripts/setup.js --broker`.
+  const sellers = ['seller-worldcup', 'seller-cheap', 'seller-premium']
+
+  // Optional broker swarm (ENABLE_BROKER=1, see coral-agents/broker/README.md): the buyer buys from a
+  // broker, which resells from the real sellers. Needs a funded broker wallet + seller receive wallets —
+  // `node scripts/provision-swarm.js`.
   const brokerWanted = env.ENABLE_BROKER === '1'
   const brokerReady = brokerWanted && !!env.BROKER_KEYPAIR_B58 && !!env.BROKER_WALLET
   if (brokerWanted && !brokerReady) {
-    console.warn('[marketplace] ENABLE_BROKER=1 but BROKER_KEYPAIR_B58/BROKER_WALLET missing — run `node scripts/setup.js --broker`. Skipping broker.')
+    console.warn('[marketplace] ENABLE_BROKER=1 but BROKER_KEYPAIR_B58/BROKER_WALLET missing — run `node scripts/provision-swarm.js`. Skipping broker.')
   }
   const brokerAgents = brokerReady
     ? [agent('broker', {
@@ -101,15 +106,12 @@ async function main() {
   const buyerSellers = brokerReady ? ['broker'] : sellers
   const buyerExpectedWallet = brokerReady ? env.BROKER_WALLET : wallet
 
-  // F8: a txline market needs both the World Cup token AND the worldcup seller. If .env still says
-  // BUYER_SERVICE=txline but no token is present (e.g. a stale .env after a failed mint), fall back to
-  // the generic market rather than broadcasting txline WANTs nothing can fill.
-  const wantsTxline = (env.BUYER_SERVICE ?? 'coingecko') === 'txline'
-  const fellBack = wantsTxline && !txlineKey
-  if (fellBack) console.warn('[marketplace] BUYER_SERVICE=txline but no TXLINE_API_KEY — falling back to coingecko.')
-  const buyerService = fellBack ? 'coingecko' : (env.BUYER_SERVICE ?? 'coingecko')
-  const buyerArg = fellBack ? 'SOL-USDC' : (env.BUYER_ARG ?? 'SOL-USDC')
-  const buyerArgs = fellBack ? '' : (env.BUYER_ARGS ?? '')
+  // The buyer shops for the txline read. `fixtures` always returns data; override with BUYER_ARG (e.g.
+  // `edge <fixtureId>` for the headline read) or BUYER_ARGS (a csv rotated one per round) once you have
+  // a live fixture id.
+  const buyerService = env.BUYER_SERVICE ?? 'txline'
+  const buyerArg = env.BUYER_ARG ?? 'fixtures'
+  const buyerArgs = env.BUYER_ARGS ?? ''
 
   const buyerOpts: Record<string, unknown> = {
     BUYER_KEYPAIR_B58: str(keypair),
@@ -131,10 +133,9 @@ async function main() {
       agentGraphRequest: {
         agents: [
           agent('buyer-agent', buyerOpts),
+          seller('seller-worldcup'),
           seller('seller-cheap'),
           seller('seller-premium'),
-          seller('seller-lazy'),
-          ...worldcup,
           ...brokerAgents,
         ],
       },
