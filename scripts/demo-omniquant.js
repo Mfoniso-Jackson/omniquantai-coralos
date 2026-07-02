@@ -13,6 +13,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const children = new Set()
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const hasCmd = (cmd) => spawnSync(cmd, ['--version'], { shell: true, stdio: 'ignore' }).status === 0
+const packageManager = hasCmd('npm') ? 'npm' : (hasCmd('pnpm') ? 'pnpm' : '')
+
+function packageArgs(args) {
+  if (packageManager === 'pnpm' && args[0] === 'install') {
+    return ['install', '--ignore-scripts', '--no-frozen-lockfile']
+  }
+  return args
+}
 
 function run(label, cmd, args, opts = {}) {
   console.log(`\n[demo] ${label}`)
@@ -47,18 +56,22 @@ process.on('exit', stopAll)
 
 function npmInstallIfMissing(rel) {
   const dir = join(root, rel)
+  if (!packageManager) {
+    console.error('[demo] npm or pnpm is required. Install Node 20+ from nodejs.org, then re-run.')
+    process.exit(1)
+  }
   if (!existsSync(join(dir, 'node_modules'))) {
-    run(`install deps in ${rel}`, 'npm', ['install', '--no-audit', '--no-fund'], { cwd: dir })
+    run(`install deps in ${rel}`, packageManager, packageArgs(['install', '--no-audit', '--no-fund']), { cwd: dir })
   }
 }
 
 function ensureRuntime() {
   const runtime = join(root, 'packages', 'agent-runtime')
   if (!existsSync(join(runtime, 'node_modules'))) {
-    run('install @pay/agent-runtime deps', 'npm', ['install', '--no-audit', '--no-fund'], { cwd: runtime })
+    run('install @pay/agent-runtime deps', packageManager, packageArgs(['install', '--no-audit', '--no-fund']), { cwd: runtime })
   }
   if (!existsSync(join(runtime, 'dist'))) {
-    run('build @pay/agent-runtime', 'npm', ['run', 'build'], { cwd: runtime })
+    run('build @pay/agent-runtime', packageManager, ['run', 'build'], { cwd: runtime })
   }
 }
 
@@ -103,6 +116,10 @@ function printWalletHint() {
 }
 
 async function main() {
+  if (!packageManager) {
+    console.error('[demo] npm or pnpm is required. Install Node 20+ from nodejs.org, then re-run.')
+    process.exit(1)
+  }
   if (Number(process.versions.node.split('.')[0]) < 20) {
     console.error(`[demo] Node ${process.version} detected. Install Node 20+ first.`)
     process.exit(1)
@@ -125,10 +142,10 @@ async function main() {
 
   run('build buyer/seller agent images', 'bash', ['build-agents.sh'])
 
-  start('marketplace feed', 'npm', ['run', 'start'], join(root, 'examples', 'marketplace', 'feed'))
+  start('marketplace feed', packageManager, ['run', 'start'], join(root, 'examples', 'marketplace', 'feed'))
   await waitJson('http://localhost:4000/api/health', 'marketplace feed')
 
-  start('marketplace dashboard', 'npm', ['run', 'dev'], join(root, 'examples', 'marketplace', 'web'))
+  start('marketplace dashboard', packageManager, ['run', 'dev'], join(root, 'examples', 'marketplace', 'web'))
   await sleep(1500)
 
   console.log('\n[demo] launching OmniQuantAI market round')

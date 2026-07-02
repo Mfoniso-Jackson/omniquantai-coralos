@@ -6,6 +6,12 @@ The fastest way to record or judge the full OmniQuantAI loop is:
 npm run demo:omniquant
 ```
 
+If your shell does not have `npm`, use:
+
+```sh
+pnpm run demo:omniquant
+```
+
 ## What It Does
 
 The command:

@@ -49,6 +49,8 @@ For the judge/recording path:
 npm run demo:omniquant
 ```
 
+If your shell does not have `npm`, use `pnpm run demo:omniquant`.
+
 This starts CoralOS, builds the agents, starts the feed/dashboard, launches a market round, and prints
 a presentation URL like `http://localhost:5173/?session=<id>&presentation=1`.
 
