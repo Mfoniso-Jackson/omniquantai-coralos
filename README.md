@@ -1,3 +1,90 @@
+# OmniQuantAI CoralOS
+
+> A CoralOS-powered marketplace where specialist financial research agents compete to sell investment
+> intelligence, with the winning agent paid through Solana devnet escrow.
+
+OmniQuantAI answers one fund-style research question:
+
+```text
+Should our fund increase exposure to Nvidia over the next 6 months?
+```
+
+The demo turns that question into an agent economy:
+
+```text
+Buyer request -> seller bids -> best-value award -> Solana escrow -> research delivery -> escrow release
+```
+
+Four seller agents compete:
+
+| Agent | What it sells |
+| --- | --- |
+| Market Analyst | price action, momentum, valuation snapshot, market structure |
+| News & Earnings | news, earnings themes, analyst sentiment, company developments |
+| Macro Risk | rates, inflation, liquidity, macro pressure on growth equities |
+| Portfolio Risk | concentration risk, downside cases, sizing controls, invalidation triggers |
+
+The buyer does **not** simply pick the cheapest seller. It scores relevance, expected quality,
+confidence, domain fit, delivery speed, price, and explanation quality. The winning seller delivers a
+structured financial intelligence report in the React dashboard, and the existing Solana devnet escrow
+flow shows deposit/release links.
+
+This is research support only. It does not execute trades and is not financial advice.
+
+## Hackathon Submission
+
+- **Repository:** https://github.com/Mfoniso-Jackson/omniquantai-coralos
+- **Submission summary:** [SUBMISSION.md](SUBMISSION.md)
+- **Architecture:** [docs/architecture.md](docs/architecture.md)
+- **Demo script:** [docs/demo_script.md](docs/demo_script.md)
+- **Remaining checklist:** [docs/remaining_for_submission.md](docs/remaining_for_submission.md)
+
+## Quick Demo Run
+
+```sh
+npm run setup
+```
+
+Add an LLM key to `.env` for live bid reasoning. The core service output is deterministic for demo
+reliability.
+
+Fund the generated buyer wallet with devnet SOL, then run:
+
+```sh
+docker compose up -d coral
+bash build-agents.sh
+npm run marketplace
+npm run marketplace:web
+```
+
+Open the marketplace web URL and watch:
+
+1. Buyer broadcasts `WANT service=omniquant arg=nvda-6m-exposure`.
+2. Four financial research agents bid.
+3. Buyer awards the best-value seller.
+4. Buyer deposits into Solana devnet escrow.
+5. Winning seller delivers the report.
+6. Arbiter releases escrow to the seller.
+7. Dashboard shows the research and Explorer links.
+
+## What Is Real vs Mocked
+
+| Area | Status |
+| --- | --- |
+| CoralOS agent coordination | Real starter-kit CoralOS/MCP flow |
+| Buyer/seller market protocol | Real WANT/BID/AWARD flow |
+| Solana settlement | Real devnet escrow deposit/release flow |
+| Seller personas | Real agent configs and market participants |
+| Research content | Deterministic mock financial intelligence for reliable judging |
+| Trading | Not included by design |
+| Mainnet | Not enabled; devnet only |
+
+## Original Starter Kit Context
+
+This project is forked from the Solana x CoralOS starter kit below. OmniQuantAI keeps the agent market,
+CoralOS coordination, dashboard, and Solana escrow rails, then replaces the default sports oracle story
+with a financial intelligence marketplace.
+
 # Agents that earn — a Solana × CoralOS starter kit
 
 > **Fork-ready rails for autonomous services that get paid on-chain.** An LLM agent sells a service;
@@ -78,7 +165,7 @@ Everything runs on **devnet** — free play money, real on-chain settlement. Key
 ### 1. Fork & set up (once)
 
 ```sh
-git clone https://github.com/trilltino/solana_coralOS.git && cd solana_coralOS
+git clone https://github.com/Mfoniso-Jackson/omniquantai-coralos.git && cd omniquantai-coralos
 npm install --prefix scripts   # script deps (web3.js, bs58)
 node scripts/setup.js          # creates .env + two devnet wallets (also saved to WALLETS.txt)
 ```

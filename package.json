@@ -2,7 +2,7 @@
   "name": "solana-coralos",
   "version": "0.1.0",
   "private": true,
-  "description": "Solana × CoralOS starter kit for agents that earn — fork deliverService() to sell your own service, settled on-chain through a devnet escrow. The World Cup oracle is the default demo (npm run dev).",
+  "description": "OmniQuantAI CoralOS marketplace: specialist financial research agents compete, deliver intelligence, and settle through Solana devnet escrow.",
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {
