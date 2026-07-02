@@ -1,3 +1,7 @@
+# Agent manifest — coral-server reads this to discover, launch, and configure the agent.
+# Docs: https://docs.coralos.ai/reference/agent · [options] table
+# https://docs.coralos.ai/reference/agent/tables/options · docker runtime
+# https://docs.coralos.ai/reference/agent/tables/runtimes/docker · whole-kit walkthrough /CORAL.md
 edition = 4
 
 [agent]

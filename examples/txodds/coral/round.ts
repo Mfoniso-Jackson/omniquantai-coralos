@@ -102,6 +102,11 @@ async function main(): Promise<void> {
     MARKET_SELLERS: str('seller-worldcup,seller-fast,seller-premium'), ...llm,
   })
 
+  // Create the session: coral-server spawns one Docker container per agent in this graph and injects
+  // CORAL_CONNECTION_URL into each. Docs:
+  //   create-session    https://docs.coralos.ai/api-reference/local/create-session
+  //   agent graph shape https://docs.coralos.ai/api-reference/models/GraphAgentRequest
+  //   sessions concept  https://docs.coralos.ai/concepts/sessions
   const res = await fetch(`${BASE}/api/v1/local/session`, {
     method: 'POST', headers: AUTH,
     body: JSON.stringify({

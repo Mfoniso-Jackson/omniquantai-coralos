@@ -12,6 +12,11 @@ buyer ──"request <service>"──▶ broker
 Two on-chain settlements per request; the broker keeps the spread. This is "money flowing through a
 graph of agents" — the agent-economy headline.
 
+> **CoralOS docs:** the broker opens **one Coral thread per seller** and correlates each reply per-thread
+> — [Threads](https://docs.coralos.ai/concepts/threads) +
+> [Coordination](https://docs.coralos.ai/concepts/coordination). How it's wired in the kit:
+> [/CORAL.md](../../CORAL.md).
+
 ## How it works
 
 - Reuses the kit's pieces: `payment.ts` (seller-side — charges the buyer, dynamic price) and

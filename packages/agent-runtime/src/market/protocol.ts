@@ -1,8 +1,9 @@
 /**
  * Market protocol - the wire format for the open marketplace, as pure (network-free) functions so it
- * can be fully unit-tested. Agents format/parse these strings and route them over CoralOS threads;
- * settlement happens through the escrow contract. Every message carries a `round` to correlate the
- * many messages flowing through one shared thread.
+ * can be fully unit-tested. Agents format/parse these strings and route them over CoralOS threads
+ * (https://docs.coralos.ai/concepts/threads); settlement happens through the escrow contract. Every
+ * message carries a `round` to correlate the many messages flowing through one shared thread — Coral
+ * moves opaque strings, so this `round` tag (not Coral) is what pairs a reply to its request.
  *
  *   WANT   round=<n> service=<name> arg=<token> budget=<sol>     buyer  -> market, @sellers
  *   BID    round=<n> price=<sol> by=<seller> [note=<free text>]  seller -> market (self-selects)

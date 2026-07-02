@@ -4,6 +4,12 @@ The web oracle (`npm run dev`) is the single-agent product view. This folder is 
 version: one buyer shops for a TxODDS edge across three seller personas over CoralOS, then settles the
 winning delivery through the arbiter-gated Solana escrow on devnet.
 
+> For the deep dive on how CoralOS is wired in across the whole kit — the MCP client, the agent
+> orchestration, and the capabilities only Coral provides — see **[CORAL.md](../../../CORAL.md)**.
+> CoralOS docs: [Sessions](https://docs.coralos.ai/concepts/sessions) ·
+> [Threads](https://docs.coralos.ai/concepts/threads) ·
+> [Running coral-server](https://docs.coralos.ai/reference/server/docker).
+
 ```text
 buyer-agent
   -> WANT service=txline arg="edge <fixtureId>"

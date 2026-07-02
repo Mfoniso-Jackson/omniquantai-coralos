@@ -9,6 +9,10 @@ sold is the verified **TxODDS World Cup read** (the `txline` service) — the sa
 WANT txline → (sellers bid) → AWARD best value → deposit (escrow) → DELIVERED → release
 ```
 
+> **CoralOS docs:** the market is one [Session](https://docs.coralos.ai/concepts/sessions) of agents on a
+> shared [thread](https://docs.coralos.ai/concepts/threads); [Writing agents](https://docs.coralos.ai/guides/writing-agents)
+> shows how to add your own. Full wiring: [/CORAL.md](../../CORAL.md).
+
 ## Run it
 
 Prereqs:

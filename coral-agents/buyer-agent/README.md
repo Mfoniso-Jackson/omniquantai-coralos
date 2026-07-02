@@ -11,6 +11,11 @@ WANT -> BID* -> AWARD
   -> ARBITER_RELEASED
 ```
 
+> **CoralOS docs:** these messages ride Coral threads with `@mentions`
+> ([Threads](https://docs.coralos.ai/concepts/threads)); the buyer blocks on bids and waits for sellers
+> to come online via [Coordination](https://docs.coralos.ai/concepts/coordination), all inside a
+> [Session](https://docs.coralos.ai/concepts/sessions). End-to-end wiring: [/CORAL.md](../../CORAL.md).
+
 `SETTLEMENT_MODE=direct` keeps the legacy base escrow path available, but the TxODDS CoralOS round uses
 `SETTLEMENT_MODE=arbiter` so the buyer cannot unilaterally claw back after delivery.
 

@@ -1,6 +1,9 @@
 # CoralOS config for the TxODDS round — coral-server as a pure MCP coordinator (no [wallet]).
 # Settlement is agent-side (the Anchor escrow/arbiter via @solana/web3.js), so stock coral-server works.
 # Mounted at /config/coral.toml; the agent sources are mounted at /agents/* (the coral-agents/ folder).
+#
+# Docs: server config https://docs.coralos.ai/reference/server · running coral-server
+# https://docs.coralos.ai/reference/server/docker · whole-kit walkthrough /CORAL.md
 
 [auth]
 keys = ["dev"]
@@ -10,6 +13,7 @@ allowAnyHost = true
 
 [registry]
 # Discover the agents (buyer-agent + the seller personas, incl. seller-worldcup) from /agents.
+# Docs: https://docs.coralos.ai/api-reference/registry/get-registry-agents
 localAgents = ["/agents/*"]
 includeCoralHomeAgents = true
 localAgentRescanTimer = "5s"

@@ -10,7 +10,13 @@
  *     }
  *   })
  *
- * CORAL_CONNECTION_URL is injected by CoralOS at container start.
+ * CORAL_CONNECTION_URL is injected by CoralOS at container start (see the Docker runtime docs below).
+ *
+ * CoralOS docs:
+ *   Writing agents   https://docs.coralos.ai/guides/writing-agents
+ *   Docker runtime   https://docs.coralos.ai/reference/agent/tables/runtimes/docker  (injects CORAL_CONNECTION_URL)
+ *   MCP interface    https://docs.coralos.ai/concepts/mcp
+ * Whole-kit walkthrough: /CORAL.md.
  */
 
 import { CoralMcpAgent, CoralMention } from './mcp.js'

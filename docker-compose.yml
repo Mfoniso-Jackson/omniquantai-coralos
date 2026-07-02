@@ -11,6 +11,9 @@
 services:
 
   # ── CoralOS — MCP bus that launches the agents per session ──────────────────
+  # Docs: running coral-server https://docs.coralos.ai/reference/server/docker · it spawns agent
+  # containers via the mounted docker.sock (Docker-in-Docker):
+  # https://docs.coralos.ai/guides/production/docker-in-docker · whole-kit walkthrough /CORAL.md
   coral:
     # Pinned by digest for reproducibility (what `:latest` resolved to on 2026-06-27). Bump:
     #   docker pull ghcr.io/coral-protocol/coral-server:latest

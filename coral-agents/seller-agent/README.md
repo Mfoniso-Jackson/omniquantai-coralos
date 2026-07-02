@@ -13,6 +13,12 @@ WANT service=txline arg="edge <fixtureId>"
   -> DELIVERED {teams, odds, analysis}
 ```
 
+> **CoralOS docs:** the loop is `wait_for_mention → reply` on a shared thread
+> ([Threads](https://docs.coralos.ai/concepts/threads),
+> [Coordination](https://docs.coralos.ai/concepts/coordination)); coral-server launches this agent into a
+> [Session](https://docs.coralos.ai/concepts/sessions) from its
+> [manifest](https://docs.coralos.ai/reference/agent). Kit walkthrough: [/CORAL.md](../../CORAL.md).
+
 The seller only delivers after `isFunded` confirms the escrow names its payout wallet and holds at
 least the quoted price. In arbiter mode it checks the escrow buyer as the vault PDA from `DEPOSITED`,
 not the human buyer wallet.

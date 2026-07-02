@@ -11,6 +11,13 @@
  *     // do work based on mention
  *     return `response to ${mention.sender}`
  *   })
+ *
+ * CoralOS docs (this file is the client for them):
+ *   MCP interface           https://docs.coralos.ai/concepts/mcp
+ *   Threads & mentions      https://docs.coralos.ai/concepts/threads
+ *   Coordination (wait_*)   https://docs.coralos.ai/concepts/coordination
+ *   Writing agents          https://docs.coralos.ai/guides/writing-agents
+ * A whole-kit walkthrough of how this is wired in lives in /CORAL.md.
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
@@ -37,7 +44,10 @@ export class CoralMcpAgent {
     this.config = config
   }
 
-  /** Connect to CoralOS and discover tools. Must call before waitForMention/sendMessage. */
+  /**
+   * Connect to CoralOS and discover tools. Must call before waitForMention/sendMessage.
+   * @see https://docs.coralos.ai/concepts/mcp — the MCP interface + Streamable-HTTP transport.
+   */
   async connect(): Promise<void> {
     this.client = new Client(
       {
@@ -78,6 +88,8 @@ export class CoralMcpAgent {
   /**
    * Block until a mention arrives. Returns null on timeout (empty/null response).
    * maxWaitMs default 30 000 matches the Python agent.
+   * @see https://docs.coralos.ai/concepts/coordination — server-side blocking waits.
+   * @see https://docs.coralos.ai/concepts/threads — mentions are thread-scoped.
    */
   async waitForMention(maxWaitMs = 30_000): Promise<CoralMention | null> {
     if (!this.client || !this.toolNames) throw new Error("Not connected — call connect() first")
@@ -110,6 +122,7 @@ export class CoralMcpAgent {
    * e.g. a broker that opens a quote thread with each seller and must correlate the replies.
    *
    * Returns null if no matching mention arrives before `maxWaitMs` elapses.
+   * @see https://docs.coralos.ai/concepts/threads — one thread per conversation is how you correlate.
    */
   async waitForMentionInThread(threadId: string, maxWaitMs = 30_000): Promise<CoralMention | null> {
     const deadline = Date.now() + maxWaitMs
@@ -128,6 +141,7 @@ export class CoralMcpAgent {
    *
    * Maps to `WaitForAgentMessageInput { agentName, maxWaitMs, currentUnixTime }` — see
    * coral-server `mcp/tools/WaitForMessageTools.kt`. `maxWaitMs` is server-capped at 60000.
+   * @see https://docs.coralos.ai/concepts/coordination — presence + blocking coordination.
    */
   async waitForAgent(agentName: string, maxWaitMs = 30_000): Promise<CoralMention | null> {
     if (!this.client || !this.toolNames) throw new Error("Not connected — call connect() first")
@@ -150,7 +164,10 @@ export class CoralMcpAgent {
     return mention
   }
 
-  /** Send a message into a CoralOS thread. threadId and mentions are required by the API. */
+  /**
+   * Send a message into a CoralOS thread. threadId and mentions are required by the API.
+   * @see https://docs.coralos.ai/concepts/threads — thread messaging + @mentions.
+   */
   async sendMessage(
     content: string,
     threadId: string,
@@ -164,7 +181,10 @@ export class CoralMcpAgent {
     })
   }
 
-  /** Create a new CoralOS thread and return its ID. */
+  /**
+   * Create a new CoralOS thread and return its ID.
+   * @see https://docs.coralos.ai/concepts/threads — threads group participants + messages.
+   */
   async createThread(threadName: string, participantNames: string[]): Promise<string> {
     if (!this.client || !this.toolNames) throw new Error("Not connected")
 

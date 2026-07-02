@@ -170,7 +170,8 @@ one per concern:
   the **devnet guard** that throws on a mainnet RPC unless `ALLOW_MAINNET=1`, so it applies everywhere
   value moves.
 - **`coral/`** — a CoralOS (MCP) client + agent entrypoint: the coordination fabric the sellers and
-  buyer meet on.
+  buyer meet on. Deep dive, source → example: **[CORAL.md](CORAL.md)**; official docs:
+  [docs.coralos.ai](https://docs.coralos.ai/welcome).
 - **`market/`** — the WANT/BID/AWARD wire format: the negotiation protocol, pure and testable.
 
 ### The escrow contract — the settlement spine

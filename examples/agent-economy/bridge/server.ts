@@ -106,7 +106,11 @@ function ensureSession(): Promise<string> {
   return session
 }
 
-/** Inject a message into a thread as user-proxy. */
+/**
+ * Inject a message into a thread AS the user-proxy agent — the human-in-the-loop puppet API.
+ * @see https://docs.coralos.ai/api-reference/puppet/send-message — send as an agent
+ * @see https://docs.coralos.ai/guides/integrating-with-your-app — driving Coral from your app
+ */
 async function inject(sid: string, threadId: string, content: string) {
   const res = await fetch(`${BASE}/api/v1/puppet/${NS}/${sid}/user-proxy/thread/message`, {
     method: 'POST', headers: AUTH,
@@ -135,6 +139,7 @@ function collectMessages(node: unknown, out: Msg[] = []): Msg[] {
 /**
  * Poll the extended session state until a message in `threadId` contains `marker`; return its text.
  * The puppet API is send-only (no read), so replies are read from the session state instead.
+ * @see https://docs.coralos.ai/api-reference/local/get-extended-session-state — the transcript endpoint
  */
 async function pollThread(sid: string, threadId: string, marker: string, timeoutMs = 35000): Promise<string> {
   const deadline = Date.now() + timeoutMs
@@ -167,6 +172,7 @@ app.post('/order', async (req, res) => {
     const query = prompt ? `${service} ${prompt}` : service
     const sid = await ensureSession()
 
+    // Open a thread AS the user-proxy. @see https://docs.coralos.ai/api-reference/puppet/create-thread
     const tres = await fetch(`${BASE}/api/v1/puppet/${NS}/${sid}/user-proxy/thread`, {
       method: 'POST', headers: AUTH,
       body: JSON.stringify({ threadName: `order-${Date.now()}`, participantNames: ['seller-agent'] }),

@@ -8,6 +8,12 @@ Every payment is a real on-chain **devnet** transaction. CoralOS (coral-server) 
 fabric — a pure MCP message bus. Payments are settled agent-side in SOL, so coral-server runs
 **stock and wallet-free** (no patched image, no keypair in the server).
 
+> **CoralOS docs:** agents run in a [Session](https://docs.coralos.ai/concepts/sessions) over
+> [Threads](https://docs.coralos.ai/concepts/threads); the human "checkout" door injects messages via the
+> [Puppet API](https://docs.coralos.ai/api-reference/puppet/send-message) and reads replies from
+> [session state](https://docs.coralos.ai/api-reference/local/get-extended-session-state). How it's all
+> wired in the kit: [/CORAL.md](../../CORAL.md).
+
 ```
                       ┌──────────────────────────┐
                       │   coral-server :5555      │  stock, wallet-free MCP bus

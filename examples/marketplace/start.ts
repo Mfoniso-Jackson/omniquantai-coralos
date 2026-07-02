@@ -127,6 +127,9 @@ async function main() {
     ...llmOpts,
   }
 
+  // coral-server spawns one container per agent in this graph. Docs:
+  //   create-session   https://docs.coralos.ai/api-reference/local/create-session
+  //   agent graph      https://docs.coralos.ai/api-reference/models/GraphAgentRequest
   const sres = await fetch(`${BASE}/api/v1/local/session`, {
     method: 'POST', headers: AUTH,
     body: JSON.stringify({
