@@ -5,12 +5,17 @@ These are the only pieces still left because they require a live run, your scree
 ## Required
 
 - Record a 60-90 second demo video.
+- Create/export the required 3-6 slide pitch deck as PDF or Figma link.
 - Add the demo video link to the hackathon submission form.
+- Add the pitch deck link/file to the hackathon submission form.
 - Add one dashboard screenshot or GIF to the README.
+- Add Solana Explorer devnet transaction links from a settled demo payment.
 - Submit the repo link: `https://github.com/Mfoniso-Jackson/omniquantai-coralos`.
+- Submit team names.
 
 ## Strongly Recommended
 
+- Build the deck from `docs/pitch_deck_outline.md`.
 - Run the full local demo once before recording:
 
 ```sh

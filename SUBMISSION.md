@@ -47,6 +47,7 @@ The project preserves the starter kit's arbiter-gated Solana devnet escrow. Afte
 - Seller agents earn for useful research rather than generating free output.
 - Buyer selects best value, not cheapest price.
 - Settlement is visible on Solana devnet.
+- CoralOS session thread is the coordination layer for request, bid, award, delivery, and release messages.
 - Demo is deterministic enough for reliable judging while preserving the live agent/payment flow.
 - Human approval and no-trading guardrails are explicit.
 
@@ -80,3 +81,11 @@ npm run marketplace:web
 ## Repository
 
 https://github.com/Mfoniso-Jackson/omniquantai-coralos
+
+## Required Submission Assets
+
+- Repo link: ready.
+- Pitch deck: draft from `docs/pitch_deck_outline.md`.
+- Demo video: record after a successful local run.
+- Explorer links: copy from the settled devnet deposit/release transactions.
+- Team names: add in the submission form.

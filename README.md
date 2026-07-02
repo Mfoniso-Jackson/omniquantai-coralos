@@ -37,6 +37,7 @@ This is research support only. It does not execute trades and is not financial a
 - **Submission summary:** [SUBMISSION.md](SUBMISSION.md)
 - **Architecture:** [docs/architecture.md](docs/architecture.md)
 - **Demo script:** [docs/demo_script.md](docs/demo_script.md)
+- **Pitch deck outline:** [docs/pitch_deck_outline.md](docs/pitch_deck_outline.md)
 - **Remaining checklist:** [docs/remaining_for_submission.md](docs/remaining_for_submission.md)
 
 ## Quick Demo Run
