@@ -36,11 +36,23 @@ This is research support only. It does not execute trades and is not financial a
 - **Repository:** https://github.com/Mfoniso-Jackson/omniquantai-coralos
 - **Submission summary:** [SUBMISSION.md](SUBMISSION.md)
 - **Architecture:** [docs/architecture.md](docs/architecture.md)
+- **One-command judge demo:** [docs/judge_demo.md](docs/judge_demo.md)
 - **Demo script:** [docs/demo_script.md](docs/demo_script.md)
 - **Pitch deck outline:** [docs/pitch_deck_outline.md](docs/pitch_deck_outline.md)
 - **Remaining checklist:** [docs/remaining_for_submission.md](docs/remaining_for_submission.md)
 
 ## Quick Demo Run
+
+For the judge/recording path:
+
+```sh
+npm run demo:omniquant
+```
+
+This starts CoralOS, builds the agents, starts the feed/dashboard, launches a market round, and prints
+a presentation URL like `http://localhost:5173/?session=<id>&presentation=1`.
+
+Manual path:
 
 ```sh
 npm run setup

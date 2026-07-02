@@ -70,6 +70,14 @@ OmniQuantAI is research support only. It does not execute trades, does not provi
 
 ## Run
 
+One-command judge demo:
+
+```sh
+npm run demo:omniquant
+```
+
+Manual run:
+
 ```sh
 npm run setup
 docker compose up -d coral

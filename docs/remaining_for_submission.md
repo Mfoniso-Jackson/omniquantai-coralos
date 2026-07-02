@@ -19,10 +19,7 @@ These are the only pieces still left because they require a live run, your scree
 - Run the full local demo once before recording:
 
 ```sh
-docker compose up -d coral
-bash build-agents.sh
-npm run marketplace
-npm run marketplace:web
+npm run demo:omniquant
 ```
 
 - Capture these moments in the video:

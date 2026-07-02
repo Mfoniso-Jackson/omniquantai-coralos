@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useFeed, startMarket } from './api'
 import { MarketView } from './components/MarketView'
 import { Explainer } from './components/Explainer'
+import { PresentationView } from './components/PresentationView'
 
 /** Read ?session=<id> from the URL so the launcher can deep-link straight to a live market. */
 const initialSession = new URLSearchParams(window.location.search).get('session') ?? ''
+const presentationMode = new URLSearchParams(window.location.search).get('presentation') === '1'
 
 export default function App() {
   const [session, setSession] = useState(initialSession)
@@ -26,6 +28,10 @@ export default function App() {
     } finally {
       setStarting(false)
     }
+  }
+
+  if (presentationMode) {
+    return <PresentationView rounds={rounds} connected={connected} />
   }
 
   return (

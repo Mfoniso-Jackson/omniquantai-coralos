@@ -85,3 +85,54 @@ body { margin: 0; background: var(--bg); color: var(--txt); }
 .explain-flow b { color: var(--txt); }
 .explain-flow em { color: var(--dim); font-style: italic; }
 .explain-flow code { background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; font-size: 11.5px; }
+
+/* Presentation mode: http://localhost:5173/?session=<id>&presentation=1 */
+.present { width: min(1180px, calc(100vw - 32px)); margin: 0 auto; padding: 28px 0 56px; }
+.present-hero {
+  min-height: 210px; display: flex; justify-content: space-between; gap: 24px; align-items: flex-start;
+  border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 18px;
+}
+.present-kicker { color: var(--premium); text-transform: uppercase; letter-spacing: .08em; font-size: 12px; margin: 0 0 12px; }
+.present-hero h1 { font-size: clamp(42px, 7vw, 86px); line-height: .95; margin: 0; letter-spacing: 0; }
+.present-sub { color: var(--dim); max-width: 720px; font-size: 18px; line-height: 1.45; margin: 18px 0 0; }
+.present-live {
+  border: 1px solid var(--line); color: var(--dim); border-radius: 999px; padding: 8px 12px;
+  font-size: 12px; white-space: nowrap;
+}
+.present-live-on { border-color: var(--won); color: var(--won); }
+.present-question {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-bottom: 16px;
+  display: grid; gap: 8px;
+}
+.present-question span { color: var(--link); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.present-question strong { font-size: clamp(20px, 3vw, 34px); line-height: 1.2; }
+.present-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.present-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.present-panel h2 { margin: 0 0 14px; font-size: 13px; color: var(--premium); text-transform: uppercase; letter-spacing: .08em; }
+.present-status { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.present-status .pill { margin-left: 0; }
+.present-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 0; margin: 0; list-style: none; }
+.present-steps li {
+  text-align: center; color: var(--dim); border: 1px solid var(--line); border-radius: 10px; padding: 10px 4px; font-size: 12px;
+}
+.present-steps .present-step-on { color: var(--won); border-color: var(--won); background: rgba(46,160,67,0.08); }
+.present-sellers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.present-seller { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 6px; min-height: 108px; }
+.present-seller strong { color: var(--txt); }
+.present-seller span { color: var(--dim); font-size: 12px; line-height: 1.35; }
+.present-seller em { color: var(--premium); font-style: normal; font-size: 12px; }
+.present-seller-won { border-color: var(--won); background: rgba(46,160,67,0.08); }
+.present-decision { display: grid; gap: 8px; }
+.present-decision strong { font-size: 20px; color: var(--won); }
+.present-decision span, .present-muted { color: var(--dim); line-height: 1.5; }
+.present-links { display: grid; gap: 10px; }
+.present-links a, .present-links span { color: var(--link); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; text-decoration: none; }
+.present-links span { color: var(--dim); }
+.present-report { margin-top: 16px; }
+
+@media (max-width: 760px) {
+  .present-hero { flex-direction: column; min-height: 0; }
+  .present-grid { grid-template-columns: 1fr; }
+  .present-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .present-sellers { grid-template-columns: 1fr; }
+}

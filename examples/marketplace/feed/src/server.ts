@@ -61,7 +61,7 @@ app.post('/api/start', (_req, res) => {
   const reply = (code: number, body: unknown) => { if (!done) { done = true; res.status(code).json(body) } }
   const onData = (d: Buffer) => {
     buf += d.toString()
-    const m = buf.match(/Market session ([a-f0-9-]+)/)
+    const m = buf.match(/(?:OmniQuantAI\s+)?market session ([a-f0-9-]+)/i)
     if (m) reply(200, { session: m[1] })
   }
   child.stdout.on('data', onData)
