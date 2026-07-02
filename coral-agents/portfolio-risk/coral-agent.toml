@@ -1,0 +1,33 @@
+edition = 4
+
+[agent]
+name = "portfolio-risk"
+version = "0.1.0"
+description = "OmniQuantAI seller persona for downside scenarios, concentration risk, risk controls, and invalidation triggers."
+summary = "Bids on omniquant requests and delivers portfolio risk intelligence for the paid report."
+readme = "Uses the seller-agent image with SERVICES=omniquant. Competes in CoralOS, verifies escrow, and delivers portfolio risk intelligence."
+
+[agent.license]
+type = "spdx"
+expression = "MIT"
+
+[options]
+SELLER_WALLET = { type = "string", description = "Devnet wallet pubkey that receives payments" }
+AGENT_NAME = { type = "string", default = "portfolio-risk", description = "Market identity for this seller persona" }
+SERVICES = { type = "string", default = "omniquant", description = "Inventory; OmniQuantAI financial intelligence" }
+FLOOR_SOL = { type = "f64", default = 0.014, description = "Minimum bid in SOL" }
+PERSONA = { type = "string", default = "Portfolio Risk Agent: downside scenarios, concentration risk, risk controls, and invalidation triggers.", description = "Bidding persona" }
+SERVICE = { type = "string", default = "omniquant", description = "Delivery service" }
+RELEVANCE = { type = "f64", default = 95, description = "Buyer scoring input" }
+EXPECTED_QUALITY = { type = "f64", default = 92, description = "Buyer scoring input" }
+CONFIDENCE = { type = "f64", default = 84, description = "Buyer scoring input" }
+DOMAIN_FIT = { type = "f64", default = 98, description = "Buyer scoring input" }
+SPEED_SECONDS = { type = "f64", default = 24, description = "Expected delivery speed" }
+EXPLANATION_QUALITY = { type = "f64", default = 90, description = "Buyer scoring input" }
+SOLANA_RPC_URL = { type = "string", default = "", description = "Solana RPC URL" }
+SETTLEMENT_MODE = { type = "string", default = "arbiter", description = "arbiter | direct" }
+ESCROW_DEADLINE_SECS = { type = "f64", default = 600, description = "Refund deadline" }
+TRACE = { type = "string", default = "", description = "Set to 1 for logs" }
+
+[runtimes.docker]
+image = "seller-agent:0.1.0"

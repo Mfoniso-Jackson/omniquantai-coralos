@@ -18,7 +18,7 @@
 import {
   startCoralAgent, complete, parseJsonReply, loadKeypairB58,
   formatWant, parseBid, parseEscrowRequired, formatAward, formatDeposited,
-  selectBids, pickCheapest, verb, messageRound,
+  selectBids, verb, messageRound,
   type Bid, type EscrowTerms, type CoralAgentContext,
 } from '@pay/agent-runtime'
 import { PublicKey } from '@solana/web3.js'
@@ -30,15 +30,15 @@ import {
 import { payoutMatches } from './guard.js'
 
 const RPC = process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
-const BUDGET = Number(process.env.BUYER_MAX_SOL ?? '0.001')
-const SERVICE = process.env.BUYER_SERVICE ?? 'txline'
+const BUDGET = Number(process.env.BUYER_MAX_SOL ?? '0.03')
+const SERVICE = process.env.BUYER_SERVICE ?? 'omniquant'
 // Rotate through several args so each round trades a *different* thing (BUYER_ARGS=csv of fixture ids,
 // else the single BUYER_ARG). This is what stops the market looking like the same round on a loop.
-const ARGS = (process.env.BUYER_ARGS || process.env.BUYER_ARG || 'SOL-USDC').split(',').map((s) => s.trim()).filter(Boolean)
+const ARGS = (process.env.BUYER_ARGS || process.env.BUYER_ARG || 'nvda-6m-exposure').split(',').map((s) => s.trim()).filter(Boolean)
 const ARG = ARGS[0]
 const BID_WINDOW_MS = Number(process.env.BID_WINDOW_MS ?? '5000')
 const CYCLE_MS = Number(process.env.CYCLE_INTERVAL_MS ?? '30000')
-const SELLERS = (process.env.MARKET_SELLERS ?? 'seller-worldcup,seller-fast,seller-premium')
+const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
 // F3: the payout wallet the buyer expects (personas share one in the demo). If set, the buyer refuses
 // to deposit to an ESCROW_REQUIRED whose seller= pubkey differs - binding the award to the payout.
@@ -49,12 +49,31 @@ const trace = process.env.TRACE === '1'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const expl = (kind: 'tx' | 'address', id: string) => `https://explorer.solana.com/${kind}/${id}?cluster=devnet`
 
-/** Best-value selection via LLM; deterministic cheapest fallback. Returns the winner + its reasoning. */
+const metric = (note: string | undefined, key: string, fallback: number): number =>
+  Number(note?.match(new RegExp(`${key}=([\\d.]+)`))?.[1] ?? fallback)
+
+function valueScore(bid: Bid): number {
+  const priceScore = Math.max(0, 100 - Math.round((bid.priceSol / Math.max(BUDGET, 0.000001)) * 100))
+  const speedScore = Math.max(0, 100 - metric(bid.note, 'speed', 30))
+  return Number((
+    metric(bid.note, 'rel', 80) * 0.18 +
+    metric(bid.note, 'qual', 80) * 0.2 +
+    metric(bid.note, 'conf', 76) * 0.16 +
+    metric(bid.note, 'fit', 80) * 0.18 +
+    speedScore * 0.1 +
+    priceScore * 0.08 +
+    metric(bid.note, 'explain', 80) * 0.1
+  ).toFixed(2))
+}
+
+/** Best-value selection via LLM; deterministic value-score fallback. Returns the winner + its reasoning. */
 async function pickWinner(pool: Bid[]): Promise<{ winner: Bid; reason?: string }> {
   if (pool.length === 1) return { winner: pool[0] }
   try {
     const system =
-      'You are a buyer choosing the best-value bid for a Solana data service. ' +
+      'You are a buyer choosing the best-value bid for a financial intelligence service. ' +
+      'Consider relevance, expected quality, confidence, domain fit, delivery speed, price, and explanation quality. ' +
+      'Do not simply choose the cheapest seller. ' +
       'Reply ONLY with JSON {"by": "<seller name>", "reason": "<short>"}.'
     const user =
       `service=${SERVICE} arg=${ARG} budget=${BUDGET}\nbids:\n` +
@@ -68,7 +87,8 @@ async function pickWinner(pool: Bid[]): Promise<{ winner: Bid; reason?: string }
   } catch {
     /* fall through to deterministic choice */
   }
-  return { winner: pickCheapest(pool)!, reason: 'cheapest available' }
+  const ranked = [...pool].sort((a, b) => valueScore(b) - valueScore(a))
+  return { winner: ranked[0], reason: `best value score ${valueScore(ranked[0])}/100 across quality, fit, speed, price, and confidence` }
 }
 
 /** Wait (bounded) for a message matching `round` that `parse` accepts. */

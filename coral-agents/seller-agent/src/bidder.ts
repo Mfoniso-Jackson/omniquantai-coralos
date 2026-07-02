@@ -15,6 +15,12 @@ export interface SellerConfig {
   services: string[]
   floorSol: number
   persona: string
+  relevance: number
+  expectedQuality: number
+  confidence: number
+  domainFit: number
+  speedSeconds: number
+  explanationQuality: number
 }
 
 export interface BidDecision {
@@ -30,6 +36,12 @@ export function sellerConfigFromEnv(name: string): SellerConfig {
     services: (process.env.SERVICES ?? 'txline').split(',').map((s) => s.trim()).filter(Boolean),
     floorSol: Number(process.env.FLOOR_SOL ?? '0.0003'),
     persona: process.env.PERSONA ?? 'a TxODDS specialist selling verified fair-line reads',
+    relevance: Number(process.env.RELEVANCE ?? '80'),
+    expectedQuality: Number(process.env.EXPECTED_QUALITY ?? '80'),
+    confidence: Number(process.env.CONFIDENCE ?? '76'),
+    domainFit: Number(process.env.DOMAIN_FIT ?? '80'),
+    speedSeconds: Number(process.env.SPEED_SECONDS ?? '20'),
+    explanationQuality: Number(process.env.EXPLANATION_QUALITY ?? '80'),
   }
 }
 
@@ -45,7 +57,7 @@ export async function decideBid(want: Want, cfg: SellerConfig, llm: Llm = comple
     `You are ${cfg.name}, ${cfg.persona}. You sell Solana data services. Decide whether to bid on a ` +
     `request and at what price in SOL. Your cost floor is ${cfg.floorSol} SOL - never propose below it; ` +
     `the buyer's budget caps the price. Reply ONLY with JSON: {"bid": boolean, "price": number, ` +
-    `"note": string}. Keep note under 8 words.`
+    `"note": string}. Keep note under 10 words.`
   const user = `service=${want.service} arg=${want.arg} budget=${want.budgetSol} floor=${cfg.floorSol}`
 
   let proposed: number | undefined
@@ -65,5 +77,8 @@ export async function decideBid(want: Want, cfg: SellerConfig, llm: Llm = comple
 
   // Enforce the economics: clamp the price into [floor, budget].
   const priceSol = Math.min(want.budgetSol, Math.max(cfg.floorSol, proposed ?? cfg.floorSol))
-  return { bid: true, priceSol, note: note || 'available' }
+  const metrics =
+    `rel=${cfg.relevance} qual=${cfg.expectedQuality} conf=${cfg.confidence} fit=${cfg.domainFit} ` +
+    `speed=${cfg.speedSeconds} explain=${cfg.explanationQuality}`
+  return { bid: true, priceSol, note: note ? `${note}; ${metrics}` : metrics }
 }

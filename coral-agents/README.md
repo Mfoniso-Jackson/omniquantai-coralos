@@ -7,8 +7,11 @@ thread.
 | Agent | Role |
 |---|---|
 | `buyer-agent` | Broadcasts `WANT`, collects competing bids, awards best value, opens arbiter escrow, and triggers arbiter release on delivery. |
-| `seller-agent` | TxODDS fulfillment image: bids on `txline`, verifies the funded escrow, and delivers the read. |
-| `seller-worldcup` | Config persona reusing `seller-agent:0.1.0`; the launcher instantiates it three times as specialist/generalist/premium sellers. |
+| `seller-agent` | Fulfillment image: bids on `omniquant` or legacy `txline`, verifies funded escrow, and delivers the paid report. |
+| `market-analyst` | OmniQuantAI seller persona for price action, momentum, valuation, and market structure. |
+| `news-earnings` | OmniQuantAI seller persona for recent news, earnings themes, and company developments. |
+| `macro-risk` | OmniQuantAI seller persona for rates, inflation, liquidity, and macro risk. |
+| `portfolio-risk` | OmniQuantAI seller persona for downside scenarios, concentration risk, controls, and invalidation triggers. |
 
 Settlement for the TxODDS round is arbiter-gated by default: the buyer funds a vault PDA, the seller
 verifies that vault-backed escrow, and the neutral arbiter key releases payment after delivery.
@@ -19,6 +22,5 @@ verifies that vault-backed escrow, and the neutral arbiter key releases payment 
 bash build-agents.sh
 ```
 
-The round launcher creates one buyer and three seller instances. `seller-fast` and `seller-premium`
-reuse the local `seller-worldcup` package id but run with different `AGENT_NAME`, `PERSONA`, and
-`FLOOR_SOL` options.
+The round launcher creates one buyer and four seller instances. All four reuse `seller-agent:0.1.0`
+with different `AGENT_NAME`, `PERSONA`, `FLOOR_SOL`, and buyer-scoring metrics.

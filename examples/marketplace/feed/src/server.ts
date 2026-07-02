@@ -30,7 +30,7 @@ const NS = 'default'
 const PORT = Number(process.env.PORT ?? 4000)
 const DEFAULT_SESSION = process.env.SESSION ?? ''
 const FIXTURE = process.env.FEED_FIXTURE
-const SELLERS = (process.env.MARKET_SELLERS ?? 'seller-cheap,seller-premium,seller-lazy')
+const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
 
 /** Fetch a session's raw extended state — from the FEED_FIXTURE file, else from coral. */

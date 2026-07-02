@@ -51,6 +51,14 @@ body { margin: 0; background: var(--bg); color: var(--txt); }
 .reason { color: var(--txt); font-size: 13px; margin: 4px 2px 12px; }
 .delivered { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; overflow-x: auto; color: var(--dim); }
 
+.intel-panel { border: 1px solid var(--link); border-radius: 10px; padding: 12px; margin: 8px 0 10px; background: var(--bg); }
+.intel-head { color: var(--link); font-size: 12px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
+.intel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.intel-grid h3 { margin: 0 0 6px; font-size: 12px; color: var(--premium); }
+.intel-grid ul { margin: 0; padding-left: 18px; color: var(--dim); font-size: 12px; }
+.intel-rec { border-top: 1px dashed var(--line); padding-top: 10px; color: var(--txt); }
+.intel-note { color: var(--dim); font-size: 12px; }
+
 .settle-row { display: flex; gap: 10px; margin-top: 10px; }
 .settle { color: var(--link); text-decoration: none; font-size: 12px; border: 1px solid var(--line); padding: 4px 8px; border-radius: 6px; }
 .settle:hover { border-color: var(--link); }

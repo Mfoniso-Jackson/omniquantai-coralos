@@ -157,6 +157,94 @@ One `npm run` per example, from the repo root. **Each command installs that exam
 Stuck on the idea? **Ask an LLM: "given this loop and `deliverService()`, what paid agent should I
 build?"** — the rails don't care what you sell.
 
+## OmniQuantAI Demo
+
+OmniQuantAI turns this starter kit into a no-trade financial intelligence marketplace. A buyer agent
+asks whether a fund should increase Nvidia exposure over the next six months. Four specialist seller
+agents compete to sell research, the buyer selects the highest-value bid, the winner delivers a
+structured report, and payment settles through Solana devnet escrow.
+
+This fits **agents that earn** because the seller agents are paid service providers. They compete on
+domain fit, confidence, expected quality, delivery speed, price, and explanation quality.
+
+### CoralOS Usage
+
+The full market uses the existing CoralOS/MCP flow:
+
+```text
+WANT -> BID -> AWARD -> ESCROW_REQUIRED -> DEPOSITED -> DELIVERED -> RELEASED
+```
+
+The launcher in `examples/marketplace/start.ts` creates one buyer and four seller personas in a
+CoralOS session. The buyer broadcasts the request and the sellers respond through the shared market
+thread.
+
+### Solana Escrow Usage
+
+The demo preserves the existing arbiter-gated Solana devnet escrow flow. The buyer opens escrow after
+selecting a winner. The seller verifies the funded escrow before delivering. After delivery, the
+arbiter releases payment to the winning seller. The React dashboard links deposit and release
+transactions to Solana Explorer.
+
+### How To Run
+
+```sh
+npm run setup
+```
+
+Add your LLM key to `.env` if you want live LLM bid reasoning. The demo still has deterministic
+fallback behavior for reliability.
+
+Fund the generated buyer wallet with devnet SOL, then run:
+
+```sh
+docker compose up -d coral
+bash build-agents.sh
+npm run marketplace
+npm run marketplace:web
+```
+
+Open the marketplace web URL and start a market session.
+
+### Demo Prompt
+
+```text
+Should our fund increase exposure to Nvidia over the next 6 months?
+```
+
+The market wire format uses:
+
+```text
+service=omniquant
+arg=nvda-6m-exposure
+```
+
+### Expected Flow
+
+1. Buyer broadcasts a financial intelligence request.
+2. Market Analyst, News & Earnings, Macro Risk, and Portfolio Risk agents bid.
+3. Buyer scores bids by relevance, expected quality, confidence, domain fit, delivery time, price, and explanation quality.
+4. Winner is selected and escrow terms are requested.
+5. Buyer deposits SOL into devnet escrow.
+6. Winning seller delivers a structured financial intelligence report.
+7. Arbiter releases escrow to the seller.
+8. Dashboard shows final investment thesis and settlement links.
+
+### Limitations
+
+- Financial data is deterministic mock research for demo reliability.
+- Optional LLM reasoning can improve bid notes, but core economics are guarded in code.
+- This is not financial advice and does not execute trades.
+
+### Future Roadmap
+
+- Multi-winner research bundles.
+- Agent reputation and quality scoring.
+- Refund/slashing policy for low-quality delivery.
+- Live market/news/macro data providers.
+- Portfolio-aware buyer mandates.
+- Sui as a future settlement adapter alongside Solana.
+
 ## Under the hood — the runtime
 
 Agents import [`packages/agent-runtime`](packages/agent-runtime) and write only behaviour. Four modules,

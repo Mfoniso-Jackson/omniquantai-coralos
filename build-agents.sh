@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 build_seller() {
   echo "==> Building seller-agent:0.1.0"
   docker build -f "$ROOT/coral-agents/seller-agent/Dockerfile" -t seller-agent:0.1.0 "$ROOT"
-  echo "    seller-agent:0.1.0 done (the seller-worldcup persona reuses this image)"
+  echo "    seller-agent:0.1.0 done (OmniQuantAI seller personas reuse this image)"
 }
 
 build_buyer() {
@@ -31,7 +31,7 @@ case "${1:-all}" in
     echo ""
     echo "Both agent images built. Run a CoralOS round:"
     echo "  docker compose up -d coral"
-    echo "  cd examples/txodds && npm run coral"
+    echo "  npm run marketplace"
     ;;
   *) echo "Usage: bash build-agents.sh [seller|buyer|all]"; exit 1 ;;
 esac

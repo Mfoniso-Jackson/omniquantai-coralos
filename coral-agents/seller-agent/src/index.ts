@@ -33,7 +33,7 @@ let program: Program | null = null
 const escrowProgram = async (): Promise<Program> => (program ??= await makeProgram(RPC))
 
 function boundReference(order: Quote & { round: number }): string {
-  const preimage = `txodds-coral:${order.round}:${order.service}:${order.arg}:${SELLER_WALLET}:${order.priceSol}`
+  const preimage = `omniquant-coral:${order.round}:${order.service}:${order.arg}:${SELLER_WALLET}:${order.priceSol}`
   return new PublicKey(createHash('sha256').update(preimage).digest()).toBase58()
 }
 

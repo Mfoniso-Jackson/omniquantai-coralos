@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { deliverService } from './service.js'
 
-describe('deliverService txline-only routing', () => {
+describe('deliverService routing', () => {
   const realFetch = global.fetch
 
   beforeEach(() => {
@@ -14,12 +14,29 @@ describe('deliverService txline-only routing', () => {
 
   afterEach(() => {
     global.fetch = realFetch
+    delete process.env.AGENT_NAME
+    delete process.env.PERSONA
+    delete process.env.CONFIDENCE
     vi.restoreAllMocks()
   })
 
-  it('rejects legacy generic services', async () => {
+  it('rejects unsupported generic services', async () => {
     const out = JSON.parse(await deliverService('coingecko eth'))
-    expect(out).toEqual({ error: 'unsupported service', service: 'coingecko', supported: ['txline'] })
+    expect(out).toEqual({ error: 'unsupported service', service: 'coingecko', supported: ['omniquant', 'txline'] })
+  })
+
+  it('returns a financial intelligence report for omniquant', async () => {
+    process.env.AGENT_NAME = 'portfolio-risk'
+    process.env.PERSONA = 'Portfolio Risk Agent'
+    process.env.CONFIDENCE = '84'
+    const out = JSON.parse(await deliverService('omniquant nvda-6m-exposure'))
+    expect(out).toMatchObject({
+      service: 'omniquant-financial-intelligence',
+      agent_name: 'portfolio-risk',
+      confidence_score: 84,
+      final_synthesis: { recommendation: 'HOLD' },
+    })
+    expect(out.risks).toContain('25-40% drawdown scenario')
   })
 
   it('returns fixtures from TxLINE', async () => {
