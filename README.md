@@ -180,6 +180,21 @@ Start Docker, then rerun `npm run health`.
 
 If the buyer wallet is unfunded, open `WALLETS.txt` and fund the buyer address at [faucet.solana.com](https://faucet.solana.com).
 
+### If Escrow Fails
+
+The buyer wallet may not have enough devnet SOL.
+
+1. Open `WALLETS.txt`.
+2. Copy the `Buyer wallet` address.
+3. Fund it with devnet SOL using [Solana Faucet](https://faucet.solana.com/).
+4. Re-run:
+
+```sh
+npm run judge
+```
+
+The seller wallet does not need funding; it only receives payment after release.
+
 If port `5173`, `4000`, or `5555` is busy, stop the process using that port and rerun `npm run judge`.
 
 If npm is missing locally, use Codespaces. The devcontainer includes npm.

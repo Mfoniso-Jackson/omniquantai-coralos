@@ -69,6 +69,21 @@ During the demo, watch the dashboard settlement badges. They contain the devnet 
 
 [https://explorer.solana.com/?cluster=devnet](https://explorer.solana.com/?cluster=devnet)
 
+## If Escrow Fails
+
+The buyer wallet may not have enough devnet SOL.
+
+1. Open `WALLETS.txt`.
+2. Copy the `Buyer wallet` address.
+3. Fund it with devnet SOL using [Solana Faucet](https://faucet.solana.com/).
+4. Re-run:
+
+```sh
+npm run judge
+```
+
+The seller wallet does not need funding; it only receives payment after release.
+
 ## Judge FAQ
 
 **Is this trading?**  
