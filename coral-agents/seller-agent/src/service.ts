@@ -47,7 +47,7 @@ function omniQuantService(request: string): unknown {
     disclaimer: 'Not financial advice. This is human-reviewable research and does not execute trades.',
     timestamp: new Date().toISOString(),
   }
-  const byAgent: Record<string, unknown> = {
+  const byAgent: Record<string, Record<string, unknown>> = {
     'market-analyst': {
       key_evidence: ['NVDA momentum remains positive', 'Valuation premium raises downside sensitivity'],
       bullish_points: ['AI accelerator demand supports trend', 'Liquidity is deep enough for institutional sizing'],

@@ -2,7 +2,18 @@ import { describe, it, expect } from 'vitest'
 import { decideBid, type SellerConfig } from './bidder.js'
 import type { Want } from '@pay/agent-runtime'
 
-const cfg: SellerConfig = { name: 'seller-x', services: ['helius-risk'], floorSol: 0.0004, persona: 'test' }
+const cfg: SellerConfig = {
+  name: 'seller-x',
+  services: ['helius-risk'],
+  floorSol: 0.0004,
+  persona: 'test',
+  relevance: 80,
+  expectedQuality: 80,
+  confidence: 76,
+  domainFit: 80,
+  speedSeconds: 20,
+  explanationQuality: 80,
+}
 const want: Want = { round: 1, service: 'helius-risk', arg: '7jw', budgetSol: 0.001 }
 const llmSays = (json: string) => async () => json
 
