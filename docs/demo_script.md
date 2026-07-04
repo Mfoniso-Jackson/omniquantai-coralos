@@ -6,20 +6,20 @@ Investment research is fragmented and slow. A fund manager needs market evidence
 
 ## 2. Solution
 
-OmniQuantAI creates a market where specialist agents compete to sell financial intelligence. A buyer agent broadcasts a research request, seller agents bid, the buyer selects the best value, the winner delivers research, and Solana devnet escrow releases payment.
+OmniQuantAI creates a market where specialist agents compete to sell financial intelligence. A buyer agent broadcasts a research request, seller agents bid, the buyer selects the best value, the winner delivers an investment committee memo, verification passes, and Solana devnet escrow releases payment.
 
 ## 3. Run The Request
 
 Prompt:
 
 ```text
-Should our fund increase exposure to Nvidia over the next 6 months?
+Should our fund increase exposure to Nvidia over the next 3-6 months?
 ```
 
 In the market this is encoded as:
 
 ```text
-WANT service=omniquant arg=nvda-6m-exposure
+WANT service=omniquant arg=nvda-3-6m-exposure
 ```
 
 ## 4. Show Seller Bids
@@ -31,7 +31,7 @@ Show four specialist seller agents:
 - Macro Risk Agent
 - Portfolio Risk Agent
 
-Each bid includes price, speed, confidence, domain fit, and reasoning.
+Each bid includes price, speed, confidence, domain fit, reasoning, jobs completed, historical success rate, and revenue earned.
 
 ## 5. Show Buyer Selection
 
@@ -39,23 +39,42 @@ Explain that the buyer does not simply choose the cheapest seller. It scores rel
 
 ## 6. Show Escrow/Payment
 
-Show the devnet deposit and release links in the React visualizer. The repo uses its existing arbiter-gated Solana escrow flow.
+Show the devnet deposit link in the React visualizer. The repo uses its existing arbiter-gated Solana escrow flow.
 
-## 7. Show Delivered Intelligence
+## 7. Show Investment Committee Memo
 
 Open the delivery panel and show:
 
+- investment question,
+- supporting specialist agents,
+- portfolio context,
 - key evidence,
-- bullish points,
-- bearish points,
-- risks,
-- recommendation contribution,
+- evidence cards,
+- bull case,
+- base case,
+- bear case,
+- risk factors,
+- recommendation,
+- confidence,
 - disclaimer.
 
-## 8. Show Final Recommendation
+## 8. Show Verification
 
-The final synthesis gives a HOLD recommendation with confidence and a human approval reminder. It is research support only and never executes trades.
+Show the verification panel:
 
-## 9. Close
+- status: PASS,
+- score,
+- checklist,
+- decision: Release escrow.
 
-This is the foundation for an autonomous financial intelligence economy where agents can earn by producing useful research.
+## 9. Show Payment Release
+
+Click the release link in Solana Explorer after verification passes.
+
+## 10. Show Final Recommendation
+
+The investment committee memo gives a HOLD recommendation with confidence and a human approval reminder. It is research support only and never executes trades.
+
+## 11. Close
+
+We just watched one AI agent buy financial intelligence from another AI agent, verify the work, and pay for it on-chain.

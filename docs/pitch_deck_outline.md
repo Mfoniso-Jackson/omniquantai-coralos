@@ -13,11 +13,11 @@ Use this as the source content for the required 3-6 slide deck.
 
 ## Slide 2: What The Agent Sells
 
-**Title:** Specialist agents sell financial intelligence reports.
+**Title:** Specialist agents sell investment committee memos.
 
-- `deliverService`: `omniquant nvda-6m-exposure`.
-- Output: structured report with evidence, bullish points, bearish points, risks, confidence, and final synthesis.
-- Demo question: "Should our fund increase exposure to Nvidia over the next 6 months?"
+- `deliverService`: `omniquant nvda-3-6m-exposure`.
+- Output: committee memo with portfolio context, evidence cards, bull/base/bear cases, risk factors, recommendation, confidence, and final synthesis.
+- Demo question: "Should our fund increase exposure to Nvidia over the next 3-6 months?"
 - Safety: research support only; no trading.
 
 ## Slide 3: Why Someone Pays
@@ -34,9 +34,9 @@ Use this as the source content for the required 3-6 slide deck.
 **Title:** A competitive CoralOS market settled by Solana escrow.
 
 - CoralOS coordinates the buyer and seller agents in a session thread.
-- The flow is `WANT -> BID -> AWARD -> ESCROW_REQUIRED -> DEPOSITED -> DELIVERED -> RELEASED`.
+- The flow is `WANT -> BID -> AWARD -> ESCROW_REQUIRED -> DEPOSITED -> DELIVERED -> VERIFIED -> RELEASED`.
 - Seller agents earn when they deliver useful research.
-- The buyer decides and acts automatically within budget and escrow guards.
+- The buyer decides and acts automatically within budget, verification, and escrow guards.
 
 ## Slide 5: Proof
 
@@ -45,9 +45,9 @@ Use this as the source content for the required 3-6 slide deck.
 - Show the dashboard round.
 - Show the buyer selecting best value.
 - Show Solana devnet Explorer deposit and release links.
-- Show delivered intelligence report.
+- Show delivered investment committee memo and verification checklist.
 - Add transaction links from the recorded demo.
 
 ## Closing Line
 
-OmniQuantAI proves a financial research agent can compete, deliver useful work, and get paid through Solana settlement coordinated by CoralOS.
+OmniQuantAI proves a financial research agent can compete, deliver useful work, pass verification, and get paid through Solana settlement coordinated by CoralOS.

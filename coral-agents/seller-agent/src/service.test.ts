@@ -29,7 +29,7 @@ describe('deliverService routing', () => {
     process.env.AGENT_NAME = 'portfolio-risk'
     process.env.PERSONA = 'Portfolio Risk Agent'
     process.env.CONFIDENCE = '84'
-    const out = JSON.parse(await deliverService('omniquant nvda-6m-exposure'))
+    const out = JSON.parse(await deliverService('omniquant nvda-3-6m-exposure'))
     expect(out).toMatchObject({
       service: 'omniquant-financial-intelligence',
       agent_name: 'portfolio-risk',

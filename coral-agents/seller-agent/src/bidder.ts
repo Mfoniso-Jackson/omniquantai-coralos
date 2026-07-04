@@ -54,10 +54,10 @@ export async function decideBid(want: Want, cfg: SellerConfig, llm: Llm = comple
   if (cfg.floorSol > want.budgetSol) return { bid: false, priceSol: 0, note: 'budget below floor' }
 
   const system =
-    `You are ${cfg.name}, ${cfg.persona}. You sell Solana data services. Decide whether to bid on a ` +
+    `You are ${cfg.name}, ${cfg.persona}. You sell financial intelligence services. Decide whether to bid on a ` +
     `request and at what price in SOL. Your cost floor is ${cfg.floorSol} SOL - never propose below it; ` +
     `the buyer's budget caps the price. Reply ONLY with JSON: {"bid": boolean, "price": number, ` +
-    `"note": string}. Keep note under 10 words.`
+    `"note": string}. Keep note under 8 words and state your specialist value.`
   const user = `service=${want.service} arg=${want.arg} budget=${want.budgetSol} floor=${cfg.floorSol}`
 
   let proposed: number | undefined
@@ -77,8 +77,10 @@ export async function decideBid(want: Want, cfg: SellerConfig, llm: Llm = comple
 
   // Enforce the economics: clamp the price into [floor, budget].
   const priceSol = Math.min(want.budgetSol, Math.max(cfg.floorSol, proposed ?? cfg.floorSol))
+  const value = note || cfg.persona.split(':').at(0) || cfg.name
   const metrics =
-    `rel=${cfg.relevance} qual=${cfg.expectedQuality} conf=${cfg.confidence} fit=${cfg.domainFit} ` +
-    `speed=${cfg.speedSeconds} explain=${cfg.explanationQuality}`
-  return { bid: true, priceSol, note: note ? `${note}; ${metrics}` : metrics }
+    `value=${value}; confidence=${cfg.confidence}; delivery=${cfg.speedSeconds}s; ` +
+    `reasoning=${cfg.explanationQuality}; rel=${cfg.relevance} qual=${cfg.expectedQuality} ` +
+    `conf=${cfg.confidence} fit=${cfg.domainFit} speed=${cfg.speedSeconds} explain=${cfg.explanationQuality}`
+  return { bid: true, priceSol, note: metrics }
 }

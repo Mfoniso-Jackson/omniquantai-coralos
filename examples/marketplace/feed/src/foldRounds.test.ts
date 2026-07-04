@@ -12,6 +12,7 @@ const round1: RawMessage[] = [
   { sender: 'seller-premium', text: 'ESCROW_REQUIRED round=1 reference=DKQy seller=7jwB amount=0.0005 deadline=600' },
   { sender: 'buyer-agent', text: 'DEPOSITED round=1 reference=DKQy buyer=47Dp sig=5syz' },
   { sender: 'seller-premium', text: 'DELIVERED round=1 {"coin":"solana","usd":72.33}' },
+  { sender: 'buyer-agent', text: 'VERIFIED round=1 status=PASS score=100 decision="Release escrow" checks="PASS: Report answered the research request | PASS: Disclaimer present"' },
   { sender: 'buyer-agent', text: 'RELEASED round=1 sig=3PMa' },
 ]
 
@@ -25,7 +26,29 @@ describe('foldRounds', () => {
     expect(r.escrow?.amountSol).toBe(0.0005)
     expect(r.deposit?.sig).toBe('5syz')
     expect(r.delivered?.data).toEqual({ coin: 'solana', usd: 72.33 })
+    expect(r.verified).toEqual({
+      status: 'PASS',
+      score: 100,
+      decision: 'Release escrow',
+      checks: ['PASS: Report answered the research request', 'PASS: Disclaimer present'],
+    })
     expect(r.release?.sig).toBe('3PMa')
+    expect(r.status).toBe('settled')
+  })
+
+  it('shows a passed verification before release as verified', () => {
+    const r = foldRounds(round1.slice(0, 8), sellers)[0]
+    expect(r.verified?.status).toBe('PASS')
+    expect(r.status).toBe('verified')
+  })
+
+  it('settles arbiter release messages', () => {
+    const msgs: RawMessage[] = [
+      { sender: 'buyer-agent', text: 'WANT round=4 service=omniquant arg=nvda-3-6m-exposure budget=0.03' },
+      { sender: 'buyer-agent', text: 'ARBITER_RELEASED round=4 sig=abc settlement=arbiter' },
+    ]
+    const r = foldRounds(msgs)[0]
+    expect(r.release?.sig).toBe('abc')
     expect(r.status).toBe('settled')
   })
 

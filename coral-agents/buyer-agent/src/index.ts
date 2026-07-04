@@ -3,7 +3,7 @@
  * competing LLM bids, picks the best value, and settles through the escrow contract:
  *
  *   WANT -> (collect BIDs for a window) -> AWARD winner -> wait ESCROW_REQUIRED ->
- *   deposit() into escrow -> DEPOSITED -> wait DELIVERED -> release() to the seller
+ *   deposit() into escrow -> DEPOSITED -> wait DELIVERED -> VERIFIED -> release() to the seller
  *
  * Selection uses the LLM (best value), with a deterministic cheapest fallback so a slow/missing model
  * never hangs the round. Settlement is escrow-only - funds are conditional on delivery.
@@ -34,7 +34,7 @@ const BUDGET = Number(process.env.BUYER_MAX_SOL ?? '0.03')
 const SERVICE = process.env.BUYER_SERVICE ?? 'omniquant'
 // Rotate through several args so each round trades a *different* thing (BUYER_ARGS=csv of fixture ids,
 // else the single BUYER_ARG). This is what stops the market looking like the same round on a loop.
-const ARGS = (process.env.BUYER_ARGS || process.env.BUYER_ARG || 'nvda-6m-exposure').split(',').map((s) => s.trim()).filter(Boolean)
+const ARGS = (process.env.BUYER_ARGS || process.env.BUYER_ARG || 'nvda-3-6m-exposure').split(',').map((s) => s.trim()).filter(Boolean)
 const ARG = ARGS[0]
 const BID_WINDOW_MS = Number(process.env.BID_WINDOW_MS ?? '5000')
 const CYCLE_MS = Number(process.env.CYCLE_INTERVAL_MS ?? '30000')
@@ -66,6 +66,66 @@ function valueScore(bid: Bid): number {
   ).toFixed(2))
 }
 
+function bidSummary(bid: Bid): string {
+  return `${bid.by}: score=${valueScore(bid)}/100 price=${bid.priceSol} SOL ` +
+    `confidence=${metric(bid.note, 'conf', 76)} delivery=${metric(bid.note, 'speed', 30)}s ` +
+    `quality=${metric(bid.note, 'qual', 80)} fit=${metric(bid.note, 'fit', 80)}`
+}
+
+function deterministicReason(winner: Bid, pool: Bid[]): string {
+  const cheapest = [...pool].sort((a, b) => a.priceSol - b.priceSol)[0]
+  const considered = pool.map(bidSummary).join(' | ')
+  const cheapLost = cheapest.by === winner.by
+    ? 'The winner was also price-competitive.'
+    : `${cheapest.by} was cheaper at ${cheapest.priceSol} SOL but lost on quality/fit/confidence.`
+  return `Winner ${winner.by}: best value score ${valueScore(winner)}/100. Considered ${considered}. ${cheapLost}`
+}
+
+interface VerificationResult {
+  pass: boolean
+  score: number
+  checks: string[]
+  decision: string
+}
+
+function verificationCheck(label: string, pass: boolean): { label: string; pass: boolean } {
+  return { label, pass }
+}
+
+function verifyDelivery(raw: string, requestArg: string): VerificationResult {
+  let data: Record<string, unknown> = {}
+  try { data = JSON.parse(raw) as Record<string, unknown> } catch { /* non-JSON delivery fails completeness checks */ }
+  const final = (data.final_synthesis ?? {}) as Record<string, unknown>
+  const hasArray = (key: string) => Array.isArray(data[key]) && (data[key] as unknown[]).length > 0
+  const checks = [
+    verificationCheck('Report answered the research request', data.request_understood === requestArg || typeof data.request_understood === 'string'),
+    verificationCheck('Investment committee memo present', typeof data.investment_committee_memo === 'object' && data.investment_committee_memo != null),
+    verificationCheck('Executive summary present', typeof data.executive_summary === 'string' || typeof final.executive_summary === 'string'),
+    verificationCheck('Key evidence present', hasArray('key_evidence')),
+    verificationCheck('Evidence cards present', hasArray('evidence_cards')),
+    verificationCheck('Bull/base/bear cases present', Boolean(final.bull_case && final.base_case && final.bear_case)),
+    verificationCheck('Risk factors present', hasArray('risks') || Array.isArray(final.risk_factors)),
+    verificationCheck('Recommendation and confidence present', Boolean(final.recommendation || data.recommendation_contribution) && typeof (final.confidence_score ?? data.confidence_score) === 'number'),
+    verificationCheck('Not financial advice disclaimer present', typeof data.disclaimer === 'string' && /not financial advice/i.test(data.disclaimer)),
+    verificationCheck('No trading action executed', !JSON.stringify(data).toLowerCase().includes('order_submitted')),
+  ]
+  const passed = checks.filter((c) => c.pass)
+  const score = Math.round((passed.length / checks.length) * 100)
+  const pass = score >= 85
+  return {
+    pass,
+    score,
+    checks: checks.map((c) => `${c.pass ? 'PASS' : 'FAIL'}: ${c.label}`),
+    decision: pass ? 'Release escrow' : 'Hold escrow for review',
+  }
+}
+
+function formatVerified(round: number, verification: VerificationResult): string {
+  const status = verification.pass ? 'PASS' : 'FAIL'
+  const checks = verification.checks.join(' | ').replace(/"/g, "'")
+  return `VERIFIED round=${round} status=${status} score=${verification.score} decision="${verification.decision}" checks="${checks}"`
+}
+
 /** Best-value selection via LLM; deterministic value-score fallback. Returns the winner + its reasoning. */
 async function pickWinner(pool: Bid[]): Promise<{ winner: Bid; reason?: string }> {
   if (pool.length === 1) return { winner: pool[0] }
@@ -74,7 +134,8 @@ async function pickWinner(pool: Bid[]): Promise<{ winner: Bid; reason?: string }
       'You are a buyer choosing the best-value bid for a financial intelligence service. ' +
       'Consider relevance, expected quality, confidence, domain fit, delivery speed, price, and explanation quality. ' +
       'Do not simply choose the cheapest seller. ' +
-      'Reply ONLY with JSON {"by": "<seller name>", "reason": "<short>"}.'
+      'Explain why each seller was considered, why the winner won, and why cheaper bids may have lost. ' +
+      'Reply ONLY with JSON {"by": "<seller name>", "reason": "<one concise sentence>"}.'
     const user =
       `service=${SERVICE} arg=${ARG} budget=${BUDGET}\nbids:\n` +
       pool.map((b) => `- ${b.by}: ${b.priceSol} SOL${b.note ? ` (${b.note})` : ''}`).join('\n')
@@ -88,7 +149,7 @@ async function pickWinner(pool: Bid[]): Promise<{ winner: Bid; reason?: string }
     /* fall through to deterministic choice */
   }
   const ranked = [...pool].sort((a, b) => valueScore(b) - valueScore(a))
-  return { winner: ranked[0], reason: `best value score ${valueScore(ranked[0])}/100 across quality, fit, speed, price, and confidence` }
+  return { winner: ranked[0], reason: deterministicReason(ranked[0], pool) }
 }
 
 /** Wait (bounded) for a message matching `round` that `parse` accepts. */
@@ -147,7 +208,7 @@ await startCoralAgent({ agentName: process.env.AGENT_NAME ?? 'buyer-agent' }, as
       const { winner, reason } = await pickWinner(pool)
       await ctx.send(formatAward(round, winner.by, reason), thread, [winner.by])
 
-      // -- settle through escrow: deposit -> DEPOSITED -> wait DELIVERED -> release
+      // -- settle through escrow: deposit -> DEPOSITED -> wait DELIVERED -> VERIFIED -> release
       const terms = await waitFor<EscrowTerms>(ctx, round, parseEscrowRequired, 15_000)
       if (!terms) { console.error(`[buyer] round ${round}: no escrow terms from ${winner.by}`); await sleep(CYCLE_MS); continue }
       if (!payoutMatches(terms.seller, EXPECTED_SELLER_WALLET)) {
@@ -192,12 +253,21 @@ await startCoralAgent({ agentName: process.env.AGENT_NAME ?? 'buyer-agent' }, as
         thread, [winner.by],
       )
 
-      const delivered = await waitFor(ctx, round, (t) => {
+      const delivered = await waitFor<{ round: number; raw: string }>(ctx, round, (t) => {
         const r = messageRound(t)
-        return verb(t) === 'DELIVERED' && r != null ? { round: r } : null
+        if (verb(t) !== 'DELIVERED' || r == null) return null
+        const raw = t.replace(/^DELIVERED\s+round=\d+\s*/i, '').trim()
+        return { round: r, raw }
       }, 30_000)
 
       if (delivered) {
+        const verification = verifyDelivery(delivered.raw, arg)
+        console.error(`[buyer] round ${round}: VERIFIED ${verification.pass ? 'PASS' : 'FAIL'} score=${verification.score} decision="${verification.decision}"`)
+        await ctx.send(formatVerified(round, verification), thread, [winner.by])
+        if (!verification.pass) {
+          console.error(`[buyer] round ${round}: verification failed - funds stay in escrow, refundable after the deadline`)
+          await sleep(CYCLE_MS); continue
+        }
         const releaseSig = requestedSettlement === 'arbiter' && arbiter
           ? await arbitrateRelease(makeArbiter(arbiter, RPC), arbiter, seller, reference)
           : await release(program, buyer, seller, reference)

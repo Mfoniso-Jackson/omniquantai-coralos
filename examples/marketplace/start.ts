@@ -103,7 +103,7 @@ async function main() {
 
   // The buyer shops for a paid financial intelligence report.
   const buyerService = env.BUYER_SERVICE ?? 'omniquant'
-  const buyerArg = env.BUYER_ARG ?? 'nvda-6m-exposure'
+  const buyerArg = env.BUYER_ARG ?? 'nvda-3-6m-exposure'
   const buyerArgs = env.BUYER_ARGS ?? ''
 
   const buyerOpts: Record<string, unknown> = {
@@ -156,7 +156,7 @@ async function main() {
   console.log(`   receive wallet: ${wallet}`)
   console.log('   The buyer requests NVDA financial intelligence; sellers bid; the winner settles via escrow.\n')
   console.log('   Watch the market:')
-  console.log('     docker logs -f buyer-agent      # WANT → AWARD (with a reason) → DEPOSITED → RELEASED')
+  console.log('     docker logs -f buyer-agent      # WANT → AWARD (with a reason) → DEPOSITED → VERIFIED → RELEASED')
   console.log('     docker logs -f portfolio-risk   # BID → ESCROW_REQUIRED → DELIVERED')
   console.log('   Set TRACE=1 in .env to see the coral_* calls + Explorer links for deposit/release.\n')
 }

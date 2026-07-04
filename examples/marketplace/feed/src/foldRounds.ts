@@ -19,7 +19,7 @@ export interface RoundBid {
   note?: string
 }
 
-export type RoundStatus = 'bidding' | 'awarded' | 'deposited' | 'delivered' | 'settled' | 'refunded'
+export type RoundStatus = 'bidding' | 'awarded' | 'deposited' | 'delivered' | 'verified' | 'settled' | 'refunded'
 
 export interface Round {
   round: number
@@ -31,6 +31,7 @@ export interface Round {
   escrow?: { reference: string; seller: string; amountSol: number; deadlineSecs: number }
   deposit?: { sig: string; buyer: string }
   delivered?: { raw: string; data?: unknown }
+  verified?: { status: 'PASS' | 'FAIL'; score: number; decision?: string; checks: string[] }
   release?: { sig: string }
   refunded?: boolean
   status: RoundStatus
@@ -42,6 +43,16 @@ const tryJson = (s: string): unknown => {
 
 /** Optional `reason="…"` carried on an AWARD (the buyer's best-value justification). */
 const awardReason = (text: string): string | undefined => text.match(/reason="([^"]*)"/)?.[1]
+
+const quoted = (text: string, key: string): string | undefined => text.match(new RegExp(`${key}="([^"]*)"`))?.[1]
+
+const parseVerified = (text: string): Round['verified'] | undefined => {
+  const status = text.match(/\bstatus=(PASS|FAIL)\b/i)?.[1]?.toUpperCase() as 'PASS' | 'FAIL' | undefined
+  const score = Number(text.match(/\bscore=(\d+(?:\.\d+)?)\b/)?.[1])
+  if (!status || !Number.isFinite(score)) return undefined
+  const checks = (quoted(text, 'checks') ?? '').split('|').map((s) => s.trim()).filter(Boolean)
+  return { status, score, decision: quoted(text, 'decision'), checks }
+}
 
 /**
  * Fold raw transcript messages into rounds (ascending). Pass the seller roster to compute which
@@ -87,7 +98,12 @@ export function foldRounds(messages: RawMessage[], sellers: string[] = []): Roun
       const raw = text.replace(/^DELIVERED\s+round=\d+\s*/i, '').trim()
       round.delivered = { raw, data: tryJson(raw) }
       if (round.status !== 'settled') round.status = 'delivered'
-    } else if (v === 'RELEASED' && r != null) {
+    } else if (v === 'VERIFIED' && r != null) {
+      const round = get(r)
+      const verified = parseVerified(text)
+      if (verified) round.verified = verified
+      if (round.status !== 'settled') round.status = verified?.status === 'PASS' ? 'verified' : 'delivered'
+    } else if ((v === 'RELEASED' || v === 'ARBITER_RELEASED') && r != null) {
       const round = get(r)
       const sig = text.match(/sig=(\S+)/)?.[1]
       if (sig) round.release = { sig }

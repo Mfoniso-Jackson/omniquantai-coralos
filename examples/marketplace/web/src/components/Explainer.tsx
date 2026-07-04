@@ -8,11 +8,12 @@ export function Explainer() {
         the winner settles <strong>trustlessly through Solana escrow</strong>.
       </p>
       <ol className="explain-flow">
-        <li><b>Research Request</b> — should the fund increase Nvidia exposure over six months?</li>
+        <li><b>Research Request</b> — should the fund increase Nvidia exposure over the next 3-6 months?</li>
         <li><b>Agent Bids</b> — Market, News, Macro, and Portfolio Risk agents compete</li>
         <li><b>Winner Selected</b> — buyer scores best value, not simply cheapest price</li>
-        <li><b>Financial Intelligence Delivered</b> — the winner returns a structured research report</li>
-        <li><b>Escrow Released</b> — devnet escrow pays the seller on delivery</li>
+        <li><b>Investment Committee Memo</b> — the winner returns an institutional memo</li>
+        <li><b>Verification Passed</b> — buyer checks completeness before release</li>
+        <li><b>Escrow Released</b> — devnet escrow pays the seller after verification</li>
       </ol>
     </section>
   )

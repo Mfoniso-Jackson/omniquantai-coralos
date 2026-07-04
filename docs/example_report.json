@@ -1,0 +1,120 @@
+{
+  "service": "omniquant-financial-intelligence",
+  "agent_name": "portfolio-risk",
+  "request_understood": "nvda-3-6m-exposure",
+  "executive_summary": "OmniQuantAI sees a HOLD recommendation for NVDA over the next 3-6 months, with a conditional path to add exposure only if portfolio sizing, earnings revisions, and macro triggers remain supportive.",
+  "key_evidence": [
+    {
+      "source": "deterministic_demo_market_snapshot",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "finding": "NVDA remains a high-quality AI infrastructure leader, but the demo evidence shows valuation and concentration risk are material."
+    },
+    {
+      "source": "deterministic_demo_news_earnings",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "finding": "Earnings momentum and AI demand remain supportive, while expectations are already elevated."
+    },
+    {
+      "source": "deterministic_demo_macro_risk",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "finding": "Higher-for-longer rates or liquidity stress would pressure long-duration growth equities."
+    }
+  ],
+  "portfolio_context": [
+    { "holding": "Apple", "weight": 18 },
+    { "holding": "Microsoft", "weight": 22 },
+    { "holding": "Amazon", "weight": 12 },
+    { "holding": "Nvidia", "weight": 4 },
+    { "holding": "Cash", "weight": 10 }
+  ],
+  "evidence_cards": [
+    {
+      "category": "Market Structure",
+      "status": "Supportive",
+      "confidence": 82,
+      "explanation": "Momentum remains constructive, but valuation leaves less room for error."
+    },
+    {
+      "category": "Earnings",
+      "status": "Supportive",
+      "confidence": 86,
+      "explanation": "AI infrastructure demand and data center revisions remain the key upside driver."
+    },
+    {
+      "category": "Macro",
+      "status": "Watch",
+      "confidence": 74,
+      "explanation": "Rate shocks can compress long-duration growth multiples even if fundamentals hold."
+    },
+    {
+      "category": "Portfolio Risk",
+      "status": "Constrained",
+      "confidence": 88,
+      "explanation": "A 4% NVDA weight can be increased only with staged sizing and drawdown controls."
+    }
+  ],
+  "investment_committee_memo": {
+    "title": "Investment Committee Memo",
+    "company": "NVIDIA",
+    "investment_question": "Should our fund increase exposure to Nvidia over the next 3-6 months?",
+    "supporting_specialist_agents": [
+      "Market Analyst Agent",
+      "News & Earnings Agent",
+      "Macro Risk Agent",
+      "Portfolio Risk Agent"
+    ],
+    "recommendation": "HOLD",
+    "confidence_score": 72,
+    "executive_summary": "Maintain current exposure while monitoring earnings revisions, valuation discipline, macro rate sensitivity, and portfolio concentration. Consider staged increases only if the fund remains underweight and downside controls are explicit.",
+    "bull_case": "AI accelerator demand compounds, hyperscaler capex remains resilient, and NVDA earnings revisions outpace valuation risk.",
+    "base_case": "Fundamentals remain strong, but valuation limits near-term reward-to-risk. Keep exposure and reassess after earnings and macro confirmation.",
+    "bear_case": "Multiple compression, export controls, capex digestion, or a rate shock trigger a material drawdown.",
+    "key_risks": [
+      "Valuation compression",
+      "Portfolio concentration",
+      "Rate shock",
+      "Export controls",
+      "Earnings revision downgrade"
+    ],
+    "portfolio_considerations": "The demo portfolio has NVDA at 4%. A staged increase is only appropriate if mandate limits allow more single-name AI exposure and drawdown triggers are pre-agreed.",
+    "what_would_change_view": [
+      "Forward earnings revisions accelerate without multiple expansion",
+      "Portfolio NVDA weight moves above mandate cap",
+      "Two consecutive data center growth disappointments"
+    ],
+    "disclaimer": "Not financial advice. Research support only. Human approval is required before allocation decisions."
+  },
+  "bull_case": "AI accelerator demand continues to exceed supply, hyperscaler capex remains resilient, and earnings revisions rise faster than valuation risk.",
+  "base_case": "Maintain exposure while waiting for better reward-to-risk. Incremental buys require disciplined position sizing and confirmation from earnings revisions.",
+  "bear_case": "Multiple compression, supply-chain bottlenecks, export restrictions, or a capex digestion cycle could make increased exposure unattractive.",
+  "risk_factors": [
+    "High index and portfolio concentration in mega-cap AI names",
+    "Valuation sensitivity to rates and growth expectations",
+    "Potential 25-40% drawdown scenario if earnings revisions stall",
+    "Geopolitical and export-control risk"
+  ],
+  "recommendation": "HOLD",
+  "confidence_score": 72,
+  "what_would_change_view": [
+    "Upgrade toward BUY if the fund is underweight NVDA and forward earnings revisions accelerate without valuation expansion.",
+    "Downgrade toward REDUCE if portfolio concentration breaches mandate limits or AI capex guidance weakens."
+  ],
+  "verification": {
+    "status": "PASS",
+    "score": 100,
+    "decision": "Release escrow",
+    "checks": [
+      "PASS: Report answered the research request",
+      "PASS: Investment committee memo present",
+      "PASS: Executive summary present",
+      "PASS: Key evidence present",
+      "PASS: Evidence cards present",
+      "PASS: Bull/base/bear cases present",
+      "PASS: Risk factors present",
+      "PASS: Recommendation and confidence present",
+      "PASS: Not financial advice disclaimer present",
+      "PASS: No trading action executed"
+    ]
+  },
+  "disclaimer": "Not financial advice. Research support only. Human approval is required before any allocation decision."
+}

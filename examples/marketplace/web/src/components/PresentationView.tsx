@@ -13,8 +13,9 @@ const SELLERS = [
 const STEP_LABEL: Record<RoundStatus, string> = {
   bidding: 'Agents are bidding',
   awarded: 'Buyer selected best value',
-  deposited: 'Escrow is locked',
+  deposited: 'Escrow deposited',
   delivered: 'Research delivered',
+  verified: 'Verification passed',
   settled: 'Seller paid on-chain',
   refunded: 'Escrow refunded',
 }
@@ -43,7 +44,7 @@ export function PresentationView({ rounds, connected }: { rounds: Round[]; conne
 
       <section className="present-question">
         <span>Research request</span>
-        <strong>Should our fund increase exposure to Nvidia over the next 6 months?</strong>
+        <strong>Should our fund increase exposure to Nvidia over the next 3-6 months?</strong>
       </section>
 
       <section className="present-grid">
@@ -56,7 +57,7 @@ export function PresentationView({ rounds, connected }: { rounds: Round[]; conne
                 <strong>{STEP_LABEL[round.status]}</strong>
               </div>
               <ol className="present-steps">
-                {['WANT', 'BID', 'AWARD', 'ESCROW', 'DELIVERED', 'RELEASED'].map((step) => (
+                {['WANT', 'BID', 'AWARD', 'DEPOSITED', 'DELIVERED', 'VERIFIED', 'RELEASED'].map((step) => (
                   <li key={step} className={stepClass(step, round)}>{step}</li>
                 ))}
               </ol>
@@ -125,8 +126,9 @@ function stepClass(step: string, round: Round): string {
     WANT: Boolean(round.want),
     BID: round.bids.length > 0,
     AWARD: Boolean(round.award),
-    ESCROW: Boolean(round.deposit),
+    DEPOSITED: Boolean(round.deposit),
     DELIVERED: Boolean(round.delivered),
+    VERIFIED: Boolean(round.verified),
     RELEASED: Boolean(round.release),
   }[step]
   return reached ? 'present-step-on' : ''

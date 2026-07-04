@@ -5,6 +5,7 @@ const LABEL: Record<RoundStatus, string> = {
   awarded: 'awarded',
   deposited: 'in escrow',
   delivered: 'delivered',
+  verified: 'verified',
   settled: 'settled',
   refunded: 'refunded',
 }
