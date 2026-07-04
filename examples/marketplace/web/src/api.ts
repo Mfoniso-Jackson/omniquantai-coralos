@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Feed } from './types'
 
-const FEED_URL = import.meta.env.VITE_FEED_URL ?? 'http://localhost:4000'
+const FEED_URL = import.meta.env.VITE_FEED_URL ?? ''
 
 /** Ask the feed server to launch a market session; returns its id. (Fund wallets first.) */
 export async function startMarket(): Promise<string> {
