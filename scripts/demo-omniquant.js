@@ -32,6 +32,12 @@ function run(label, cmd, args, opts = {}) {
   }
 }
 
+function runOptional(label, cmd, args, opts = {}) {
+  console.log(`\n[demo] ${label}`)
+  const res = spawnSync(cmd, args, { cwd: root, shell: true, stdio: 'inherit', ...opts })
+  return res.status === 0
+}
+
 function start(label, cmd, args, cwd = root) {
   console.log(`\n[demo] starting ${label}`)
   const child = spawn(cmd, args, { cwd, shell: true, stdio: 'inherit' })
@@ -116,6 +122,9 @@ function printWalletHint() {
 }
 
 async function main() {
+  run('bootstrap environment', 'bash', ['scripts/bootstrap.sh'])
+  run('health check', 'bash', ['scripts/healthcheck.sh'])
+
   if (!packageManager) {
     console.error('[demo] npm or pnpm is required. Install Node 20+ from nodejs.org, then re-run.')
     process.exit(1)
@@ -152,11 +161,23 @@ async function main() {
   const started = await postJson('http://localhost:4000/api/start', 'market start')
   const session = started.session
   const url = `http://localhost:5173/?session=${encodeURIComponent(session)}&presentation=1`
+  const apiUrl = 'http://localhost:4000'
+  const explorerUrl = 'https://explorer.solana.com/?cluster=devnet'
 
-  console.log('\n[demo] Ready for recording')
-  console.log(`  Presentation URL: ${url}`)
-  console.log('  Watch for Solana Explorer links in the settlement badges.')
-  console.log('  Press Ctrl+C here when you are done recording.\n')
+  console.log('\nOmniQuantAI')
+  console.log('Financial Intelligence Network')
+  console.log('System Ready')
+  console.log(`Frontend URL: ${url}`)
+  console.log(`API URL: ${apiUrl}`)
+  console.log(`Explorer URL: ${explorerUrl}`)
+  console.log('Agent status: buyer + four seller specialists launched through CoralOS')
+  console.log('Settlement: watch the dashboard badges for deposit/release Explorer links')
+  console.log('\nPress Ctrl+C here when you are done recording.\n')
+
+  if (process.env.CODESPACES !== 'true' && process.env.NO_OPEN !== '1') {
+    if (process.platform === 'darwin') runOptional('open browser', 'open', [url])
+    else if (process.platform === 'linux') runOptional('open browser', 'xdg-open', [url])
+  }
 
   await new Promise(() => {})
 }

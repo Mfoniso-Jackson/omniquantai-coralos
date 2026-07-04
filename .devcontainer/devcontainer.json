@@ -1,0 +1,46 @@
+{
+  "name": "OmniQuantAI CoralOS",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true,
+      "dockerDashComposeVersion": "v2"
+    },
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "stable"
+    }
+  },
+  "postCreateCommand": "bash scripts/bootstrap.sh",
+  "forwardPorts": [4000, 5173, 5555],
+  "portsAttributes": {
+    "4000": {
+      "label": "OmniQuantAI API",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "OmniQuantAI Dashboard",
+      "onAutoForward": "openPreview"
+    },
+    "5555": {
+      "label": "CoralOS Server",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker",
+        "github.copilot",
+        "rust-lang.rust-analyzer"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}
