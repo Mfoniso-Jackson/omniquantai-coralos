@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Feed } from './types'
+import type { Feed, FeedDiagnostics } from './types'
 
 const FEED_URL = import.meta.env.VITE_FEED_URL ?? ''
 
@@ -15,6 +15,8 @@ export interface FeedState {
   rounds: Feed['rounds']
   connected: boolean
   error?: string
+  diagnostics?: FeedDiagnostics
+  updatedAt?: string
 }
 
 /**
@@ -34,11 +36,22 @@ export function useFeed(session: string, intervalMs = 1000): FeedState {
     const tick = async () => {
       try {
         const r = await fetch(`${FEED_URL}/api/feed?session=${encodeURIComponent(session)}`)
-        if (!r.ok) throw new Error(`feed ${r.status}`)
-        const feed = (await r.json()) as Feed
-        if (!stop.current) setState({ rounds: feed.rounds ?? [], connected: true })
+        const feed = (await r.json().catch(() => ({}))) as Feed
+        if (!r.ok) {
+          const detail = feed.error ?? feed.diagnostics?.buyerStatus ?? `feed ${r.status}`
+          throw new Error(detail)
+        }
+        if (!stop.current) {
+          setState({
+            rounds: feed.rounds ?? [],
+            connected: true,
+            error: feed.error,
+            diagnostics: feed.diagnostics,
+            updatedAt: feed.updatedAt,
+          })
+        }
       } catch (e) {
-        if (!stop.current) setState((s) => ({ ...s, connected: false, error: (e as Error).message }))
+        if (!stop.current) setState((s) => ({ ...s, connected: false, error: friendlyError(e) }))
       }
     }
     void tick()
@@ -47,4 +60,14 @@ export function useFeed(session: string, intervalMs = 1000): FeedState {
   }, [session, intervalMs])
 
   return state
+}
+
+function friendlyError(error: unknown): string {
+  const message = (error as Error).message || 'Unknown feed error'
+  if (/Failed to fetch|NetworkError|Load failed/i.test(message)) {
+    return 'API unreachable. In Codespaces, open the forwarded port 5173 URL and make sure the feed server is running on port 4000.'
+  }
+  if (/coral/i.test(message)) return `CoralOS unreachable or session not readable: ${message}`
+  if (/no session/i.test(message)) return 'No session selected. Start a market or open the generated presentation URL.'
+  return message
 }

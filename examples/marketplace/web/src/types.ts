@@ -28,6 +28,18 @@ export interface Feed {
   session: string
   rounds: Round[]
   updatedAt: string
+  error?: string
+  diagnostics?: FeedDiagnostics
+}
+
+export interface FeedDiagnostics {
+  api: string
+  coral: string
+  messageCount: number
+  lastEvent: string
+  buyerStatus: string
+  sellerBidCount: number
+  escrowStatus: string
 }
 
 export const explorerTx = (sig: string) => `https://explorer.solana.com/tx/${sig}?cluster=devnet`

@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { foldRounds } from './foldRounds.js'
 import { collectMessages } from './coralState.js'
+import type { RawMessage, Round } from './foldRounds.js'
 
 const MARKET_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..') // examples/marketplace
 
@@ -51,7 +52,12 @@ app.use((_req, res, next) => {
 
 app.use(express.json())
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }))
+app.get('/api/health', (_req, res) => res.json({
+  ok: true,
+  coral: BASE,
+  defaultSession: DEFAULT_SESSION || undefined,
+  fixture: FIXTURE || undefined,
+}))
 
 /** Operator trigger: launch a market session (runs the marketplace launcher) and return its id. */
 app.post('/api/start', (_req, res) => {
@@ -62,7 +68,10 @@ app.post('/api/start', (_req, res) => {
   const onData = (d: Buffer) => {
     buf += d.toString()
     const m = buf.match(/(?:OmniQuantAI\s+)?market session ([a-f0-9-]+)/i)
-    if (m) reply(200, { session: m[1] })
+    if (m) {
+      console.error(`[feed] launched market session ${m[1]}`)
+      reply(200, { session: m[1] })
+    }
   }
   child.stdout.on('data', onData)
   child.stderr.on('data', onData)
@@ -72,13 +81,69 @@ app.post('/api/start', (_req, res) => {
 
 app.get('/api/feed', async (req, res) => {
   const session = FIXTURE ? 'fixture' : ((req.query.session as string) || DEFAULT_SESSION)
-  if (!FIXTURE && !session) return res.status(400).json({ error: 'no session — pass ?session=<id> or set SESSION' })
+  if (!FIXTURE && !session) {
+    return res.json({
+      session: '',
+      rounds: [],
+      updatedAt: new Date().toISOString(),
+      diagnostics: {
+        api: 'ok',
+        coral: 'not_checked',
+        messageCount: 0,
+        lastEvent: 'No session supplied',
+        buyerStatus: 'No session. Pass ?session=<id> or set SESSION.',
+        sellerBidCount: 0,
+        escrowStatus: 'No session',
+      },
+    })
+  }
   try {
-    const rounds = foldRounds(collectMessages(await readState(session)), SELLERS)
-    res.json({ session, rounds, updatedAt: new Date().toISOString() })
+    const messages = collectMessages(await readState(session))
+    const rounds = foldRounds(messages, SELLERS)
+    res.json({ session, rounds, updatedAt: new Date().toISOString(), diagnostics: diagnostics(messages, rounds) })
   } catch (e) {
-    res.status(502).json({ error: `feed failed: ${(e as Error).message}` })
+    res.status(502).json({
+      session,
+      rounds: [],
+      updatedAt: new Date().toISOString(),
+      error: `feed failed: ${(e as Error).message}`,
+      diagnostics: {
+        api: 'ok',
+        coral: 'unreachable',
+        messageCount: 0,
+        lastEvent: (e as Error).message,
+        buyerStatus: 'CoralOS extended state could not be read for this session.',
+        sellerBidCount: 0,
+        escrowStatus: 'Unknown',
+      },
+    })
   }
 })
 
 app.listen(PORT, () => console.error(`[feed] http://localhost:${PORT}/api/feed  (${FIXTURE ? `fixture=${FIXTURE}` : `coral=${BASE}`})`))
+
+function diagnostics(messages: RawMessage[], rounds: Round[]) {
+  const latest = [...rounds].sort((a, b) => b.round - a.round)[0]
+  const last = messages.at(-1)
+  const sellerBidCount = latest ? new Set(latest.bids.map((b) => b.by)).size : 0
+  const escrowStatus =
+    latest?.release ? 'Released'
+      : latest?.refunded ? 'Refunded'
+        : latest?.deposit ? 'Deposited'
+          : latest?.escrow ? 'Escrow requested'
+            : latest?.award ? 'Awaiting deposit'
+              : 'Not started'
+  const buyerStatus =
+    latest?.want ? `WANT broadcast for ${latest.want.service}:${latest.want.arg}`
+      : messages.length ? 'Messages exist, but no buyer WANT has been parsed yet.'
+        : 'No CoralOS thread messages yet. Buyer may still be starting.'
+  return {
+    api: 'ok',
+    coral: 'ok',
+    messageCount: messages.length,
+    lastEvent: last ? `${last.sender}: ${last.text.slice(0, 160)}` : 'No events for this session yet',
+    buyerStatus,
+    sellerBidCount,
+    escrowStatus,
+  }
+}
