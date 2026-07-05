@@ -1,4 +1,5 @@
-import type { Round, RoundStatus } from '../types'
+import type { UiError } from '../api'
+import type { FeedDiagnostics, Round, RoundStatus } from '../types'
 import { explorerTx } from '../types'
 import { IntelligencePanel } from './IntelligencePanel'
 import { StatusPill } from './StatusPill'
@@ -24,7 +25,23 @@ function latestRound(rounds: Round[]): Round | undefined {
   return [...rounds].sort((a, b) => b.round - a.round)[0]
 }
 
-export function PresentationView({ rounds, connected }: { rounds: Round[]; connected: boolean }) {
+export function PresentationView({
+  rounds,
+  connected,
+  session,
+  diagnostics,
+  error,
+  updatedAt,
+  onExitPresentation,
+}: {
+  rounds: Round[]
+  connected: boolean
+  session: string
+  diagnostics?: FeedDiagnostics
+  error?: UiError
+  updatedAt?: string
+  onExitPresentation?: () => void
+}) {
   const round = latestRound(rounds)
   const report = round?.delivered?.data as { service?: string } | undefined
   const isOmniQuant = report?.service === 'omniquant-financial-intelligence'
@@ -41,6 +58,39 @@ export function PresentationView({ rounds, connected }: { rounds: Round[]; conne
           {connected ? 'Live feed connected' : 'Waiting for feed'}
         </div>
       </section>
+
+      {!round && (
+        <section className="present-panel present-diagnostics">
+          <div>
+            <h2>Session Diagnostics</h2>
+            <p className="present-muted">
+              Session <strong>{shortId(session)}</strong> was created. The dashboard is polling the feed,
+              but no market round has been parsed yet.
+            </p>
+          </div>
+          {error ? (
+            <div className="present-error">
+              <strong>{error.title}</strong>
+              <span>{error.what}</span>
+              <em>{error.suggestedFix}</em>
+            </div>
+          ) : (
+            <dl className="present-debug-grid">
+              <div><dt>CoralOS</dt><dd>{diagnostics?.coral ?? 'checking'}</dd></div>
+              <div><dt>Events</dt><dd>{diagnostics?.messageCount ?? 0}</dd></div>
+              <div><dt>Buyer</dt><dd>{diagnostics?.buyerStatus ?? 'Waiting for buyer container to publish WANT'}</dd></div>
+              <div><dt>Last Event</dt><dd>{diagnostics?.lastEventType ?? 'NONE'}</dd></div>
+              <div><dt>Escrow</dt><dd>{diagnostics?.escrowStatus ?? 'Not started'}</dd></div>
+              <div><dt>Updated</dt><dd>{updatedAt ? new Date(updatedAt).toLocaleTimeString() : 'pending'}</dd></div>
+            </dl>
+          )}
+          {onExitPresentation && (
+            <button className="present-debug-button" onClick={onExitPresentation}>
+              Open Dashboard Diagnostics
+            </button>
+          )}
+        </section>
+      )}
 
       <section className="present-question">
         <span>Research request</span>
@@ -119,6 +169,10 @@ export function PresentationView({ rounds, connected }: { rounds: Round[]; conne
       )}
     </main>
   )
+}
+
+function shortId(value: string): string {
+  return value.length > 12 ? `${value.slice(0, 6)}...${value.slice(-4)}` : value
 }
 
 function stepClass(step: string, round: Round): string {

@@ -163,6 +163,21 @@ body { margin: 0; background: var(--bg); color: var(--txt); }
 .present-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
 .present-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
 .present-panel h2 { margin: 0 0 14px; font-size: 13px; color: var(--premium); text-transform: uppercase; letter-spacing: .08em; }
+.present-diagnostics { margin-bottom: 16px; display: grid; gap: 14px; border-color: rgba(103, 168, 255, .38); }
+.present-diagnostics .present-muted strong { color: var(--txt); }
+.present-debug-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.present-debug-grid div { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: rgba(5,7,11,.34); }
+.present-debug-grid dt { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.present-debug-grid dd { margin: 4px 0 0; color: var(--txt); font-size: 12px; overflow-wrap: anywhere; }
+.present-error { border: 1px solid rgba(255,107,122,.48); border-radius: 10px; padding: 12px; background: rgba(87, 26, 37, .2); display: grid; gap: 6px; }
+.present-error strong { color: var(--refund); }
+.present-error span { color: var(--txt); }
+.present-error em { color: var(--dim); font-style: normal; }
+.present-debug-button {
+  justify-self: start; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  background: rgba(103,168,255,.1); color: var(--txt); font: inherit; cursor: pointer;
+}
+.present-debug-button:hover { border-color: var(--link); color: var(--link); }
 .present-status { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .present-status .pill { margin-left: 0; }
 .present-steps { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding: 0; margin: 0; list-style: none; }
@@ -187,6 +202,7 @@ body { margin: 0; background: var(--bg); color: var(--txt); }
 @media (max-width: 760px) {
   .present-hero { flex-direction: column; min-height: 0; }
   .present-grid { grid-template-columns: 1fr; }
+  .present-debug-grid { grid-template-columns: 1fr; }
   .present-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .present-sellers { grid-template-columns: 1fr; }
   .data-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }

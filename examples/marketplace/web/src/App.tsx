@@ -35,7 +35,22 @@ export default function App() {
   }
 
   if (presentationMode && session) {
-    return <PresentationView rounds={rounds} connected={connected} />
+    return (
+      <PresentationView
+        rounds={rounds}
+        connected={connected}
+        session={session}
+        diagnostics={diagnostics}
+        error={error}
+        updatedAt={updatedAt}
+        onExitPresentation={() => {
+          const url = new URL(window.location.href)
+          url.searchParams.delete('presentation')
+          window.history.replaceState({}, '', url)
+          setPresentationMode(false)
+        }}
+      />
+    )
   }
 
   return (
