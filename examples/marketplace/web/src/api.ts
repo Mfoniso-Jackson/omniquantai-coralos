@@ -2,21 +2,35 @@ import { useEffect, useRef, useState } from 'react'
 import type { Feed, FeedDiagnostics } from './types'
 
 const FEED_URL = import.meta.env.VITE_FEED_URL ?? ''
+export const API_BASE_URL = FEED_URL || 'same-origin /api proxy'
+
+export interface UiError {
+  title: string
+  what: string
+  likelyCause: string
+  suggestedFix: string
+}
 
 /** Ask the feed server to launch a market session; returns its id. (Fund wallets first.) */
 export async function startMarket(): Promise<string> {
-  const r = await fetch(`${FEED_URL}/api/start`, { method: 'POST' })
-  const body = (await r.json()) as { session?: string; error?: string }
-  if (!r.ok || !body.session) throw new Error(body.error ?? `start failed (${r.status})`)
-  return body.session
+  try {
+    const r = await fetch(`${FEED_URL}/api/start`, { method: 'POST' })
+    const body = (await r.json().catch(() => ({}))) as { session?: string; error?: string; log?: string }
+    if (!r.ok || !body.session) throw new Error(body.error ?? `start failed (${r.status})`)
+    return body.session
+  } catch (error) {
+    throw friendlyError(error, 'start')
+  }
 }
 
 export interface FeedState {
   rounds: Feed['rounds']
   connected: boolean
-  error?: string
+  error?: UiError
   diagnostics?: FeedDiagnostics
   updatedAt?: string
+  polling: boolean
+  apiUrl: string
 }
 
 /**
@@ -24,13 +38,13 @@ export interface FeedState {
  * or an SSE endpoint when you outgrow polling. `intervalMs` defaults to 1s.
  */
 export function useFeed(session: string, intervalMs = 1000): FeedState {
-  const [state, setState] = useState<FeedState>({ rounds: [], connected: false })
+  const [state, setState] = useState<FeedState>({ rounds: [], connected: false, polling: false, apiUrl: API_BASE_URL })
   const stop = useRef(false)
 
   useEffect(() => {
     stop.current = false
     if (!session) {
-      setState({ rounds: [], connected: false, error: 'no session' })
+      setState({ rounds: [], connected: false, polling: false, apiUrl: API_BASE_URL })
       return
     }
     const tick = async () => {
@@ -48,13 +62,15 @@ export function useFeed(session: string, intervalMs = 1000): FeedState {
           setState({
             rounds: feed.rounds ?? [],
             connected: true,
-            error: feed.error,
+            error: feed.error ? friendlyError(new Error(feed.error), 'feed') : undefined,
             diagnostics: feed.diagnostics,
             updatedAt: feed.updatedAt,
+            polling: true,
+            apiUrl: API_BASE_URL,
           })
         }
       } catch (e) {
-        if (!stop.current) setState((s) => ({ ...s, connected: false, error: friendlyError(e) }))
+        if (!stop.current) setState((s) => ({ ...s, connected: false, polling: true, error: friendlyError(e, 'feed'), apiUrl: API_BASE_URL }))
       }
     }
     void tick()
@@ -65,12 +81,44 @@ export function useFeed(session: string, intervalMs = 1000): FeedState {
   return state
 }
 
-function friendlyError(error: unknown): string {
+export function friendlyError(error: unknown, phase: 'start' | 'feed'): UiError {
   const message = (error as Error).message || 'Unknown feed error'
   if (/Failed to fetch|NetworkError|Load failed/i.test(message)) {
-    return 'API unreachable. In Codespaces, open the forwarded port 5173 URL and make sure the feed server is running on port 4000.'
+    return {
+      title: 'API unavailable',
+      what: phase === 'start' ? 'The dashboard could not reach the market launcher.' : 'The dashboard could not reach the marketplace feed.',
+      likelyCause: 'The feed server on port 4000 is not running or the Codespaces forwarded URL is not using the Vite proxy.',
+      suggestedFix: 'Run the judge/demo command again, confirm port 4000 is active, then retry Start Market.',
+    }
   }
-  if (/coral/i.test(message)) return `CoralOS unreachable or session not readable: ${message}`
-  if (/no session/i.test(message)) return 'No session selected. Start a market or open the generated presentation URL.'
-  return message
+  if (/coral/i.test(message)) {
+    return {
+      title: 'CoralOS unavailable',
+      what: 'The feed server is up, but it could not read the CoralOS session thread.',
+      likelyCause: message,
+      suggestedFix: 'Confirm the CoralOS container is healthy on port 5555, then retry the market.',
+    }
+  }
+  if (/wallet|fund/i.test(message)) {
+    return {
+      title: 'Wallet not funded',
+      what: 'The market launcher could not complete because the devnet wallet needs SOL.',
+      likelyCause: message,
+      suggestedFix: 'Fund the buyer wallet from the Solana devnet faucet, then retry Start Market.',
+    }
+  }
+  if (/timed out|launcher/i.test(message)) {
+    return {
+      title: 'Market launch timed out',
+      what: 'The session did not finish launching within the expected window.',
+      likelyCause: message,
+      suggestedFix: 'Check the terminal logs for buyer/seller startup, then retry Start Market.',
+    }
+  }
+  return {
+    title: phase === 'start' ? 'Market could not start' : 'Feed error',
+    what: message,
+    likelyCause: 'The demo runtime returned an unexpected response.',
+    suggestedFix: 'Retry once. If it repeats, inspect Debug Status and the feed server logs.',
+  }
 }

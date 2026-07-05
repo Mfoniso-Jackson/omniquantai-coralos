@@ -3,7 +3,7 @@ interface IntelligenceReport {
   request_understood?: string
   portfolio_context?: { holding: string; weight: number }[]
   evidence_cards?: { category: string; status: string; confidence: number; explanation: string }[]
-  key_evidence?: string[]
+  key_evidence?: Array<string | { source?: string; timestamp?: string; finding?: string }>
   bullish_points?: string[]
   bearish_points?: string[]
   risks?: string[]
@@ -62,8 +62,12 @@ interface IntelligenceReport {
   }
 }
 
-const list = (items: string[] | undefined) => (
-  <ul>{(items ?? []).map((item) => <li key={item}>{item}</li>)}</ul>
+const list = (items: Array<string | { source?: string; timestamp?: string; finding?: string }> | undefined) => (
+  <ul>
+    {(items ?? []).map((item, index) => (
+      <li key={`${renderItem(item)}-${index}`}>{renderItem(item)}</li>
+    ))}
+  </ul>
 )
 
 export function IntelligencePanel({ report }: { report: IntelligenceReport }) {
@@ -216,4 +220,11 @@ function formatTime(value: string | undefined): string {
   if (!value) return 'unknown time'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+}
+
+function renderItem(item: string | { source?: string; timestamp?: string; finding?: string }): string {
+  if (typeof item === 'string') return item
+  const prefix = item.source ? `${item.source}: ` : ''
+  const suffix = item.timestamp ? ` (${formatTime(item.timestamp)})` : ''
+  return `${prefix}${item.finding ?? 'Evidence item'}${suffix}`
 }
