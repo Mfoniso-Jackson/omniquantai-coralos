@@ -36,6 +36,7 @@ export interface FeedDiagnostics {
   api: string
   coral: string
   messageCount: number
+  lastEventType: string
   lastEvent: string
   buyerStatus: string
   sellerBidCount: number

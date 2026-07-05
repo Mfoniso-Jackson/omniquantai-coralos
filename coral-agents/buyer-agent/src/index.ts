@@ -172,12 +172,13 @@ async function waitFor<T>(
 await startCoralAgent({ agentName: process.env.AGENT_NAME ?? 'buyer-agent' }, async (ctx) => {
   const buyer = loadKeypairB58('BUYER_KEYPAIR_B58')
   const arbiter = SETTLEMENT_MODE === 'arbiter' ? loadKeypairB58('ARBITER_KEYPAIR_B58') : null
-  console.error(`[buyer] market buyer - wallet=${buyer.publicKey.toBase58()} budget=${BUDGET} sellers=[${SELLERS.join(',')}]`)
+  console.error(`[buyer] market buyer - session=${process.env.SESSION_ID ?? 'coral-injected'} wallet=${buyer.publicKey.toBase58()} budget=${BUDGET} sellers=[${SELLERS.join(',')}]`)
 
   for (const s of SELLERS) {
     try { await ctx.waitForAgent(s, 8000) } catch { /* seller may already be present */ }
   }
   const thread = await ctx.createThread('market', SELLERS)
+  console.error(`[buyer] session=${process.env.SESSION_ID ?? 'coral-injected'} thread=${thread} created participants=[${SELLERS.join(',')}]`)
   const program = await makeProgram(buyer, RPC)
   if (arbiter) {
     await ensureArbiterConfig(buyer, arbiter.publicKey, RPC)
@@ -189,7 +190,7 @@ await startCoralAgent({ agentName: process.env.AGENT_NAME ?? 'buyer-agent' }, as
     try {
       round++
       const arg = ARGS[(round - 1) % ARGS.length] // rotate fixtures so consecutive rounds differ
-      if (trace) console.error(`[buyer] round ${round}: WANT ${SERVICE} ${arg} budget=${BUDGET}`)
+      console.error(`[buyer] session=${process.env.SESSION_ID ?? 'coral-injected'} thread=${thread} round=${round}: WANT ${SERVICE} ${arg} budget=${BUDGET}`)
       await ctx.send(formatWant({ round, service: SERVICE, arg, budgetSol: BUDGET }), thread, SELLERS)
 
       // -- collect competing bids during the window --------------------------
@@ -202,6 +203,7 @@ await startCoralAgent({ agentName: process.env.AGENT_NAME ?? 'buyer-agent' }, as
         if (b && b.round === round) bids.push(b)
       }
       const pool = selectBids(bids, round)
+      console.error(`[buyer] session=${process.env.SESSION_ID ?? 'coral-injected'} round=${round}: bids_received=${pool.length}`)
       if (pool.length === 0) { console.error(`[buyer] round ${round}: NO_SELLERS`); await sleep(CYCLE_MS); continue }
 
       // -- award the best value ----------------------------------------------

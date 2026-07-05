@@ -91,6 +91,7 @@ app.get('/api/feed', async (req, res) => {
         api: 'ok',
         coral: 'not_checked',
         messageCount: 0,
+        lastEventType: 'NONE',
         lastEvent: 'No session supplied',
         buyerStatus: 'No session. Pass ?session=<id> or set SESSION.',
         sellerBidCount: 0,
@@ -101,10 +102,12 @@ app.get('/api/feed', async (req, res) => {
   try {
     const messages = collectMessages(await readState(session))
     const rounds = foldRounds(messages, SELLERS)
+    const diag = diagnostics(messages, rounds)
+    console.error(`[feed] session=${session} messages=${diag.messageCount} rounds=${rounds.length} last_event_type=${diag.lastEventType} seller_bids=${diag.sellerBidCount} escrow=${diag.escrowStatus}`)
     void persistMarketplaceData({ sessionId: session, rounds }).catch((error) => {
       console.error(`[feed] persistence failed for session ${session}: ${(error as Error).message}`)
     })
-    res.json({ session, rounds, updatedAt: new Date().toISOString(), diagnostics: diagnostics(messages, rounds) })
+    res.json({ session, rounds, updatedAt: new Date().toISOString(), diagnostics: diag })
   } catch (e) {
     res.status(502).json({
       session,
@@ -115,6 +118,7 @@ app.get('/api/feed', async (req, res) => {
         api: 'ok',
         coral: 'unreachable',
         messageCount: 0,
+        lastEventType: 'ERROR',
         lastEvent: (e as Error).message,
         buyerStatus: 'CoralOS extended state could not be read for this session.',
         sellerBidCount: 0,
@@ -145,9 +149,14 @@ function diagnostics(messages: RawMessage[], rounds: Round[]) {
     api: 'ok',
     coral: 'ok',
     messageCount: messages.length,
+    lastEventType: last ? lastEventType(last.text) : 'NONE',
     lastEvent: last ? `${last.sender}: ${last.text.slice(0, 160)}` : 'No events for this session yet',
     buyerStatus,
     sellerBidCount,
     escrowStatus,
   }
+}
+
+function lastEventType(text: string): string {
+  return text.trim().match(/^([A-Z_]+)/)?.[1] ?? 'UNKNOWN'
 }

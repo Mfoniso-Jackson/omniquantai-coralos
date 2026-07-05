@@ -97,6 +97,7 @@ function DebugPanel({
         <dt>Sellers</dt><dd>{sellerCount} bid(s) received</dd>
         <dt>Escrow</dt><dd>{diagnostics?.escrowStatus ?? latest?.status ?? 'not started'}</dd>
         <dt>Events</dt><dd>{diagnostics?.messageCount ?? 0}</dd>
+        <dt>Last type</dt><dd>{diagnostics?.lastEventType ?? 'none'}</dd>
         <dt>Last event</dt><dd>{diagnostics?.lastEvent ?? error ?? 'none'}</dd>
         <dt>Updated</dt><dd>{updatedAt ?? 'never'}</dd>
       </dl>

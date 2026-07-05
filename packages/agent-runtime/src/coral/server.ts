@@ -59,6 +59,7 @@ export async function startCoralAgent(
 
   const agentName = config.agentName ?? process.env.AGENT_NAME ?? 'ts-agent'
   console.error(`[${agentName}] connecting to ${url}`)
+  console.error(`[${agentName}] session_hint=${process.env.SESSION_ID ?? sessionHint(url)}`)
 
   const agent = new CoralMcpAgent({
     connectionUrl: url,
@@ -103,4 +104,9 @@ export async function startCoralAgent(
   process.on('SIGTERM', shutdown)
 
   await run(ctx)
+}
+
+function sessionHint(url: string): string {
+  const match = url.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
+  return match?.[0] ?? 'unknown'
 }

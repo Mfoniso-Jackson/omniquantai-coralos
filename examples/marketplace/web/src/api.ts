@@ -42,6 +42,9 @@ export function useFeed(session: string, intervalMs = 1000): FeedState {
           throw new Error(detail)
         }
         if (!stop.current) {
+          if (feed.diagnostics) {
+            console.debug(`[market-feed] session=${feed.session} events=${feed.diagnostics.messageCount} last=${feed.diagnostics.lastEventType} rounds=${feed.rounds?.length ?? 0}`)
+          }
           setState({
             rounds: feed.rounds ?? [],
             connected: true,

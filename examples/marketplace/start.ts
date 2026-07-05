@@ -153,6 +153,7 @@ async function main() {
 
   const lineup = brokerReady ? `broker (reselling ${sellers.join(', ')})` : sellers.join(', ')
   console.log(`\n✅ OmniQuantAI market session ${sessionId} — buyer + ${lineup}.`)
+  console.log(`   session id: ${sessionId}`)
   console.log(`   receive wallet: ${wallet}`)
   console.log('   The buyer requests NVDA financial intelligence; sellers bid; the winner settles via escrow.\n')
   console.log('   Watch the market:')

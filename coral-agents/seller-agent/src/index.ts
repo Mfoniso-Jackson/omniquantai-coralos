@@ -38,7 +38,7 @@ function boundReference(order: Quote & { round: number }): string {
 }
 
 await startCoralAgent({ agentName: NAME }, async (ctx) => {
-  console.error(`[${NAME}] ready: services=[${cfg.services.join(',')}] floor=${cfg.floorSol} settlement=${SETTLEMENT_MODE} wallet=${SELLER_WALLET}`)
+  console.error(`[${NAME}] ready: session=${process.env.SESSION_ID ?? 'coral-injected'} services=[${cfg.services.join(',')}] floor=${cfg.floorSol} settlement=${SETTLEMENT_MODE} wallet=${SELLER_WALLET}`)
 
   while (true) {
     try {
@@ -49,9 +49,11 @@ await startCoralAgent({ agentName: NAME }, async (ctx) => {
 
       const want = parseWant(text)
       if (want) {
+        console.error(`[${NAME}] session=${process.env.SESSION_ID ?? 'coral-injected'} round=${want.round}: WANT received service=${want.service} arg=${want.arg}`)
         const decision = await decideBid(want, cfg)
         if (decision.bid) {
           quoted.set(want.round, { service: want.service, arg: want.arg, priceSol: decision.priceSol })
+          console.error(`[${NAME}] session=${process.env.SESSION_ID ?? 'coral-injected'} round=${want.round}: BID price=${decision.priceSol} confidence=${cfg.confidence} delivery=${cfg.speedSeconds}s`)
           await ctx.reply(mention, formatBid({
             round: want.round,
             priceSol: decision.priceSol,
@@ -69,6 +71,7 @@ await startCoralAgent({ agentName: NAME }, async (ctx) => {
         const quote = quoted.get(award.round)
         if (award.to !== NAME || !quote) continue
         const reference = boundReference({ round: award.round, ...quote })
+        console.error(`[${NAME}] session=${process.env.SESSION_ID ?? 'coral-injected'} round=${award.round}: AWARD received reference=${reference}`)
         awarded.set(reference, { round: award.round, ...quote })
         quoted.delete(award.round)
         await ctx.reply(mention, formatEscrowRequired({
@@ -105,6 +108,7 @@ await startCoralAgent({ agentName: NAME }, async (ctx) => {
           awarded.delete(deposited.reference)
           if (trace) console.error(`[${NAME}] escrow funded via ${deposited.settlement ?? 'direct'} -> delivering round ${deposited.round}`)
           const result = await deliverService(`${order.service} ${order.arg}`.trim())
+          console.error(`[${NAME}] session=${process.env.SESSION_ID ?? 'coral-injected'} round=${deposited.round}: DELIVERED service=${order.service}`)
           await ctx.reply(mention, `DELIVERED round=${deposited.round} ${result}`)
         } catch (e) {
           await ctx.reply(mention, `ERROR: settlement failed - ${(e as Error).message}`)
