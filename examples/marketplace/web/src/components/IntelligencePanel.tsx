@@ -19,6 +19,7 @@ interface IntelligenceReport {
     base_case?: string
     bear_case?: string
     risk_factors?: string[]
+    confidence_caveat?: string
     human_approval_reminder?: string
   }
   investment_committee_memo?: {
@@ -28,6 +29,20 @@ interface IntelligenceReport {
     supporting_specialist_agents?: string[]
     recommendation?: string
     confidence_score?: number
+    data_badge?: 'Live data' | 'Demo fallback data'
+    latest_price?: {
+      symbol?: string
+      price?: number
+      currency?: string
+      daily_change_percent?: number
+      weekly_change_percent?: number
+      timestamp?: string
+      source?: string
+    }
+    recent_headlines?: { title: string; source: string; url?: string; timestamp: string }[]
+    data_sources?: { label: string; mode: string; timestamp: string }[]
+    data_timestamp?: string
+    confidence_caveat?: string
     executive_summary?: string
     bull_case?: string
     base_case?: string
@@ -45,9 +60,13 @@ const list = (items: string[] | undefined) => (
 
 export function IntelligencePanel({ report }: { report: IntelligenceReport }) {
   const memo = report.investment_committee_memo
+  const badge = memo?.data_badge
   return (
     <div className="intel-panel" data-testid="intel-report">
-      <div className="intel-head">{memo?.title ?? 'Financial Intelligence Delivered'} · {report.agent_name}</div>
+      <div className="intel-head">
+        <span>{memo?.title ?? 'Financial Intelligence Delivered'} · {report.agent_name}</span>
+        {badge && <em className={badge === 'Live data' ? 'data-live' : 'data-demo'}>{badge}</em>}
+      </div>
       {memo && (
         <section className="memo-hero">
           <div>
@@ -62,6 +81,37 @@ export function IntelligencePanel({ report }: { report: IntelligenceReport }) {
             <span>Confidence</span>
             <strong>{memo.confidence_score}/100</strong>
           </div>
+        </section>
+      )}
+      {memo?.latest_price && (
+        <section className="data-strip">
+          <div>
+            <span>Latest Price</span>
+            <strong>{memo.latest_price.currency ?? 'USD'} {formatNumber(memo.latest_price.price)}</strong>
+          </div>
+          <div>
+            <span>Daily</span>
+            <strong>{formatPct(memo.latest_price.daily_change_percent)}</strong>
+          </div>
+          <div>
+            <span>Weekly</span>
+            <strong>{formatPct(memo.latest_price.weekly_change_percent)}</strong>
+          </div>
+          <div>
+            <span>Source</span>
+            <strong>{memo.latest_price.source ?? 'unknown'}</strong>
+          </div>
+        </section>
+      )}
+      {memo?.recent_headlines && (
+        <section className="headline-list">
+          <h3>Recent Headlines</h3>
+          {memo.recent_headlines.map((headline) => (
+            <p key={`${headline.title}-${headline.timestamp}`}>
+              {headline.url ? <a href={headline.url} target="_blank" rel="noreferrer">{headline.title}</a> : headline.title}
+              <span>{headline.source} · {formatTime(headline.timestamp)}</span>
+            </p>
+          ))}
         </section>
       )}
       <p>{memo?.executive_summary ?? report.final_synthesis?.executive_summary ?? report.recommendation_contribution}</p>
@@ -124,7 +174,27 @@ export function IntelligencePanel({ report }: { report: IntelligenceReport }) {
         confidence {memo?.confidence_score ?? report.final_synthesis?.confidence_score ?? report.confidence_score}/100
       </p>
       <p className="intel-note">{report.final_synthesis?.human_approval_reminder}</p>
+      <p className="intel-note">{memo?.confidence_caveat ?? report.final_synthesis?.confidence_caveat}</p>
+      {memo?.data_sources && (
+        <p className="intel-note">
+          <strong>Data sources:</strong> {memo.data_sources.map((source) => `${source.label} (${source.mode}, ${formatTime(source.timestamp)})`).join('; ')}
+        </p>
+      )}
       <p className="intel-note">{memo?.disclaimer ?? report.disclaimer}</p>
     </div>
   )
+}
+
+function formatNumber(value: number | undefined): string {
+  return typeof value === 'number' ? value.toFixed(2) : 'unavailable'
+}
+
+function formatPct(value: number | undefined): string {
+  return typeof value === 'number' ? `${value.toFixed(2)}%` : 'unavailable'
+}
+
+function formatTime(value: string | undefined): string {
+  if (!value) return 'unknown time'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
 }

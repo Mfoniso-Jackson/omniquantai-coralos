@@ -6,6 +6,10 @@
  * uses the `omniquant` service.
  */
 import { complete, parseJsonReply } from '@pay/agent-runtime'
+import { getMarketPrice } from './providers/marketDataProvider.js'
+import { getNewsHeadlines } from './providers/newsProvider.js'
+import { getFundamentals } from './providers/fundamentalsProvider.js'
+import type { OmniQuantDataContext } from './providers/mockDataProvider.js'
 
 const TXLINE_BASE = process.env.TXLINE_BASE_URL || 'https://txline-dev.txodds.com'
 
@@ -13,7 +17,7 @@ export async function deliverService(request: string): Promise<string> {
   const [first, ...rest] = request.trim().split(/\s+/).filter(Boolean)
   const service = (first ?? 'omniquant').toLowerCase()
   if (service === 'omniquant') {
-    return JSON.stringify(omniQuantService(rest.join(' ')))
+    return JSON.stringify(await omniQuantService(rest.join(' ')))
   }
   if (service !== 'txline') {
     return JSON.stringify({ error: 'unsupported service', service, supported: ['omniquant', 'txline'] })
@@ -21,10 +25,11 @@ export async function deliverService(request: string): Promise<string> {
   return txlineService(rest.join(' '))
 }
 
-function omniQuantService(request: string): unknown {
+async function omniQuantService(request: string): Promise<unknown> {
   const agentName = process.env.AGENT_NAME ?? 'seller-agent'
   const persona = process.env.PERSONA ?? 'financial intelligence seller'
   const understood = request || 'nvda-3-6m-exposure'
+  const dataContext = await getDataContext('NVDA')
   const portfolioContext = [
     { holding: 'Apple', weight: 18 },
     { holding: 'Microsoft', weight: 22 },
@@ -33,8 +38,15 @@ function omniQuantService(request: string): unknown {
     { holding: 'Cash', weight: 10 },
   ]
   const evidenceCards = [
-    { category: 'Market Structure', status: 'Supportive', confidence: 82, explanation: 'Momentum remains constructive, but valuation leaves less room for error.' },
-    { category: 'Earnings', status: 'Supportive', confidence: 86, explanation: 'AI infrastructure demand and data center revisions remain the key upside driver.' },
+    {
+      category: 'Market Structure',
+      status: 'Supportive',
+      confidence: 82,
+      explanation:
+        `Latest ${dataContext.asset} price is ${formatMoney(dataContext.price.latestPrice, dataContext.price.currency)}; ` +
+        `daily move ${formatPct(dataContext.price.dailyChangePercent)}, weekly move ${formatPct(dataContext.price.weeklyChangePercent)}.`,
+    },
+    { category: 'Earnings', status: 'Supportive', confidence: 86, explanation: dataContext.headlines[0]?.title ?? 'AI infrastructure demand remains the key upside driver.' },
     { category: 'Macro', status: 'Watch', confidence: 74, explanation: 'Rate shocks can compress long-duration growth multiples even if fundamentals hold.' },
     { category: 'Portfolio Risk', status: 'Constrained', confidence: 88, explanation: 'A 4% NVDA weight can be increased only with staged sizing and drawdown controls.' },
   ]
@@ -43,13 +55,16 @@ function omniQuantService(request: string): unknown {
     agent_name: agentName,
     persona,
     request_understood: understood,
+    asset: dataContext.asset,
+    data_badge: dataContext.dataMode === 'LIVE DATA' ? 'Live data' : 'Demo fallback data',
+    data_context: dataContext,
     confidence_score: Number(process.env.CONFIDENCE ?? '78'),
     disclaimer: 'Not financial advice. This is human-reviewable research and does not execute trades.',
     timestamp: new Date().toISOString(),
   }
   const byAgent: Record<string, Record<string, unknown>> = {
     'market-analyst': {
-      key_evidence: ['NVDA momentum remains positive', 'Valuation premium raises downside sensitivity'],
+      key_evidence: [`Latest NVDA price: ${formatMoney(dataContext.price.latestPrice, dataContext.price.currency)}`, 'Valuation premium raises downside sensitivity'],
       bullish_points: ['AI accelerator demand supports trend', 'Liquidity is deep enough for institutional sizing'],
       bearish_points: ['Multiple compression risk is elevated', 'Short-term expectations are demanding'],
       risks: ['Earnings miss', 'Factor rotation out of mega-cap growth'],
@@ -57,7 +72,7 @@ function omniQuantService(request: string): unknown {
       what_would_change_view: ['Break below trend support', 'Material earnings revision downgrade'],
     },
     'news-earnings': {
-      key_evidence: ['AI capex commentary remains supportive', 'Earnings debate centers on data center durability'],
+      key_evidence: [dataContext.headlines[0]?.title ?? 'AI capex commentary remains supportive', 'Earnings debate centers on data center durability'],
       bullish_points: ['Hyperscaler demand supports backlog visibility', 'Product cycle can extend leadership'],
       bearish_points: ['Export controls can pressure revenue', 'Customer concentration remains material'],
       risks: ['Guidance reset', 'Supply constraints', 'Analyst downgrade cycle'],
@@ -91,8 +106,8 @@ function omniQuantService(request: string): unknown {
       executive_summary:
         'OmniQuantAI sees a HOLD recommendation for NVDA over the next 3-6 months, with a conditional path to add exposure only if portfolio sizing, earnings revisions, and macro triggers remain supportive.',
       evidence_table: [
-        { stance: 'bullish', evidence: 'AI demand and product-cycle leadership remain supportive', source: agentName },
-        { stance: 'bearish', evidence: 'Premium valuation and rate sensitivity limit margin of safety', source: agentName },
+        { stance: 'bullish', evidence: dataContext.headlines[0]?.title ?? 'AI demand and product-cycle leadership remain supportive', source: dataContext.headlines[0]?.source ?? agentName },
+        { stance: 'bearish', evidence: 'Premium valuation and rate sensitivity limit margin of safety', source: dataContext.fundamentals?.source.label ?? agentName },
         { stance: 'neutral', evidence: 'Outcome depends on earnings revisions and hyperscaler capex', source: agentName },
       ],
       hypotheses: [
@@ -106,6 +121,7 @@ function omniQuantService(request: string): unknown {
       risk_factors: ['Valuation compression', 'Earnings revision downgrade', 'Rate shock', 'Export controls', 'Portfolio concentration'],
       recommendation: 'HOLD',
       confidence_score: 72,
+      confidence_caveat: dataContext.confidenceCaveat,
       human_approval_reminder: 'Human portfolio manager approval required before allocation changes.',
     },
     investment_committee_memo: {
@@ -115,8 +131,25 @@ function omniQuantService(request: string): unknown {
       supporting_specialist_agents: ['Market Analyst Agent', 'News & Earnings Agent', 'Macro Risk Agent', 'Portfolio Risk Agent'],
       recommendation: 'HOLD',
       confidence_score: 72,
+      data_badge: dataContext.dataMode === 'LIVE DATA' ? 'Live data' : 'Demo fallback data',
+      latest_price: {
+        symbol: dataContext.price.symbol,
+        price: dataContext.price.latestPrice,
+        currency: dataContext.price.currency,
+        daily_change_percent: dataContext.price.dailyChangePercent,
+        weekly_change_percent: dataContext.price.weeklyChangePercent,
+        timestamp: dataContext.price.source.timestamp,
+        source: dataContext.price.source.label,
+      },
+      recent_headlines: dataContext.headlines,
+      fundamentals: dataContext.fundamentals,
+      data_sources: dataContext.sources,
+      data_timestamp: new Date().toISOString(),
+      confidence_caveat: dataContext.confidenceCaveat,
       executive_summary:
-        'Maintain current exposure while monitoring earnings revisions, valuation discipline, macro rate sensitivity, and portfolio concentration. Consider staged increases only if the fund remains underweight and downside controls are explicit.',
+        `Maintain current exposure while monitoring earnings revisions, valuation discipline, macro rate sensitivity, and portfolio concentration. ` +
+        `${dataContext.dataMode === 'LIVE DATA' ? 'This memo includes live market data where available.' : 'This memo uses deterministic fallback data where live APIs are unavailable.'} ` +
+        'Consider staged increases only if the fund remains underweight and downside controls are explicit.',
       bull_case: 'AI accelerator demand compounds, hyperscaler capex remains resilient, and NVDA earnings revisions outpace valuation risk.',
       base_case: 'Fundamentals remain strong, but valuation limits near-term reward-to-risk. Keep exposure and reassess after earnings and macro confirmation.',
       bear_case: 'Multiple compression, export controls, capex digestion, or a rate shock trigger a material drawdown.',
@@ -128,6 +161,42 @@ function omniQuantService(request: string): unknown {
       disclaimer: 'Not financial advice. Research support only. Human approval is required before allocation decisions.',
     },
   }
+}
+
+async function getDataContext(asset: string): Promise<OmniQuantDataContext> {
+  const [price, headlines, fundamentals] = await Promise.all([
+    getMarketPrice(asset),
+    getNewsHeadlines(asset),
+    getFundamentals(asset),
+  ])
+  const hasLiveNews = headlines.some((headline) => !headline.source.includes('Deterministic mock'))
+  const dataMode = (price.source.mode === 'LIVE DATA' || hasLiveNews || fundamentals.source.mode === 'LIVE DATA')
+    ? 'LIVE DATA'
+    : 'DEMO FALLBACK DATA'
+  return {
+    asset,
+    dataMode,
+    price,
+    headlines,
+    fundamentals,
+    sources: [
+      price.source,
+      fundamentals.source,
+      { label: hasLiveNews ? 'Live news provider' : headlines[0]?.source ?? 'Deterministic mock news', mode: hasLiveNews ? 'LIVE DATA' : 'DEMO FALLBACK DATA', timestamp: headlines[0]?.timestamp ?? new Date().toISOString() },
+    ],
+    confidenceCaveat:
+      dataMode === 'LIVE DATA'
+        ? 'Live data improves freshness, but this remains research support and requires human review.'
+        : 'Live APIs were unavailable or unconfigured, so deterministic demo data was used for reliability.',
+  }
+}
+
+function formatMoney(value: number, currency: string): string {
+  return `${currency} ${value.toFixed(2)}`
+}
+
+function formatPct(value: number | undefined): string {
+  return typeof value === 'number' ? `${value.toFixed(2)}%` : 'unavailable'
 }
 
 async function txlineGet(path: string): Promise<unknown> {

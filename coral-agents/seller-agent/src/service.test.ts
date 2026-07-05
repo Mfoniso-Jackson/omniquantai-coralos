@@ -29,6 +29,7 @@ describe('deliverService routing', () => {
     process.env.AGENT_NAME = 'portfolio-risk'
     process.env.PERSONA = 'Portfolio Risk Agent'
     process.env.CONFIDENCE = '84'
+    global.fetch = vi.fn(async () => { throw new Error('network unavailable') }) as unknown as typeof fetch
     const out = JSON.parse(await deliverService('omniquant nvda-3-6m-exposure'))
     expect(out).toMatchObject({
       service: 'omniquant-financial-intelligence',
@@ -36,6 +37,10 @@ describe('deliverService routing', () => {
       confidence_score: 84,
       final_synthesis: { recommendation: 'HOLD' },
     })
+    expect(out.data_badge).toBe('Demo fallback data')
+    expect(out.investment_committee_memo.latest_price.symbol).toBe('NVDA')
+    expect(out.investment_committee_memo.recent_headlines).toHaveLength(3)
+    expect(out.investment_committee_memo.confidence_caveat).toContain('deterministic demo data')
     expect(out.risks).toContain('25-40% drawdown scenario')
   })
 

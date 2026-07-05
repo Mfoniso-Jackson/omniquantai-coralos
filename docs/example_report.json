@@ -2,6 +2,42 @@
   "service": "omniquant-financial-intelligence",
   "agent_name": "portfolio-risk",
   "request_understood": "nvda-3-6m-exposure",
+  "asset": "NVDA",
+  "data_badge": "Demo fallback data",
+  "data_context": {
+    "asset": "NVDA",
+    "dataMode": "DEMO FALLBACK DATA",
+    "price": {
+      "symbol": "NVDA",
+      "latestPrice": 875.28,
+      "currency": "USD",
+      "dailyChangePercent": 1.2,
+      "weeklyChangePercent": 4.8,
+      "source": {
+        "label": "Deterministic mock price (live price unavailable)",
+        "mode": "DEMO FALLBACK DATA",
+        "timestamp": "2026-07-05T00:00:00Z"
+      }
+    },
+    "headlines": [
+      {
+        "title": "Nvidia AI accelerator demand remains central to data center capex debate",
+        "source": "Deterministic mock news (no news API key configured)",
+        "timestamp": "2026-07-05T00:00:00Z"
+      },
+      {
+        "title": "Investors weigh premium valuation against continued earnings revision momentum",
+        "source": "Deterministic mock news (no news API key configured)",
+        "timestamp": "2026-07-05T00:00:00Z"
+      },
+      {
+        "title": "Portfolio managers monitor concentration risk in mega-cap AI exposure",
+        "source": "Deterministic mock news (no news API key configured)",
+        "timestamp": "2026-07-05T00:00:00Z"
+      }
+    ],
+    "confidenceCaveat": "Live APIs were unavailable or unconfigured, so deterministic demo data was used for reliability."
+  },
   "executive_summary": "OmniQuantAI sees a HOLD recommendation for NVDA over the next 3-6 months, with a conditional path to add exposure only if portfolio sizing, earnings revisions, and macro triggers remain supportive.",
   "key_evidence": [
     {
@@ -65,7 +101,36 @@
     ],
     "recommendation": "HOLD",
     "confidence_score": 72,
-    "executive_summary": "Maintain current exposure while monitoring earnings revisions, valuation discipline, macro rate sensitivity, and portfolio concentration. Consider staged increases only if the fund remains underweight and downside controls are explicit.",
+    "data_badge": "Demo fallback data",
+    "latest_price": {
+      "symbol": "NVDA",
+      "price": 875.28,
+      "currency": "USD",
+      "daily_change_percent": 1.2,
+      "weekly_change_percent": 4.8,
+      "timestamp": "2026-07-05T00:00:00Z",
+      "source": "Deterministic mock price (live price unavailable)"
+    },
+    "recent_headlines": [
+      {
+        "title": "Nvidia AI accelerator demand remains central to data center capex debate",
+        "source": "Deterministic mock news (no news API key configured)",
+        "timestamp": "2026-07-05T00:00:00Z"
+      },
+      {
+        "title": "Investors weigh premium valuation against continued earnings revision momentum",
+        "source": "Deterministic mock news (no news API key configured)",
+        "timestamp": "2026-07-05T00:00:00Z"
+      },
+      {
+        "title": "Portfolio managers monitor concentration risk in mega-cap AI exposure",
+        "source": "Deterministic mock news (no news API key configured)",
+        "timestamp": "2026-07-05T00:00:00Z"
+      }
+    ],
+    "data_timestamp": "2026-07-05T00:00:00Z",
+    "confidence_caveat": "Live APIs were unavailable or unconfigured, so deterministic demo data was used for reliability.",
+    "executive_summary": "Maintain current exposure while monitoring earnings revisions, valuation discipline, macro rate sensitivity, and portfolio concentration. This memo uses deterministic fallback data where live APIs are unavailable. Consider staged increases only if the fund remains underweight and downside controls are explicit.",
     "bull_case": "AI accelerator demand compounds, hyperscaler capex remains resilient, and NVDA earnings revisions outpace valuation risk.",
     "base_case": "Fundamentals remain strong, but valuation limits near-term reward-to-risk. Keep exposure and reassess after earnings and macro confirmation.",
     "bear_case": "Multiple compression, export controls, capex digestion, or a rate shock trigger a material drawdown.",
