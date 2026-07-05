@@ -63,6 +63,7 @@
 | Path | Purpose |
 | --- | --- |
 | `docs/architecture.md` | Architecture notes |
+| `docs/data_architecture.md` | Financial Intelligence Network data layers and MVP persistence |
 | `docs/demo_script.md` | Three-minute spoken demo script |
 | `docs/example_report.json` | Example delivered financial intelligence report |
 | `docs/pitch_deck_outline.md` | Pitch deck outline |

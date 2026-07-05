@@ -22,6 +22,7 @@ import { dirname, join } from 'node:path'
 import { foldRounds } from './foldRounds.js'
 import { collectMessages } from './coralState.js'
 import type { RawMessage, Round } from './foldRounds.js'
+import { persistMarketplaceData } from './data/persistence.js'
 
 const MARKET_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..') // examples/marketplace
 
@@ -100,6 +101,9 @@ app.get('/api/feed', async (req, res) => {
   try {
     const messages = collectMessages(await readState(session))
     const rounds = foldRounds(messages, SELLERS)
+    void persistMarketplaceData({ sessionId: session, rounds }).catch((error) => {
+      console.error(`[feed] persistence failed for session ${session}: ${(error as Error).message}`)
+    })
     res.json({ session, rounds, updatedAt: new Date().toISOString(), diagnostics: diagnostics(messages, rounds) })
   } catch (e) {
     res.status(502).json({

@@ -205,6 +205,7 @@ If npm is missing locally, use Codespaces. The devcontainer includes npm.
 - Demo guide: [DEMO.md](DEMO.md)
 - Project structure: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 - Architecture notes: [docs/architecture.md](docs/architecture.md)
+- Data architecture: [docs/data_architecture.md](docs/data_architecture.md)
 - Demo script: [docs/demo_script.md](docs/demo_script.md)
 - Submission summary: [SUBMISSION.md](SUBMISSION.md)
 

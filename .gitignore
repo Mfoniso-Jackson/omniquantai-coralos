@@ -42,3 +42,6 @@ ref/
 
 # Generated wallet addresses (user-specific)
 WALLETS.txt
+
+# OmniQuantAI local data persistence
+.omniquant-data/
