@@ -36,6 +36,18 @@
         "timestamp": "2026-07-05T00:00:00Z"
       }
     ],
+    "solanaOracle": {
+      "symbol": "SOL/USD",
+      "price": 150.25,
+      "confidenceInterval": 0.45,
+      "network": "Solana devnet oracle context",
+      "use": "Macro/liquidity context only; not used as NVDA valuation data.",
+      "source": {
+        "label": "Deterministic mock Solana oracle (Pyth oracle unavailable)",
+        "mode": "DEMO FALLBACK DATA",
+        "timestamp": "2026-07-05T00:00:00Z"
+      }
+    },
     "confidenceCaveat": "Live APIs were unavailable or unconfigured, so deterministic demo data was used for reliability."
   },
   "executive_summary": "OmniQuantAI sees a HOLD recommendation for NVDA over the next 3-6 months, with a conditional path to add exposure only if portfolio sizing, earnings revisions, and macro triggers remain supportive.",
@@ -83,6 +95,12 @@
       "explanation": "Rate shocks can compress long-duration growth multiples even if fundamentals hold."
     },
     {
+      "category": "Solana Oracle Liquidity Context",
+      "status": "Demo fallback",
+      "confidence": 65,
+      "explanation": "SOL/USD oracle context USD 150.25 from Deterministic mock Solana oracle (Pyth oracle unavailable). Macro/liquidity context only; not used as NVDA valuation data."
+    },
+    {
       "category": "Portfolio Risk",
       "status": "Constrained",
       "confidence": 88,
@@ -128,6 +146,18 @@
         "timestamp": "2026-07-05T00:00:00Z"
       }
     ],
+    "solana_oracle_context": {
+      "symbol": "SOL/USD",
+      "price": 150.25,
+      "confidenceInterval": 0.45,
+      "network": "Solana devnet oracle context",
+      "use": "Macro/liquidity context only; not used as NVDA valuation data.",
+      "source": {
+        "label": "Deterministic mock Solana oracle (Pyth oracle unavailable)",
+        "mode": "DEMO FALLBACK DATA",
+        "timestamp": "2026-07-05T00:00:00Z"
+      }
+    },
     "data_timestamp": "2026-07-05T00:00:00Z",
     "confidence_caveat": "Live APIs were unavailable or unconfigured, so deterministic demo data was used for reliability.",
     "executive_summary": "Maintain current exposure while monitoring earnings revisions, valuation discipline, macro rate sensitivity, and portfolio concentration. This memo uses deterministic fallback data where live APIs are unavailable. Consider staged increases only if the fund remains underweight and downside controls are explicit.",

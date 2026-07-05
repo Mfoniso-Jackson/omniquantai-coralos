@@ -27,12 +27,22 @@ export interface FundamentalsSnapshot {
   source: SourceMeta
 }
 
+export interface SolanaOracleContext {
+  symbol: string
+  price?: number
+  confidenceInterval?: number
+  network: string
+  use: string
+  source: SourceMeta
+}
+
 export interface OmniQuantDataContext {
   asset: string
   dataMode: 'LIVE DATA' | 'DEMO FALLBACK DATA'
   price: MarketPrice
   headlines: NewsHeadline[]
   fundamentals?: FundamentalsSnapshot
+  solanaOracle: SolanaOracleContext
   confidenceCaveat: string
   sources: SourceMeta[]
 }
@@ -65,5 +75,16 @@ export function mockFundamentals(reason = 'fundamentals API unavailable'): Funda
     peRatio: 68,
     revenueGrowth: 0.78,
     source: { label: `Deterministic mock fundamentals (${reason})`, mode: 'DEMO FALLBACK DATA', timestamp: now() },
+  }
+}
+
+export function mockSolanaOracleContext(reason = 'Pyth oracle unavailable'): SolanaOracleContext {
+  return {
+    symbol: 'SOL/USD',
+    price: 150.25,
+    confidenceInterval: 0.45,
+    network: 'Solana devnet oracle context',
+    use: 'Macro/liquidity context only; not used as NVDA valuation data.',
+    source: { label: `Deterministic mock Solana oracle (${reason})`, mode: 'DEMO FALLBACK DATA', timestamp: now() },
   }
 }

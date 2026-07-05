@@ -33,7 +33,7 @@ Future provider targets:
 - Solana
 - Sui
 
-MVP status: provider interfaces plus deterministic market snapshot persistence. The seller memo attempts live NVDA price data through Yahoo Finance, live headlines through Finnhub or NewsAPI when keys exist, and fundamentals through Financial Modeling Prep when configured. Any failure falls back to deterministic demo data.
+MVP status: provider interfaces plus deterministic market snapshot persistence. The seller memo attempts live NVDA price data through Yahoo Finance, live headlines through Finnhub or NewsAPI when keys exist, fundamentals through Financial Modeling Prep when configured, and SOL/USD liquidity context through Pyth Hermes. Any failure falls back to deterministic demo data.
 
 ### Layer 2: Context
 

@@ -40,6 +40,7 @@ describe('deliverService routing', () => {
     expect(out.data_badge).toBe('Demo fallback data')
     expect(out.investment_committee_memo.latest_price.symbol).toBe('NVDA')
     expect(out.investment_committee_memo.recent_headlines).toHaveLength(3)
+    expect(out.investment_committee_memo.solana_oracle_context.symbol).toBe('SOL/USD')
     expect(out.investment_committee_memo.confidence_caveat).toContain('deterministic demo data')
     expect(out.risks).toContain('25-40% drawdown scenario')
   })

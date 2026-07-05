@@ -40,6 +40,14 @@ interface IntelligenceReport {
       source?: string
     }
     recent_headlines?: { title: string; source: string; url?: string; timestamp: string }[]
+    solana_oracle_context?: {
+      symbol?: string
+      price?: number
+      confidenceInterval?: number
+      network?: string
+      use?: string
+      source?: { label?: string; mode?: string; timestamp?: string }
+    }
     data_sources?: { label: string; mode: string; timestamp: string }[]
     data_timestamp?: string
     confidence_caveat?: string
@@ -112,6 +120,17 @@ export function IntelligencePanel({ report }: { report: IntelligenceReport }) {
               <span>{headline.source} · {formatTime(headline.timestamp)}</span>
             </p>
           ))}
+        </section>
+      )}
+      {memo?.solana_oracle_context && (
+        <section className="oracle-note">
+          <h3>Solana Oracle Context</h3>
+          <p>
+            <strong>{memo.solana_oracle_context.symbol}</strong>
+            {' '}at USD {formatNumber(memo.solana_oracle_context.price)}
+            {' '}via {memo.solana_oracle_context.source?.label ?? memo.solana_oracle_context.network}
+          </p>
+          <span>{memo.solana_oracle_context.use}</span>
         </section>
       )}
       <p>{memo?.executive_summary ?? report.final_synthesis?.executive_summary ?? report.recommendation_contribution}</p>

@@ -9,6 +9,7 @@ import { complete, parseJsonReply } from '@pay/agent-runtime'
 import { getMarketPrice } from './providers/marketDataProvider.js'
 import { getNewsHeadlines } from './providers/newsProvider.js'
 import { getFundamentals } from './providers/fundamentalsProvider.js'
+import { getSolanaOracleContext } from './providers/solanaOracleProvider.js'
 import type { OmniQuantDataContext } from './providers/mockDataProvider.js'
 
 const TXLINE_BASE = process.env.TXLINE_BASE_URL || 'https://txline-dev.txodds.com'
@@ -48,6 +49,14 @@ async function omniQuantService(request: string): Promise<unknown> {
     },
     { category: 'Earnings', status: 'Supportive', confidence: 86, explanation: dataContext.headlines[0]?.title ?? 'AI infrastructure demand remains the key upside driver.' },
     { category: 'Macro', status: 'Watch', confidence: 74, explanation: 'Rate shocks can compress long-duration growth multiples even if fundamentals hold.' },
+    {
+      category: 'Solana Oracle Liquidity Context',
+      status: dataContext.solanaOracle.source.mode === 'LIVE DATA' ? 'Live data' : 'Demo fallback',
+      confidence: dataContext.solanaOracle.source.mode === 'LIVE DATA' ? 80 : 65,
+      explanation:
+        `${dataContext.solanaOracle.symbol} oracle context ${formatMoney(dataContext.solanaOracle.price ?? 0, 'USD')} ` +
+        `from ${dataContext.solanaOracle.source.label}. ${dataContext.solanaOracle.use}`,
+    },
     { category: 'Portfolio Risk', status: 'Constrained', confidence: 88, explanation: 'A 4% NVDA weight can be increased only with staged sizing and drawdown controls.' },
   ]
   const base = {
@@ -143,6 +152,7 @@ async function omniQuantService(request: string): Promise<unknown> {
       },
       recent_headlines: dataContext.headlines,
       fundamentals: dataContext.fundamentals,
+      solana_oracle_context: dataContext.solanaOracle,
       data_sources: dataContext.sources,
       data_timestamp: new Date().toISOString(),
       confidence_caveat: dataContext.confidenceCaveat,
@@ -164,13 +174,19 @@ async function omniQuantService(request: string): Promise<unknown> {
 }
 
 async function getDataContext(asset: string): Promise<OmniQuantDataContext> {
-  const [price, headlines, fundamentals] = await Promise.all([
+  const [price, headlines, fundamentals, solanaOracle] = await Promise.all([
     getMarketPrice(asset),
     getNewsHeadlines(asset),
     getFundamentals(asset),
+    getSolanaOracleContext(),
   ])
   const hasLiveNews = headlines.some((headline) => !headline.source.includes('Deterministic mock'))
-  const dataMode = (price.source.mode === 'LIVE DATA' || hasLiveNews || fundamentals.source.mode === 'LIVE DATA')
+  const dataMode = (
+    price.source.mode === 'LIVE DATA' ||
+    hasLiveNews ||
+    fundamentals.source.mode === 'LIVE DATA' ||
+    solanaOracle.source.mode === 'LIVE DATA'
+  )
     ? 'LIVE DATA'
     : 'DEMO FALLBACK DATA'
   return {
@@ -179,9 +195,11 @@ async function getDataContext(asset: string): Promise<OmniQuantDataContext> {
     price,
     headlines,
     fundamentals,
+    solanaOracle,
     sources: [
       price.source,
       fundamentals.source,
+      solanaOracle.source,
       { label: hasLiveNews ? 'Live news provider' : headlines[0]?.source ?? 'Deterministic mock news', mode: hasLiveNews ? 'LIVE DATA' : 'DEMO FALLBACK DATA', timestamp: headlines[0]?.timestamp ?? new Date().toISOString() },
     ],
     confidenceCaveat:
