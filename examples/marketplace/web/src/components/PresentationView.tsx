@@ -72,6 +72,7 @@ export function PresentationView({
             <div className="present-error">
               <strong>{error.title}</strong>
               <span>{error.what}</span>
+              <span>{error.likelyCause}</span>
               <em>{error.suggestedFix}</em>
             </div>
           ) : (

@@ -53,12 +53,17 @@ app.use((_req, res, next) => {
 
 app.use(express.json())
 
-app.get('/api/health', (_req, res) => res.json({
-  ok: true,
-  coral: BASE,
-  defaultSession: DEFAULT_SESSION || undefined,
-  fixture: FIXTURE || undefined,
-}))
+app.get('/api/health', async (_req, res) => {
+  const coral = await coralHealth()
+  res.json({
+    ok: true,
+    coral: BASE,
+    coralReachable: coral.ok,
+    coralStatus: coral.status,
+    defaultSession: DEFAULT_SESSION || undefined,
+    fixture: FIXTURE || undefined,
+  })
+})
 
 /** Operator trigger: launch a market session (runs the marketplace launcher) and return its id. */
 app.post('/api/start', (_req, res) => {
@@ -159,4 +164,17 @@ function diagnostics(messages: RawMessage[], rounds: Round[]) {
 
 function lastEventType(text: string): string {
   return text.trim().match(/^([A-Z_]+)/)?.[1] ?? 'UNKNOWN'
+}
+
+async function coralHealth(): Promise<{ ok: boolean; status: string }> {
+  if (FIXTURE) return { ok: true, status: 'fixture mode' }
+  try {
+    const res = await fetch(`${BASE}/api/v1/local/session/${NS}/__healthcheck__/extended`, {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    })
+    if (res.status === 404) return { ok: true, status: 'reachable' }
+    return { ok: res.ok, status: `${res.status} ${res.statusText}` }
+  } catch (error) {
+    return { ok: false, status: (error as Error).message }
+  }
 }

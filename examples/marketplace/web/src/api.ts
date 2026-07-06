@@ -53,7 +53,19 @@ export function useFeed(session: string, intervalMs = 1000): FeedState {
         const feed = (await r.json().catch(() => ({}))) as Feed
         if (!r.ok) {
           const detail = feed.error ?? feed.diagnostics?.buyerStatus ?? `feed ${r.status}`
-          throw new Error(detail)
+          if (!stop.current) {
+            setState((s) => ({
+              ...s,
+              rounds: feed.rounds ?? [],
+              connected: false,
+              error: friendlyError(new Error(detail), 'feed'),
+              diagnostics: feed.diagnostics,
+              updatedAt: feed.updatedAt,
+              polling: true,
+              apiUrl: API_BASE_URL,
+            }))
+          }
+          return
         }
         if (!stop.current) {
           if (feed.diagnostics) {
