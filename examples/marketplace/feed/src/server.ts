@@ -32,6 +32,8 @@ const NS = process.env.CORAL_NAMESPACE ?? 'omniquant'
 const PORT = Number(process.env.PORT ?? 4000)
 const DEFAULT_SESSION = process.env.SESSION ?? ''
 const FIXTURE = process.env.FEED_FIXTURE
+const SESSION_READ_RETRIES = Number(process.env.FEED_SESSION_READ_RETRIES ?? 8)
+const SESSION_READ_RETRY_MS = Number(process.env.FEED_SESSION_READ_RETRY_MS ?? 1000)
 const sessionNamespaces = new Map<string, string>()
 const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
@@ -39,11 +41,29 @@ const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,mac
 /** Fetch a session's raw extended state — from the FEED_FIXTURE file, else from coral. */
 async function readState(session: string, namespace = NS): Promise<unknown> {
   if (FIXTURE) return JSON.parse(readFileSync(FIXTURE, 'utf8'))
+  let lastError = ''
+  for (let attempt = 1; attempt <= SESSION_READ_RETRIES; attempt += 1) {
+    try {
+      return await readStateAcrossNamespaces(session, namespace)
+    } catch (error) {
+      const message = (error as Error).message
+      if (!shouldRecoverSessionRead(message)) throw error
+      lastError = message
+      if (attempt < SESSION_READ_RETRIES) {
+        console.error(`[feed] session=${session} namespace=${namespace} read attempt ${attempt}/${SESSION_READ_RETRIES} failed: ${message}`)
+        await sleep(SESSION_READ_RETRY_MS)
+      }
+    }
+  }
+  throw new Error(lastError || `Session ${session} could not be read`)
+}
+
+async function readStateAcrossNamespaces(session: string, namespace: string): Promise<unknown> {
   try {
     return await readStateInNamespace(session, namespace)
   } catch (error) {
     const message = (error as Error).message
-    if (!/Namespace .* does not exist|namespace/i.test(message)) throw error
+    if (!shouldRecoverSessionRead(message)) throw error
     const namespaces = await listNamespaces()
     for (const candidate of namespaces.filter((name) => name !== namespace)) {
       try {
@@ -56,6 +76,12 @@ async function readState(session: string, namespace = NS): Promise<unknown> {
     throw new Error(`${message}; available namespaces: ${namespaces.join(', ') || 'none'}`)
   }
 }
+
+function shouldRecoverSessionRead(message: string): boolean {
+  return /Namespace .* does not exist|Session not found|coral 404|namespace|not found/i.test(message)
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function readStateInNamespace(session: string, namespace: string): Promise<unknown> {
   const r = await fetch(`${BASE}/api/v1/local/session/${namespace}/${session}/extended`, {
