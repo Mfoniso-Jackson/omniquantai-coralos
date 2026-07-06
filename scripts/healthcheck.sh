@@ -62,11 +62,13 @@ fi
 
 BUYER_KEYPAIR_B58="$(env_value BUYER_KEYPAIR_B58)"
 SELLER_KEYPAIR_B58="$(env_value SELLER_KEYPAIR_B58)"
+ARBITER_KEYPAIR_B58="$(env_value ARBITER_KEYPAIR_B58)"
 SELLER_WALLET="$(env_value WALLET)"
 RPC_URL="$(env_value SOLANA_RPC_URL)"
 
 if [ -n "$BUYER_KEYPAIR_B58" ]; then pass "Buyer wallet key exists"; else fail "BUYER_KEYPAIR_B58 missing. Run npm run bootstrap."; fi
 if [ -n "$SELLER_KEYPAIR_B58" ]; then pass "Seller wallet key exists"; else fail "SELLER_KEYPAIR_B58 missing. Run npm run bootstrap."; fi
+if [ -n "$ARBITER_KEYPAIR_B58" ]; then pass "Arbiter wallet key exists"; else fail "ARBITER_KEYPAIR_B58 missing. Run npm run bootstrap."; fi
 if [ -n "$SELLER_WALLET" ]; then pass "Seller payout wallet exists"; else fail "WALLET missing. Run npm run bootstrap."; fi
 if [ -f "WALLETS.txt" ]; then pass "WALLETS.txt exists"; else warn "WALLETS.txt missing. Run node scripts/setup.js to regenerate the address summary."; fi
 

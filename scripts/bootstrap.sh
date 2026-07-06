@@ -66,12 +66,8 @@ if [ ! -d "packages/agent-runtime/dist" ]; then
   npm run build --prefix packages/agent-runtime
 fi
 
-if [ ! -f ".env" ]; then
-  log "Creating .env and devnet wallets"
-  node scripts/setup.js
-else
-  log ".env already exists"
-fi
+log "Ensuring .env has all demo wallets"
+node scripts/setup.js
 
 mkdir -p docs outputs
 
