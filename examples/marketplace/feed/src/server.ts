@@ -157,7 +157,10 @@ app.post('/api/start', (_req, res) => {
   }
   child.stdout.on('data', onData)
   child.stderr.on('data', onData)
-  child.on('exit', (c) => reply(500, { error: `launcher exited ${c} without a session`, log: buf.slice(-400) }))
+  child.on('exit', (c) => {
+    if (matched) return
+    reply(500, { error: `launcher exited ${c} without a session`, log: buf.slice(-400) })
+  })
   setTimeout(() => reply(504, { error: 'launcher timed out', log: buf.slice(-800) }), Math.max(60_000, START_READY_RETRIES * START_READY_RETRY_MS + 10_000))
 })
 
