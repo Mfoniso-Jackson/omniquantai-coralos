@@ -15,7 +15,7 @@
  *      SESSION, MARKET_SELLERS (csv for the declined column), FEED_FIXTURE, PORT (default 4000).
  */
 import express from 'express'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -36,7 +36,7 @@ const SESSION_READ_RETRIES = Number(process.env.FEED_SESSION_READ_RETRIES ?? 8)
 const SESSION_READ_RETRY_MS = Number(process.env.FEED_SESSION_READ_RETRY_MS ?? 1000)
 const START_READY_RETRIES = Number(process.env.FEED_START_READY_RETRIES ?? 35)
 const START_READY_RETRY_MS = Number(process.env.FEED_START_READY_RETRY_MS ?? 1000)
-const BUILD = 'feed-start-returns-session-v5'
+const BUILD = 'feed-direct-launcher-v6'
 const sessionNamespaces = new Map<string, string>()
 const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
@@ -131,18 +131,18 @@ app.get('/api/health', async (req, res) => {
 
 /** Operator trigger: launch a market session (runs the marketplace launcher) and return its id. */
 app.post('/api/start', (_req, res) => {
-  const child = spawn('npm', ['start'], { cwd: MARKET_DIR, shell: true })
+  const launcher = launcherCommand()
+  const child = spawn(launcher.cmd, launcher.args, { cwd: MARKET_DIR, shell: false, env: process.env })
   let buf = ''
   let done = false
   let matched = false
   const reply = (code: number, body: unknown) => { if (!done) { done = true; res.status(code).json(body) } }
   const onData = (d: Buffer) => {
     buf += d.toString()
-    const m = buf.match(/(?:OmniQuantAI\s+)?market session (\S+)(?:\s+namespace\s+([A-Za-z0-9_.-]+))?/i)
-    if (m && !matched) {
+    const parsed = parseLauncherSession(buf)
+    if (parsed && !matched) {
       matched = true
-      const session = m[1]
-      const namespace = m[2] ?? NS
+      const { session, namespace } = parsed
       sessionNamespaces.set(session, namespace)
       console.error(`[feed] launched market session ${session} namespace=${namespace}`)
       reply(200, { session, namespace })
@@ -155,12 +155,34 @@ app.post('/api/start', (_req, res) => {
   }
   child.stdout.on('data', onData)
   child.stderr.on('data', onData)
+  child.on('error', (error) => {
+    reply(500, { error: `launcher failed to start: ${(error as Error).message}`, log: buf.slice(-4000) })
+  })
   child.on('exit', (c) => {
     if (matched) return
-    reply(500, { error: `launcher exited ${c} without a session`, log: buf.slice(-4000) })
+    reply(500, {
+      error: `launcher exited ${c} without a session`,
+      command: `${launcher.cmd} ${launcher.args.join(' ')}`,
+      log: buf.slice(-4000),
+    })
   })
   setTimeout(() => reply(504, { error: 'launcher timed out', log: buf.slice(-800) }), Math.max(60_000, START_READY_RETRIES * START_READY_RETRY_MS + 10_000))
 })
+
+function launcherCommand(): { cmd: string; args: string[] } {
+  const localTsx = join(MARKET_DIR, 'node_modules', '.bin', process.platform === 'win32' ? 'tsx.cmd' : 'tsx')
+  if (existsSync(localTsx)) return { cmd: localTsx, args: ['start.ts'] }
+  return { cmd: 'npx', args: ['tsx', 'start.ts'] }
+}
+
+function parseLauncherSession(text: string): { session: string; namespace: string } | null {
+  const primary = text.match(/(?:OmniQuantAI\s+)?market session (\S+)(?:\s+namespace\s+([A-Za-z0-9_.-]+))?/i)
+  if (primary) return { session: primary[1], namespace: primary[2] ?? NS }
+  const session = text.match(/session id:\s*(\S+)/i)?.[1]
+  if (!session) return null
+  const namespace = text.match(/namespace:\s*([A-Za-z0-9_.-]+)/i)?.[1] ?? NS
+  return { session, namespace }
+}
 
 async function waitForWant(session: string, namespace: string): Promise<void> {
   let lastError = ''

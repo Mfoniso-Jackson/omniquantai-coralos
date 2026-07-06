@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const children = new Set()
-const EXPECTED_FEED_BUILD = 'feed-start-returns-session-v5'
+const EXPECTED_FEED_BUILD = 'feed-direct-launcher-v6'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const hasCmd = (cmd) => spawnSync(cmd, ['--version'], { shell: true, stdio: 'ignore' }).status === 0
