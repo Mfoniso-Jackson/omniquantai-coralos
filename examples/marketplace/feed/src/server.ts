@@ -129,16 +129,25 @@ app.post('/api/start', (_req, res) => {
   const child = spawn('npm', ['start'], { cwd: MARKET_DIR, shell: true })
   let buf = ''
   let done = false
+  let matched = false
   const reply = (code: number, body: unknown) => { if (!done) { done = true; res.status(code).json(body) } }
   const onData = (d: Buffer) => {
     buf += d.toString()
     const m = buf.match(/(?:OmniQuantAI\s+)?market session ([a-f0-9-]+)(?:\s+namespace\s+([A-Za-z0-9_.-]+))?/i)
-    if (m) {
+    if (m && !matched) {
+      matched = true
       const session = m[1]
       const namespace = m[2] ?? NS
       sessionNamespaces.set(session, namespace)
       console.error(`[feed] launched market session ${session} namespace=${namespace}`)
-      reply(200, { session, namespace })
+      void readState(session, namespace)
+        .then(() => reply(200, { session, namespace }))
+        .catch((error) => reply(502, {
+          error: `launcher created session ${session} but CoralOS did not expose readable state: ${(error as Error).message}`,
+          session,
+          namespace,
+          log: buf.slice(-800),
+        }))
     }
   }
   child.stdout.on('data', onData)
