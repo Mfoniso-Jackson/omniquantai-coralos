@@ -36,7 +36,7 @@ const SESSION_READ_RETRIES = Number(process.env.FEED_SESSION_READ_RETRIES ?? 8)
 const SESSION_READ_RETRY_MS = Number(process.env.FEED_SESSION_READ_RETRY_MS ?? 1000)
 const START_READY_RETRIES = Number(process.env.FEED_START_READY_RETRIES ?? 35)
 const START_READY_RETRY_MS = Number(process.env.FEED_START_READY_RETRY_MS ?? 1000)
-const BUILD = 'feed-session-id-v4'
+const BUILD = 'feed-start-returns-session-v5'
 const sessionNamespaces = new Map<string, string>()
 const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
@@ -145,14 +145,12 @@ app.post('/api/start', (_req, res) => {
       const namespace = m[2] ?? NS
       sessionNamespaces.set(session, namespace)
       console.error(`[feed] launched market session ${session} namespace=${namespace}`)
+      reply(200, { session, namespace })
       void waitForWant(session, namespace)
-        .then(() => reply(200, { session, namespace }))
-        .catch(async (error) => reply(502, {
-          error: `launcher created session ${session} but buyer did not publish WANT: ${(error as Error).message}`,
-          session,
-          namespace,
-          log: `${buf.slice(-800)}\n${await runtimeDiagnostics()}`.slice(-4000),
-        }))
+        .catch(async (error) => {
+          console.error(`[feed] session=${session} namespace=${namespace} buyer did not publish WANT: ${(error as Error).message}`)
+          console.error(await runtimeDiagnostics())
+        })
     }
   }
   child.stdout.on('data', onData)
