@@ -115,8 +115,9 @@ app.use((_req, res, next) => {
 
 app.use(express.json())
 
-app.get('/api/health', async (_req, res) => {
-  const coral = await coralHealth()
+app.get('/api/health', async (req, res) => {
+  const quick = req.query.quick === '1'
+  const coral = quick ? { ok: false, status: 'not_checked' } : await coralHealth()
   res.json({
     ok: true,
     coral: BASE,

@@ -195,7 +195,7 @@ async function main() {
   run('build buyer/seller agent images', 'bash', ['build-agents.sh'])
 
   start('marketplace feed', packageManager, ['run', 'start'], join(root, 'examples', 'marketplace', 'feed'))
-  const feedHealth = await waitJson('http://localhost:4000/api/health', 'marketplace feed')
+  const feedHealth = await waitJson('http://127.0.0.1:4000/api/health?quick=1', 'marketplace feed')
   if (feedHealth.build !== EXPECTED_FEED_BUILD) {
     throw new Error(`marketplace feed is stale or mismatched: expected build ${EXPECTED_FEED_BUILD}, got ${feedHealth.build ?? 'unknown'}`)
   }
@@ -205,7 +205,7 @@ async function main() {
   await sleep(1500)
 
   console.log('\n[demo] launching OmniQuantAI market round')
-  const started = await postJson('http://localhost:4000/api/start', 'market start')
+  const started = await postJson('http://127.0.0.1:4000/api/start', 'market start')
   const session = started.session
   const namespace = started.namespace
   const namespaceParam = namespace ? `&namespace=${encodeURIComponent(namespace)}` : ''
