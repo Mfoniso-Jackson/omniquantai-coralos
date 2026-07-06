@@ -7,23 +7,27 @@ import type { FeedDiagnostics, Round } from './types'
 
 /** Read ?session=<id> from the URL so the launcher can deep-link straight to a live market. */
 const initialSession = new URLSearchParams(window.location.search).get('session') ?? ''
+const initialNamespace = new URLSearchParams(window.location.search).get('namespace') ?? ''
 const initialPresentationMode = new URLSearchParams(window.location.search).get('presentation') === '1'
 
 export default function App() {
   const [session, setSession] = useState(initialSession)
+  const [namespace, setNamespace] = useState(initialNamespace)
   const [presentationMode, setPresentationMode] = useState(initialPresentationMode)
   const [starting, setStarting] = useState(false)
   const [startErr, setStartErr] = useState<UiError>()
-  const { rounds, connected, error, diagnostics, updatedAt, polling, apiUrl } = useFeed(session)
+  const { rounds, connected, error, diagnostics, updatedAt, polling, apiUrl } = useFeed(session, namespace)
 
   async function onStart() {
     setStarting(true)
     setStartErr(undefined)
     try {
-      const id = await startMarket()
-      setSession(id)
+      const started = await startMarket()
+      setSession(started.session)
+      setNamespace(started.namespace ?? '')
       const url = new URL(window.location.href)
-      url.searchParams.set('session', id)
+      url.searchParams.set('session', started.session)
+      if (started.namespace) url.searchParams.set('namespace', started.namespace)
       url.searchParams.set('presentation', '1')
       window.history.replaceState({}, '', url)
       setPresentationMode(true)
@@ -40,6 +44,7 @@ export default function App() {
         rounds={rounds}
         connected={connected}
         session={session}
+        namespace={namespace}
         diagnostics={diagnostics}
         error={error}
         updatedAt={updatedAt}
@@ -75,6 +80,7 @@ export default function App() {
           <span>CoralOS</span>
           <span>Solana Devnet</span>
           <span title={session || 'No active session'}>Session {session ? shortId(session) : 'pending'}</span>
+          {namespace && <span title={namespace}>Namespace {namespace}</span>}
         </div>
       </header>
 
@@ -96,7 +102,10 @@ export default function App() {
             starting={starting}
             session={session}
             onStart={onStart}
-            onSession={setSession}
+            onSession={(nextSession) => {
+              setSession(nextSession)
+              setNamespace('')
+            }}
           />
         )}
       </main>

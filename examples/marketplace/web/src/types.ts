@@ -26,6 +26,7 @@ export interface Round {
 
 export interface Feed {
   session: string
+  namespace?: string
   rounds: Round[]
   updatedAt: string
   error?: string

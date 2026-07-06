@@ -32,13 +32,14 @@ const NS = 'default'
 const PORT = Number(process.env.PORT ?? 4000)
 const DEFAULT_SESSION = process.env.SESSION ?? ''
 const FIXTURE = process.env.FEED_FIXTURE
+const sessionNamespaces = new Map<string, string>()
 const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
 
 /** Fetch a session's raw extended state — from the FEED_FIXTURE file, else from coral. */
-async function readState(session: string): Promise<unknown> {
+async function readState(session: string, namespace = NS): Promise<unknown> {
   if (FIXTURE) return JSON.parse(readFileSync(FIXTURE, 'utf8'))
-  const r = await fetch(`${BASE}/api/v1/local/session/${NS}/${session}/extended`, {
+  const r = await fetch(`${BASE}/api/v1/local/session/${namespace}/${session}/extended`, {
     headers: { Authorization: `Bearer ${TOKEN}` },
   })
   if (!r.ok) throw new Error(`coral ${r.status}: ${(await r.text()).slice(0, 200)}`)
@@ -73,10 +74,13 @@ app.post('/api/start', (_req, res) => {
   const reply = (code: number, body: unknown) => { if (!done) { done = true; res.status(code).json(body) } }
   const onData = (d: Buffer) => {
     buf += d.toString()
-    const m = buf.match(/(?:OmniQuantAI\s+)?market session ([a-f0-9-]+)/i)
+    const m = buf.match(/(?:OmniQuantAI\s+)?market session ([a-f0-9-]+)(?:\s+namespace\s+([A-Za-z0-9_.-]+))?/i)
     if (m) {
-      console.error(`[feed] launched market session ${m[1]}`)
-      reply(200, { session: m[1] })
+      const session = m[1]
+      const namespace = m[2] ?? NS
+      sessionNamespaces.set(session, namespace)
+      console.error(`[feed] launched market session ${session} namespace=${namespace}`)
+      reply(200, { session, namespace })
     }
   }
   child.stdout.on('data', onData)
@@ -87,6 +91,7 @@ app.post('/api/start', (_req, res) => {
 
 app.get('/api/feed', async (req, res) => {
   const session = FIXTURE ? 'fixture' : ((req.query.session as string) || DEFAULT_SESSION)
+  const namespace = FIXTURE ? 'fixture' : ((req.query.namespace as string) || sessionNamespaces.get(session) || NS)
   if (!FIXTURE && !session) {
     return res.json({
       session: '',
@@ -105,17 +110,18 @@ app.get('/api/feed', async (req, res) => {
     })
   }
   try {
-    const messages = collectMessages(await readState(session))
+    const messages = collectMessages(await readState(session, namespace))
     const rounds = foldRounds(messages, SELLERS)
     const diag = diagnostics(messages, rounds)
-    console.error(`[feed] session=${session} messages=${diag.messageCount} rounds=${rounds.length} last_event_type=${diag.lastEventType} seller_bids=${diag.sellerBidCount} escrow=${diag.escrowStatus}`)
+    console.error(`[feed] session=${session} namespace=${namespace} messages=${diag.messageCount} rounds=${rounds.length} last_event_type=${diag.lastEventType} seller_bids=${diag.sellerBidCount} escrow=${diag.escrowStatus}`)
     void persistMarketplaceData({ sessionId: session, rounds }).catch((error) => {
       console.error(`[feed] persistence failed for session ${session}: ${(error as Error).message}`)
     })
-    res.json({ session, rounds, updatedAt: new Date().toISOString(), diagnostics: diag })
+    res.json({ session, namespace, rounds, updatedAt: new Date().toISOString(), diagnostics: diag })
   } catch (e) {
     res.status(502).json({
       session,
+      namespace,
       rounds: [],
       updatedAt: new Date().toISOString(),
       error: `feed failed: ${(e as Error).message}`,

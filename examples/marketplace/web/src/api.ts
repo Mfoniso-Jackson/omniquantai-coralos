@@ -12,12 +12,12 @@ export interface UiError {
 }
 
 /** Ask the feed server to launch a market session; returns its id. (Fund wallets first.) */
-export async function startMarket(): Promise<string> {
+export async function startMarket(): Promise<{ session: string; namespace?: string }> {
   try {
     const r = await fetch(`${FEED_URL}/api/start`, { method: 'POST' })
-    const body = (await r.json().catch(() => ({}))) as { session?: string; error?: string; log?: string }
+    const body = (await r.json().catch(() => ({}))) as { session?: string; namespace?: string; error?: string; log?: string }
     if (!r.ok || !body.session) throw new Error(body.error ?? `start failed (${r.status})`)
-    return body.session
+    return { session: body.session, namespace: body.namespace }
   } catch (error) {
     throw friendlyError(error, 'start')
   }
@@ -37,7 +37,7 @@ export interface FeedState {
  * Poll the feed server for a session's rounds. A plain hook (no extra deps) — swap for TanStack Query
  * or an SSE endpoint when you outgrow polling. `intervalMs` defaults to 1s.
  */
-export function useFeed(session: string, intervalMs = 1000): FeedState {
+export function useFeed(session: string, namespace?: string, intervalMs = 1000): FeedState {
   const [state, setState] = useState<FeedState>({ rounds: [], connected: false, polling: false, apiUrl: API_BASE_URL })
   const stop = useRef(false)
 
@@ -49,7 +49,9 @@ export function useFeed(session: string, intervalMs = 1000): FeedState {
     }
     const tick = async () => {
       try {
-        const r = await fetch(`${FEED_URL}/api/feed?session=${encodeURIComponent(session)}`)
+        const params = new URLSearchParams({ session })
+        if (namespace) params.set('namespace', namespace)
+        const r = await fetch(`${FEED_URL}/api/feed?${params.toString()}`)
         const feed = (await r.json().catch(() => ({}))) as Feed
         if (!r.ok) {
           const detail = feed.error ?? feed.diagnostics?.buyerStatus ?? `feed ${r.status}`
@@ -88,7 +90,7 @@ export function useFeed(session: string, intervalMs = 1000): FeedState {
     void tick()
     const id = setInterval(tick, intervalMs)
     return () => { stop.current = true; clearInterval(id) }
-  }, [session, intervalMs])
+  }, [session, namespace, intervalMs])
 
   return state
 }

@@ -160,7 +160,9 @@ async function main() {
   console.log('\n[demo] launching OmniQuantAI market round')
   const started = await postJson('http://localhost:4000/api/start', 'market start')
   const session = started.session
-  const url = `http://localhost:5173/?session=${encodeURIComponent(session)}&presentation=1`
+  const namespace = started.namespace
+  const namespaceParam = namespace ? `&namespace=${encodeURIComponent(namespace)}` : ''
+  const url = `http://localhost:5173/?session=${encodeURIComponent(session)}${namespaceParam}&presentation=1`
   const apiUrl = 'http://localhost:4000'
   const explorerUrl = 'https://explorer.solana.com/?cluster=devnet'
 

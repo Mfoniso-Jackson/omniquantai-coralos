@@ -149,11 +149,13 @@ async function main() {
     }),
   })
   if (!sres.ok) throw new Error(`session create failed: ${sres.status} ${await sres.text()}`)
-  const { sessionId } = await sres.json() as { sessionId: string }
+  const { namespace, sessionId } = await sres.json() as { namespace?: string; sessionId: string }
+  const sessionNamespace = namespace ?? NS
 
   const lineup = brokerReady ? `broker (reselling ${sellers.join(', ')})` : sellers.join(', ')
-  console.log(`\n✅ OmniQuantAI market session ${sessionId} — buyer + ${lineup}.`)
+  console.log(`\n✅ OmniQuantAI market session ${sessionId} namespace ${sessionNamespace} — buyer + ${lineup}.`)
   console.log(`   session id: ${sessionId}`)
+  console.log(`   namespace: ${sessionNamespace}`)
   console.log(`   receive wallet: ${wallet}`)
   console.log('   The buyer requests NVDA financial intelligence; sellers bid; the winner settles via escrow.\n')
   console.log('   Watch the market:')

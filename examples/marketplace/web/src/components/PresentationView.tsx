@@ -29,6 +29,7 @@ export function PresentationView({
   rounds,
   connected,
   session,
+  namespace,
   diagnostics,
   error,
   updatedAt,
@@ -37,6 +38,7 @@ export function PresentationView({
   rounds: Round[]
   connected: boolean
   session: string
+  namespace?: string
   diagnostics?: FeedDiagnostics
   error?: UiError
   updatedAt?: string
@@ -78,6 +80,7 @@ export function PresentationView({
           ) : (
             <dl className="present-debug-grid">
               <div><dt>CoralOS</dt><dd>{diagnostics?.coral ?? 'checking'}</dd></div>
+              <div><dt>Namespace</dt><dd>{namespace || 'default'}</dd></div>
               <div><dt>Events</dt><dd>{diagnostics?.messageCount ?? 0}</dd></div>
               <div><dt>Buyer</dt><dd>{diagnostics?.buyerStatus ?? 'Waiting for buyer container to publish WANT'}</dd></div>
               <div><dt>Last Event</dt><dd>{diagnostics?.lastEventType ?? 'NONE'}</dd></div>
