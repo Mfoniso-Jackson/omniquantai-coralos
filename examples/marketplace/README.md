@@ -1,12 +1,18 @@
-# Marketplace — the headline example
-
-An open market where **LLM** seller agents compete in a shared **CoralOS** thread and the winner is
-settled through the **Solana escrow contract**. One buyer broadcasts a need; persona sellers bid; the
-buyer awards best value; funds are escrowed, delivered against, and released on delivery. The product
-sold is the verified **TxODDS World Cup read** (the `txline` service) — the same one the oracle sells.
+# Marketplace — OmniQuantAI
 
 ```
-WANT txline → (sellers bid) → AWARD best value → deposit (escrow) → DELIVERED → release
+WANT research -> BID -> AWARD -> DEPOSITED -> DELIVERED -> VERIFIED -> RELEASED
+```
+
+OmniQuantAI is a Financial Intelligence Network: an open market where specialist AI agents compete to
+produce, verify, and monetize investment intelligence. One buyer agent broadcasts a research request,
+four seller agents bid, the buyer awards best value, the winner delivers an investment committee memo,
+and Solana devnet escrow releases payment after verification.
+
+The demo question is:
+
+```text
+Should our fund increase exposure to Nvidia over the next 3-6 months?
 ```
 
 > **CoralOS docs:** the market is one [Session](https://docs.coralos.ai/concepts/sessions) of agents on a
@@ -17,50 +23,55 @@ WANT txline → (sellers bid) → AWARD best value → deposit (escrow) → DELI
 
 Prereqs:
 - Docker + a funded devnet wallet pair (`node scripts/setup.js`).
-- A free **TxLINE token** — the market sells verified World Cup data, so mint one with `npm run mint`
-  in `examples/txodds` (writes `TXLINE_API_KEY` to `.env`). Without it, `npm start` exits with a hint.
 - An LLM key — the kit's LLM is **Venice AI** (`LLM_PROVIDER=venice` + `VENICE_API_KEY`; new accounts get
   $50 free via code `IMPERIAL50` at [venice.ai/settings/api](https://venice.ai/settings/api)).
   `ANTHROPIC_API_KEY`, or `LLM_PROVIDER=openai` + `OPENAI_API_KEY`, work too — no code change (see
-  [../../LLM.md](../../LLM.md)).
+  [../../LLM.md](../../LLM.md)). If no LLM key is present, the demo uses deterministic reasoning.
 
 The escrow program is already deployed to devnet — no `anchor deploy` needed.
 
 ```sh
-(cd examples/txodds && npm run mint)       # one-time: free devnet TxLINE token → .env
-bash build-agents.sh seller buyer          # build the two agent images (sellers reuse the seller image)
-docker compose up -d coral                 # CoralOS (MCP coordinator)
-cd examples/marketplace && npm install && npm start
+npm run bootstrap
+npm run judge
 ```
 
-Then watch the market:
+Then open the generated dashboard URL and click **Start Market**. The URL updates with the generated
+CoralOS session and the dashboard follows the market round.
+
+To watch the market from logs:
 
 ```sh
-docker logs -f buyer-agent     # WANT → AWARD (with a reason) → DEPOSITED → RELEASED
-docker logs -f seller-cheap    # BID → ESCROW_REQUIRED → DELIVERED
+docker logs -f buyer-agent     # WANT -> AWARD -> DEPOSITED -> VERIFIED -> RELEASED
+docker logs -f seller-market-analyst
+docker logs -f seller-news-earnings
+docker logs -f seller-macro-risk
+docker logs -f seller-portfolio-risk
 ```
 
 ## What you'll see
 
 ```
-[buyer]  round 1: WANT txline fixtures budget=0.001
-seller-cheap    BID round=1 price=0.0002 by=seller-cheap note=undercut
-seller-premium  BID round=1 price=0.0005 by=seller-premium note=verified
-seller-worldcup BID round=1 price=0.00045 by=seller-worldcup note=specialist
-[buyer]  picked seller-cheap (0.0002 SOL): cheapest for the fixture list
-[buyer]  round 1: DEPOSITED 0.0002 SOL → seller-cheap
-seller-cheap   DELIVERED round=1 {"service":"txline-fixtures","count":…}
-[buyer]  round 1: RELEASED to seller-cheap — https://explorer.solana.com/tx/…?cluster=devnet
+[buyer]  round 1: WANT omniquant-financial-intelligence NVDA budget=0.002
+market-analyst    BID round=1 price=0.00085 confidence=0.86 note=price action and valuation specialist
+news-earnings     BID round=1 price=0.00075 confidence=0.84 note=headlines, earnings, and analyst sentiment
+macro-risk        BID round=1 price=0.00060 confidence=0.78 note=rates, liquidity, and risk regime
+portfolio-risk    BID round=1 price=0.00055 confidence=0.80 note=sizing controls and concentration risk
+[buyer]  picked news-earnings: strongest value for the Nvidia exposure question
+[buyer]  round 1: DEPOSITED 0.00075 SOL -> news-earnings
+news-earnings DELIVERED round=1 {"service":"omniquant-financial-intelligence","recommendation":"HOLD",...}
+[buyer]  round 1: VERIFIED investment committee memo
+[buyer]  round 1: RELEASED to news-earnings - https://explorer.solana.com/tx/...cluster=devnet
 ```
 
 ## Knobs (`.env` or the session options)
 
 | Var | Effect |
 |-----|--------|
-| `BUYER_ARG` | the txline request (`fixtures` default; `edge <fixtureId>` for the headline read) |
+| `BUYER_ARG` | the research asset/question context (`NVDA` default) |
 | `LLM_PROVIDER=venice\|openai` | flip the whole market to another provider — no code change (Venice is the kit default) |
 | `TRACE=1` | log the `coral_*` calls + Explorer links for the escrow PDA, deposit, and release |
 | `BUYER_MAX_SOL` | the budget cap each round |
+| `FINNHUB_API_KEY`, `NEWS_API_KEY`, `FMP_API_KEY` | optional live market/news/fundamentals providers; deterministic fallback is automatic |
 
 ## Visualize it (optional React dashboard)
 
@@ -69,15 +80,15 @@ each round's bids, the winner + reasoning, and the escrow settlement with Explor
 
 ```sh
 just feed            # the feed server on :4000 (in another shell)
-just dashboard       # the UI on :5173 → open ?session=<the market session id>
+just dashboard       # the UI on :5173 -> click Start Market
 ```
 
 It's e2e-tested with fixtures (no devnet needed) — see [`web/`](web/README.md).
 
 ## Demo flourishes
 
-- **Drop in a competitor live:** add a fourth seller to `start.ts`'s graph — it bids next round with
-  zero buyer edits.
+- **Show the agent economy:** point to the four specialist sellers, then the buyer's best-value scoring.
+- **Lead with settlement:** show deposit and release Explorer links before explaining the UI.
 - **Flip the brain:** set `LLM_PROVIDER=venice` (or `openai`) and re-run — same market, a different LLM stack.
 
 For the full protocol and escrow flow, see the agents that implement it:

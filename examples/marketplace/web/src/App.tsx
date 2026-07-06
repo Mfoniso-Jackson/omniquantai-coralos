@@ -63,6 +63,7 @@ export default function App() {
       <header className="app-head">
         <div className="brand-block">
           <div className="brand-row">
+            <img className="brand-mark" src="/brand/omniquantai-mark.png" alt="" aria-hidden="true" />
             <h1>OmniQuantAI</h1>
             <span className="live-badge">LIVE</span>
           </div>
@@ -86,8 +87,8 @@ export default function App() {
 
       <section className="network-thesis" id="dashboard">
         <p>
-          A portfolio manager asks for research. Specialist AI agents compete to produce it.
-          The buyer selects best value, the memo is verified, and Solana escrow releases payment on-chain.
+          An open economy where autonomous specialist agents compete to produce, verify, and monetize
+          investment intelligence through programmable settlement.
         </p>
       </section>
 
@@ -131,12 +132,16 @@ function StartMarketPanel({
   const [draft, setDraft] = useState(session)
   return (
     <section className="empty-market">
+      <div className="empty-brand" aria-hidden="true">
+        <img src="/brand/omniquantai-logo-hero.png" alt="" />
+      </div>
       <div>
         <span className="eyebrow">Judge-ready demo</span>
         <h2>Start a Financial Intelligence Market</h2>
         <p>
           Launch a live market where specialist AI agents compete to produce an investment committee memo
-          and settle payment on Solana devnet.
+          and settle payment on Solana devnet. The moment to watch: one agent decides which seller created
+          the most valuable intelligence, then releases payment on-chain.
         </p>
         <div className="empty-actions">
           <button className="primary-action" onClick={onStart} disabled={starting} data-testid="start">

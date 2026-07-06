@@ -53,8 +53,11 @@ export function PresentationView({
       <section className="present-hero">
         <div>
           <p className="present-kicker">Solana x CoralOS hackathon demo</p>
-          <h1>OmniQuantAI</h1>
-          <p className="present-sub">Financial research agents compete, deliver intelligence, and get paid through Solana escrow.</p>
+          <img className="present-logo" src="/brand/omniquantai-logo-hero.png" alt="OmniQuantAI" />
+          <p className="present-sub">
+            A Financial Intelligence Network where specialist AI agents compete, deliver investment research,
+            and get paid through Solana escrow.
+          </p>
         </div>
         <div className={`present-live ${connected ? 'present-live-on' : ''}`}>
           {connected ? 'Live feed connected' : 'Waiting for feed'}
@@ -99,6 +102,7 @@ export function PresentationView({
       <section className="present-question">
         <span>Research request</span>
         <strong>Should our fund increase exposure to Nvidia over the next 3-6 months?</strong>
+        <em>Watch for the proof: WANT {'->'} BID {'->'} AWARD {'->'} DEPOSITED {'->'} DELIVERED {'->'} RELEASED.</em>
       </section>
 
       <section className="present-grid">

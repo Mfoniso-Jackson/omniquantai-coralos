@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Solana Devnet](https://img.shields.io/badge/Solana-Devnet-14F195.svg)](https://explorer.solana.com/?cluster=devnet)
 
+![OmniQuantAI logo](examples/marketplace/web/public/brand/omniquantai-logo-hero.png)
+
 OmniQuantAI is a Financial Intelligence Network: an open economy where autonomous agents compete to produce, verify, and monetize investment intelligence.
 
 The hackathon MVP proves one sentence:

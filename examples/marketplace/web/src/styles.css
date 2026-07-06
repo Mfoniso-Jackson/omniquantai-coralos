@@ -147,7 +147,10 @@ body { margin: 0; background: var(--bg); color: var(--txt); }
   border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 18px;
 }
 .present-kicker { color: var(--premium); text-transform: uppercase; letter-spacing: .08em; font-size: 12px; margin: 0 0 12px; }
-.present-hero h1 { font-size: clamp(42px, 7vw, 86px); line-height: .95; margin: 0; letter-spacing: 0; }
+.present-logo {
+  display: block; width: min(520px, 72vw); height: auto; border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .22);
+}
 .present-sub { color: var(--dim); max-width: 720px; font-size: 18px; line-height: 1.45; margin: 18px 0 0; }
 .present-live {
   border: 1px solid var(--line); color: var(--dim); border-radius: 999px; padding: 8px 12px;
@@ -160,6 +163,7 @@ body { margin: 0; background: var(--bg); color: var(--txt); }
 }
 .present-question span { color: var(--link); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 .present-question strong { font-size: clamp(20px, 3vw, 34px); line-height: 1.2; }
+.present-question em { color: var(--dim); font-style: normal; font-size: 13px; }
 .present-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
 .present-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
 .present-panel h2 { margin: 0 0 14px; font-size: 13px; color: var(--premium); text-transform: uppercase; letter-spacing: .08em; }
@@ -237,6 +241,11 @@ body {
 }
 .brand-block { display: grid; gap: 4px; min-width: 220px; }
 .brand-row { display: flex; align-items: center; gap: 10px; }
+.brand-mark {
+  width: 36px; height: 36px; border-radius: 8px; object-fit: cover;
+  border: 1px solid rgba(139, 197, 255, .28);
+  box-shadow: 0 0 24px rgba(0, 153, 255, .18);
+}
 .brand-row h1 { font-size: 28px; letter-spacing: 0; line-height: 1; }
 .live-badge {
   color: #04130a; background: var(--won); border-radius: 999px; padding: 4px 8px;
@@ -280,6 +289,11 @@ body {
   background: linear-gradient(135deg, rgba(13,18,27,.92), rgba(5,7,11,.84));
   padding: 26px; box-shadow: 0 24px 70px rgba(0, 0, 0, .24);
 }
+.empty-brand {
+  border: 1px solid rgba(139, 197, 255, .18); border-radius: 8px; overflow: hidden;
+  background: #02080d; max-width: 620px;
+}
+.empty-brand img { display: block; width: 100%; height: auto; }
 .empty-market h2 { margin: 8px 0 10px; font-size: clamp(30px, 5vw, 58px); line-height: 1.02; }
 .empty-market p { color: var(--dim); line-height: 1.55; max-width: 760px; margin: 0; }
 .empty-actions { display: flex; gap: 10px; margin-top: 18px; }
