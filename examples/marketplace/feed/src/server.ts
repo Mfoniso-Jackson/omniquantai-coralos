@@ -34,6 +34,7 @@ const DEFAULT_SESSION = process.env.SESSION ?? ''
 const FIXTURE = process.env.FEED_FIXTURE
 const SESSION_READ_RETRIES = Number(process.env.FEED_SESSION_READ_RETRIES ?? 8)
 const SESSION_READ_RETRY_MS = Number(process.env.FEED_SESSION_READ_RETRY_MS ?? 1000)
+const BUILD = 'feed-readable-session-v2'
 const sessionNamespaces = new Map<string, string>()
 const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
@@ -119,6 +120,7 @@ app.get('/api/health', async (_req, res) => {
     coral: BASE,
     coralReachable: coral.ok,
     coralStatus: coral.status,
+    build: BUILD,
     defaultSession: DEFAULT_SESSION || undefined,
     fixture: FIXTURE || undefined,
   })
@@ -167,6 +169,7 @@ app.get('/api/feed', async (req, res) => {
       diagnostics: {
         api: 'ok',
         coral: 'not_checked',
+        build: BUILD,
         messageCount: 0,
         lastEventType: 'NONE',
         lastEvent: 'No session supplied',
@@ -196,6 +199,7 @@ app.get('/api/feed', async (req, res) => {
       diagnostics: {
         api: 'ok',
         coral: 'unreachable',
+        build: BUILD,
         messageCount: 0,
         lastEventType: 'ERROR',
         lastEvent: (e as Error).message,
@@ -227,6 +231,7 @@ function diagnostics(messages: RawMessage[], rounds: Round[]) {
   return {
     api: 'ok',
     coral: 'ok',
+    build: BUILD,
     messageCount: messages.length,
     lastEventType: last ? lastEventType(last.text) : 'NONE',
     lastEvent: last ? `${last.sender}: ${last.text.slice(0, 160)}` : 'No events for this session yet',

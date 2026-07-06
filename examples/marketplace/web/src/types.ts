@@ -36,6 +36,7 @@ export interface Feed {
 export interface FeedDiagnostics {
   api: string
   coral: string
+  build?: string
   messageCount: number
   lastEventType: string
   lastEvent: string

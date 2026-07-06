@@ -246,6 +246,7 @@ function DebugPanel({
         <dt>Session</dt><dd>{session || 'none'}</dd>
         <dt>API URL</dt><dd>{apiUrl || API_BASE_URL}</dd>
         <dt>API</dt><dd>{connected ? 'connected' : 'disconnected'}</dd>
+        <dt>API build</dt><dd>{diagnostics?.build ?? 'unknown'}</dd>
         <dt>Polling</dt><dd>{polling ? 'active' : 'idle'}</dd>
         <dt>CoralOS</dt><dd>{diagnostics?.coral ?? 'unknown'}</dd>
         <dt>Buyer</dt><dd>{diagnostics?.buyerStatus ?? 'waiting for feed'}</dd>
