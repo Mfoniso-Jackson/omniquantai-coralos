@@ -16,7 +16,10 @@ export async function startMarket(): Promise<{ session: string; namespace?: stri
   try {
     const r = await fetch(`${FEED_URL}/api/start`, { method: 'POST' })
     const body = (await r.json().catch(() => ({}))) as { session?: string; namespace?: string; error?: string; log?: string }
-    if (!r.ok || !body.session) throw new Error(body.error ?? `start failed (${r.status})`)
+    if (!r.ok || !body.session) {
+      const detail = [body.error ?? `start failed (${r.status})`, body.log].filter(Boolean).join(': ')
+      throw new Error(detail)
+    }
     return { session: body.session, namespace: body.namespace }
   } catch (error) {
     throw friendlyError(error, 'start')

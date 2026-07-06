@@ -145,7 +145,10 @@ async function main() {
           ...brokerAgents,
         ],
       },
-      namespaceProvider: { namespaceRequest: { name: NS, deleteOnLastSessionExit: false, annotations: {} } },
+      namespaceProvider: {
+        type: 'create_if_not_exists',
+        namespaceRequest: { name: NS, deleteOnLastSessionExit: false, annotations: {} },
+      },
       execution: { mode: 'immediate' },
     }),
   })
