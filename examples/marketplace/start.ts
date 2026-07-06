@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path'
 
 const BASE = process.env.CORAL_SERVER_URL ?? 'http://localhost:5555'
 const TOKEN = process.env.CORAL_TOKEN ?? 'dev'
-const NS = 'default'
+const NS = process.env.CORAL_NAMESPACE ?? 'omniquant'
 const AUTH = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
 
 // ── Load repo-root .env (2 levels up: marketplace → examples → root) ──
@@ -123,6 +123,7 @@ async function main() {
   // coral-server spawns one container per agent in this graph. Docs:
   //   create-session   https://docs.coralos.ai/api-reference/local/create-session
   //   agent graph      https://docs.coralos.ai/api-reference/models/GraphAgentRequest
+  await ensureNamespace(NS)
   const sres = await fetch(`${BASE}/api/v1/local/session`, {
     method: 'POST', headers: AUTH,
     body: JSON.stringify({
@@ -144,7 +145,7 @@ async function main() {
           ...brokerAgents,
         ],
       },
-      namespaceProvider: { type: 'create_if_not_exists', namespaceRequest: { name: NS } },
+      namespaceProvider: { namespaceRequest: { name: NS, deleteOnLastSessionExit: false, annotations: {} } },
       execution: { mode: 'immediate' },
     }),
   })
@@ -162,6 +163,22 @@ async function main() {
   console.log('     docker logs -f buyer-agent      # WANT → AWARD (with a reason) → DEPOSITED → VERIFIED → RELEASED')
   console.log('     docker logs -f portfolio-risk   # BID → ESCROW_REQUIRED → DELIVERED')
   console.log('   Set TRACE=1 in .env to see the coral_* calls + Explorer links for deposit/release.\n')
+}
+
+async function ensureNamespace(name: string): Promise<void> {
+  try {
+    const res = await fetch(`${BASE}/api/v1/local/namespace`, {
+      method: 'POST',
+      headers: AUTH,
+      body: JSON.stringify({ name, deleteOnLastSessionExit: false, annotations: {} }),
+    })
+    if (res.ok || res.status === 409) return
+    const body = await res.text()
+    if (/already exists/i.test(body)) return
+    console.warn(`[marketplace] namespace create returned ${res.status}: ${body.slice(0, 180)}`)
+  } catch (error) {
+    console.warn(`[marketplace] namespace preflight skipped: ${(error as Error).message}`)
+  }
 }
 
 main().catch((e) => { console.error(`[marketplace] ${e}`); process.exitCode = 1 })

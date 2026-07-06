@@ -28,7 +28,7 @@ const MARKET_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..') // 
 
 const BASE = process.env.CORAL_SERVER_URL ?? 'http://localhost:5555'
 const TOKEN = process.env.CORAL_TOKEN ?? 'dev'
-const NS = 'default'
+const NS = process.env.CORAL_NAMESPACE ?? 'omniquant'
 const PORT = Number(process.env.PORT ?? 4000)
 const DEFAULT_SESSION = process.env.SESSION ?? ''
 const FIXTURE = process.env.FEED_FIXTURE
@@ -39,11 +39,43 @@ const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,mac
 /** Fetch a session's raw extended state — from the FEED_FIXTURE file, else from coral. */
 async function readState(session: string, namespace = NS): Promise<unknown> {
   if (FIXTURE) return JSON.parse(readFileSync(FIXTURE, 'utf8'))
+  try {
+    return await readStateInNamespace(session, namespace)
+  } catch (error) {
+    const message = (error as Error).message
+    if (!/Namespace .* does not exist|namespace/i.test(message)) throw error
+    const namespaces = await listNamespaces()
+    for (const candidate of namespaces.filter((name) => name !== namespace)) {
+      try {
+        const state = await readStateInNamespace(session, candidate)
+        sessionNamespaces.set(session, candidate)
+        console.error(`[feed] recovered session ${session} in namespace=${candidate} after ${message}`)
+        return state
+      } catch { /* keep scanning */ }
+    }
+    throw new Error(`${message}; available namespaces: ${namespaces.join(', ') || 'none'}`)
+  }
+}
+
+async function readStateInNamespace(session: string, namespace: string): Promise<unknown> {
   const r = await fetch(`${BASE}/api/v1/local/session/${namespace}/${session}/extended`, {
     headers: { Authorization: `Bearer ${TOKEN}` },
   })
   if (!r.ok) throw new Error(`coral ${r.status}: ${(await r.text()).slice(0, 200)}`)
   return r.json()
+}
+
+async function listNamespaces(): Promise<string[]> {
+  try {
+    const res = await fetch(`${BASE}/api/v1/local/namespace`, {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    })
+    if (!res.ok) return []
+    const body = await res.json() as Array<{ name?: string }>
+    return body.map((item) => item.name).filter((name): name is string => Boolean(name))
+  } catch {
+    return []
+  }
 }
 
 const app = express()
@@ -91,7 +123,7 @@ app.post('/api/start', (_req, res) => {
 
 app.get('/api/feed', async (req, res) => {
   const session = FIXTURE ? 'fixture' : ((req.query.session as string) || DEFAULT_SESSION)
-  const namespace = FIXTURE ? 'fixture' : ((req.query.namespace as string) || sessionNamespaces.get(session) || NS)
+  const requestedNamespace = FIXTURE ? 'fixture' : ((req.query.namespace as string) || sessionNamespaces.get(session) || NS)
   if (!FIXTURE && !session) {
     return res.json({
       session: '',
@@ -110,7 +142,8 @@ app.get('/api/feed', async (req, res) => {
     })
   }
   try {
-    const messages = collectMessages(await readState(session, namespace))
+    const messages = collectMessages(await readState(session, requestedNamespace))
+    const namespace = sessionNamespaces.get(session) || requestedNamespace
     const rounds = foldRounds(messages, SELLERS)
     const diag = diagnostics(messages, rounds)
     console.error(`[feed] session=${session} namespace=${namespace} messages=${diag.messageCount} rounds=${rounds.length} last_event_type=${diag.lastEventType} seller_bids=${diag.sellerBidCount} escrow=${diag.escrowStatus}`)
@@ -121,7 +154,7 @@ app.get('/api/feed', async (req, res) => {
   } catch (e) {
     res.status(502).json({
       session,
-      namespace,
+      namespace: sessionNamespaces.get(session) || requestedNamespace,
       rounds: [],
       updatedAt: new Date().toISOString(),
       error: `feed failed: ${(e as Error).message}`,
