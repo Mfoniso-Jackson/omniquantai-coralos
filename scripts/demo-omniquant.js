@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const children = new Set()
-const EXPECTED_FEED_BUILD = 'feed-want-gated-v3'
+const EXPECTED_FEED_BUILD = 'feed-session-id-v4'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const hasCmd = (cmd) => spawnSync(cmd, ['--version'], { shell: true, stdio: 'ignore' }).status === 0

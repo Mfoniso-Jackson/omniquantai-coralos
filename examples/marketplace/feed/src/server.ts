@@ -36,7 +36,7 @@ const SESSION_READ_RETRIES = Number(process.env.FEED_SESSION_READ_RETRIES ?? 8)
 const SESSION_READ_RETRY_MS = Number(process.env.FEED_SESSION_READ_RETRY_MS ?? 1000)
 const START_READY_RETRIES = Number(process.env.FEED_START_READY_RETRIES ?? 35)
 const START_READY_RETRY_MS = Number(process.env.FEED_START_READY_RETRY_MS ?? 1000)
-const BUILD = 'feed-want-gated-v3'
+const BUILD = 'feed-session-id-v4'
 const sessionNamespaces = new Map<string, string>()
 const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
@@ -138,7 +138,7 @@ app.post('/api/start', (_req, res) => {
   const reply = (code: number, body: unknown) => { if (!done) { done = true; res.status(code).json(body) } }
   const onData = (d: Buffer) => {
     buf += d.toString()
-    const m = buf.match(/(?:OmniQuantAI\s+)?market session ([a-f0-9-]+)(?:\s+namespace\s+([A-Za-z0-9_.-]+))?/i)
+    const m = buf.match(/(?:OmniQuantAI\s+)?market session (\S+)(?:\s+namespace\s+([A-Za-z0-9_.-]+))?/i)
     if (m && !matched) {
       matched = true
       const session = m[1]
