@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const children = new Set()
+const EXPECTED_FEED_BUILD = 'feed-readable-session-v2'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const hasCmd = (cmd) => spawnSync(cmd, ['--version'], { shell: true, stdio: 'ignore' }).status === 0
@@ -36,6 +37,11 @@ function runOptional(label, cmd, args, opts = {}) {
   console.log(`\n[demo] ${label}`)
   const res = spawnSync(cmd, args, { cwd: root, shell: true, stdio: 'inherit', ...opts })
   return res.status === 0
+}
+
+function clearPort(port) {
+  const script = `pids=$(lsof -ti tcp:${port} 2>/dev/null || true); if [ -n "$pids" ]; then echo "killing stale process(es) on :${port}: $pids"; kill $pids || true; fi`
+  spawnSync('bash', ['-lc', script], { cwd: root, stdio: 'inherit' })
 }
 
 function start(label, cmd, args, cwd = root) {
@@ -143,6 +149,8 @@ async function main() {
 
   run('check Docker is running', 'docker', ['info'])
   run('start CoralOS', 'docker', ['compose', 'up', '-d', 'coral'])
+  clearPort(4000)
+  clearPort(5173)
 
   ensureRuntime()
   npmInstallIfMissing('examples/marketplace')
@@ -152,7 +160,11 @@ async function main() {
   run('build buyer/seller agent images', 'bash', ['build-agents.sh'])
 
   start('marketplace feed', packageManager, ['run', 'start'], join(root, 'examples', 'marketplace', 'feed'))
-  await waitJson('http://localhost:4000/api/health', 'marketplace feed')
+  const feedHealth = await waitJson('http://localhost:4000/api/health', 'marketplace feed')
+  if (feedHealth.build !== EXPECTED_FEED_BUILD) {
+    throw new Error(`marketplace feed is stale or mismatched: expected build ${EXPECTED_FEED_BUILD}, got ${feedHealth.build ?? 'unknown'}`)
+  }
+  console.log(`[demo] marketplace feed build ${feedHealth.build}`)
 
   start('marketplace dashboard', packageManager, ['run', 'dev'], join(root, 'examples', 'marketplace', 'web'))
   await sleep(1500)
