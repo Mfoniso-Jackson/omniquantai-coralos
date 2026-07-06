@@ -34,7 +34,9 @@ const DEFAULT_SESSION = process.env.SESSION ?? ''
 const FIXTURE = process.env.FEED_FIXTURE
 const SESSION_READ_RETRIES = Number(process.env.FEED_SESSION_READ_RETRIES ?? 8)
 const SESSION_READ_RETRY_MS = Number(process.env.FEED_SESSION_READ_RETRY_MS ?? 1000)
-const BUILD = 'feed-readable-session-v2'
+const START_READY_RETRIES = Number(process.env.FEED_START_READY_RETRIES ?? 35)
+const START_READY_RETRY_MS = Number(process.env.FEED_START_READY_RETRY_MS ?? 1000)
+const BUILD = 'feed-want-gated-v3'
 const sessionNamespaces = new Map<string, string>()
 const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
@@ -142,21 +144,72 @@ app.post('/api/start', (_req, res) => {
       const namespace = m[2] ?? NS
       sessionNamespaces.set(session, namespace)
       console.error(`[feed] launched market session ${session} namespace=${namespace}`)
-      void readState(session, namespace)
+      void waitForWant(session, namespace)
         .then(() => reply(200, { session, namespace }))
-        .catch((error) => reply(502, {
-          error: `launcher created session ${session} but CoralOS did not expose readable state: ${(error as Error).message}`,
+        .catch(async (error) => reply(502, {
+          error: `launcher created session ${session} but buyer did not publish WANT: ${(error as Error).message}`,
           session,
           namespace,
-          log: buf.slice(-800),
+          log: `${buf.slice(-800)}\n${await runtimeDiagnostics()}`.slice(-4000),
         }))
     }
   }
   child.stdout.on('data', onData)
   child.stderr.on('data', onData)
   child.on('exit', (c) => reply(500, { error: `launcher exited ${c} without a session`, log: buf.slice(-400) }))
-  setTimeout(() => reply(504, { error: 'launcher timed out', log: buf.slice(-400) }), 30_000)
+  setTimeout(() => reply(504, { error: 'launcher timed out', log: buf.slice(-800) }), Math.max(60_000, START_READY_RETRIES * START_READY_RETRY_MS + 10_000))
 })
+
+async function waitForWant(session: string, namespace: string): Promise<void> {
+  let lastError = ''
+  for (let attempt = 1; attempt <= START_READY_RETRIES; attempt += 1) {
+    try {
+      const messages = collectMessages(await readState(session, namespace))
+      const want = messages.find((message) => /^WANT\b/.test(message.text.trim()))
+      if (want) {
+        console.error(`[feed] session=${session} namespace=${namespace} first WANT observed from ${want.sender}`)
+        return
+      }
+      lastError = `readable session has ${messages.length} message(s), but no WANT yet`
+    } catch (error) {
+      lastError = (error as Error).message
+    }
+    if (attempt < START_READY_RETRIES) {
+      console.error(`[feed] session=${session} namespace=${namespace} waiting for WANT ${attempt}/${START_READY_RETRIES}: ${lastError}`)
+      await sleep(START_READY_RETRY_MS)
+    }
+  }
+  throw new Error(lastError || 'Timed out waiting for buyer WANT')
+}
+
+async function runtimeDiagnostics(): Promise<string> {
+  const commands = [
+    ['docker ps', ['ps', '--format', 'table {{.Names}}\t{{.Image}}\t{{.Status}}']],
+    ['coral logs', ['logs', '--tail', '80', 'coral']],
+    ['buyer logs', ['logs', '--tail', '80', 'buyer-agent']],
+    ['market analyst logs', ['logs', '--tail', '40', 'market-analyst']],
+    ['news earnings logs', ['logs', '--tail', '40', 'news-earnings']],
+    ['macro risk logs', ['logs', '--tail', '40', 'macro-risk']],
+    ['portfolio risk logs', ['logs', '--tail', '40', 'portfolio-risk']],
+  ] as const
+  const out: string[] = []
+  for (const [label, args] of commands) {
+    out.push(`\n--- ${label} ---`)
+    out.push(await dockerOutput(args))
+  }
+  return out.join('\n')
+}
+
+function dockerOutput(args: readonly string[]): Promise<string> {
+  return new Promise((resolve) => {
+    const child = spawn('docker', [...args], { shell: false })
+    let output = ''
+    child.stdout.on('data', (data) => { output += data.toString() })
+    child.stderr.on('data', (data) => { output += data.toString() })
+    child.on('error', (error) => resolve((error as Error).message))
+    child.on('close', () => resolve(output.trim() || 'no output'))
+  })
+}
 
 app.get('/api/feed', async (req, res) => {
   const session = FIXTURE ? 'fixture' : ((req.query.session as string) || DEFAULT_SESSION)
