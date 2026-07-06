@@ -153,7 +153,17 @@ async function main() {
     }),
   })
   if (!sres.ok) throw new Error(`session create failed: ${sres.status} ${await sres.text()}`)
-  const { namespace, sessionId } = await sres.json() as { namespace?: string; sessionId: string }
+  const body = await sres.json() as {
+    id?: string
+    namespace?: string
+    sessionId?: string
+    session?: { id?: string; sessionId?: string; namespace?: string }
+  }
+  const sessionId = body.sessionId ?? body.id ?? body.session?.sessionId ?? body.session?.id
+  if (!sessionId) {
+    throw new Error(`session create response did not include a session id: ${JSON.stringify(body).slice(0, 1000)}`)
+  }
+  const namespace = body.namespace ?? body.session?.namespace
   const sessionNamespace = namespace ?? NS
 
   const lineup = brokerReady ? `broker (reselling ${sellers.join(', ')})` : sellers.join(', ')
