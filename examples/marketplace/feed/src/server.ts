@@ -300,13 +300,18 @@ function lastEventType(text: string): string {
 
 async function coralHealth(): Promise<{ ok: boolean; status: string }> {
   if (FIXTURE) return { ok: true, status: 'fixture mode' }
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 2500)
   try {
     const res = await fetch(`${BASE}/api/v1/local/session/${NS}/__healthcheck__/extended`, {
       headers: { Authorization: `Bearer ${TOKEN}` },
+      signal: controller.signal,
     })
     if (res.status === 404) return { ok: true, status: 'reachable' }
     return { ok: res.ok, status: `${res.status} ${res.statusText}` }
   } catch (error) {
     return { ok: false, status: (error as Error).message }
+  } finally {
+    clearTimeout(timeout)
   }
 }

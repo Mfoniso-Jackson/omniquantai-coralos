@@ -119,7 +119,7 @@ async function waitJson(url, label, timeoutMs = 30_000) {
   let last = ''
   while (Date.now() - started < timeoutMs) {
     try {
-      const res = await fetch(url)
+      const res = await fetchWithTimeout(url, {}, 3000)
       if (res.ok) return res.json()
       last = `${res.status} ${await res.text()}`
     } catch (e) {
@@ -131,13 +131,20 @@ async function waitJson(url, label, timeoutMs = 30_000) {
 }
 
 async function postJson(url, label, timeoutMs = 45_000) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const res = await fetch(url, { method: 'POST', signal: controller.signal })
+    const res = await fetchWithTimeout(url, { method: 'POST' }, timeoutMs)
     const body = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(body.error ?? `${res.status}`)
     return body
+  } finally {
+  }
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
   } finally {
     clearTimeout(timeout)
   }
