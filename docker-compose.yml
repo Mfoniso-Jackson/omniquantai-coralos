@@ -28,6 +28,8 @@ services:
       - SELLER_WALLET=${WALLET}
       - SOLANA_RPC_URL=${SOLANA_RPC_URL:-https://api.devnet.solana.com}
       - BUYER_KEYPAIR_B58=${BUYER_KEYPAIR_B58}
+      - ARBITER_KEYPAIR_B58=${ARBITER_KEYPAIR_B58:-}
+      - SETTLEMENT_MODE=${SETTLEMENT_MODE:-arbiter}
       - BUYER_MAX_SOL=${BUYER_MAX_SOL:-0.001}
       # LLM brain — the kit uses Venice AI (LLM_PROVIDER=venice + VENICE_API_KEY); openai/anthropic also work.
       - VENICE_API_KEY=${VENICE_API_KEY:-}

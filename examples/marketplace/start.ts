@@ -48,8 +48,13 @@ async function main() {
   const env = loadEnv()
   const wallet = env.WALLET
   const keypair = env.BUYER_KEYPAIR_B58
+  const arbiter = env.ARBITER_KEYPAIR_B58
+  const settlementMode = (env.SETTLEMENT_MODE ?? 'arbiter').toLowerCase() === 'direct' ? 'direct' : 'arbiter'
   if (!wallet || !keypair) {
     throw new Error('WALLET and BUYER_KEYPAIR_B58 must be set in .env — run `node scripts/setup.js`')
+  }
+  if (settlementMode === 'arbiter' && !arbiter) {
+    throw new Error('ARBITER_KEYPAIR_B58 must be set in .env for SETTLEMENT_MODE=arbiter — run `node scripts/setup.js`')
   }
   const rpc = env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
   const trace = env.TRACE ?? ''
@@ -73,6 +78,7 @@ async function main() {
   ) =>
     agent(name, {
       SELLER_WALLET: str(wallet), SOLANA_RPC_URL: str(rpc), AGENT_NAME: str(name),
+      SETTLEMENT_MODE: str(settlementMode),
       SERVICES: str('omniquant'), SERVICE: str('omniquant'), PERSONA: str(persona), FLOOR_SOL: f64(floorSol),
       RELEVANCE: f64(metrics.relevance), EXPECTED_QUALITY: f64(metrics.quality), CONFIDENCE: f64(metrics.confidence),
       DOMAIN_FIT: f64(metrics.fit), SPEED_SECONDS: f64(metrics.speed), EXPLANATION_QUALITY: f64(metrics.explanation),
@@ -110,6 +116,8 @@ async function main() {
     BUYER_KEYPAIR_B58: str(keypair),
     AGENT_NAME: str('buyer-agent'),
     SOLANA_RPC_URL: str(rpc),
+    SETTLEMENT_MODE: str(settlementMode),
+    ...(settlementMode === 'arbiter' ? { ARBITER_KEYPAIR_B58: str(arbiter as string) } : {}),
     // F3: the expected seller payout wallet — the buyer binds the escrow seller= to it (broker if enabled).
     SELLER_WALLET: str(buyerExpectedWallet),
     BUYER_MAX_SOL: f64(Number(env.BUYER_MAX_SOL ?? '0.03')),
@@ -170,6 +178,7 @@ async function main() {
   console.log(`\n✅ OmniQuantAI market session ${sessionId} namespace ${sessionNamespace} — buyer + ${lineup}.`)
   console.log(`   session id: ${sessionId}`)
   console.log(`   namespace: ${sessionNamespace}`)
+  console.log(`   settlement mode: ${settlementMode}`)
   console.log(`   receive wallet: ${wallet}`)
   console.log('   The buyer requests NVDA financial intelligence; sellers bid; the winner settles via escrow.\n')
   console.log('   Watch the market:')
