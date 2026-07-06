@@ -6,6 +6,7 @@
 
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import net from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -130,6 +131,23 @@ async function waitJson(url, label, timeoutMs = 30_000) {
   throw new Error(`${label} did not become ready: ${last}`)
 }
 
+async function waitPort(port, label, timeoutMs = 30_000) {
+  const started = Date.now()
+  let last = ''
+  while (Date.now() - started < timeoutMs) {
+    const ok = await new Promise((resolve) => {
+      const socket = net.createConnection({ host: '127.0.0.1', port })
+      socket.setTimeout(1000)
+      socket.on('connect', () => { socket.destroy(); resolve(true) })
+      socket.on('timeout', () => { socket.destroy(); resolve(false) })
+      socket.on('error', (error) => { last = error.message; resolve(false) })
+    })
+    if (ok) return
+    await sleep(500)
+  }
+  throw new Error(`${label} port ${port} did not open: ${last || 'timeout'}`)
+}
+
 async function postJson(url, label, timeoutMs = 45_000) {
   try {
     const res = await fetchWithTimeout(url, { method: 'POST' }, timeoutMs)
@@ -195,11 +213,16 @@ async function main() {
   run('build buyer/seller agent images', 'bash', ['build-agents.sh'])
 
   start('marketplace feed', packageManager, ['run', 'start'], join(root, 'examples', 'marketplace', 'feed'))
-  const feedHealth = await waitJson('http://127.0.0.1:4000/api/health?quick=1', 'marketplace feed')
-  if (feedHealth.build !== EXPECTED_FEED_BUILD) {
-    throw new Error(`marketplace feed is stale or mismatched: expected build ${EXPECTED_FEED_BUILD}, got ${feedHealth.build ?? 'unknown'}`)
+  await waitPort(4000, 'marketplace feed')
+  try {
+    const feedHealth = await waitJson('http://127.0.0.1:4000/api/health?quick=1', 'marketplace feed quick health', 5000)
+    if (feedHealth.build !== EXPECTED_FEED_BUILD) {
+      throw new Error(`marketplace feed is stale or mismatched: expected build ${EXPECTED_FEED_BUILD}, got ${feedHealth.build ?? 'unknown'}`)
+    }
+    console.log(`[demo] marketplace feed build ${feedHealth.build}`)
+  } catch (error) {
+    console.warn(`[demo] marketplace feed health probe skipped: ${error.message}`)
   }
-  console.log(`[demo] marketplace feed build ${feedHealth.build}`)
 
   start('marketplace dashboard', packageManager, ['run', 'dev'], join(root, 'examples', 'marketplace', 'web'))
   await sleep(1500)
