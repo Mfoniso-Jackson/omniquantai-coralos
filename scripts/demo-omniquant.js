@@ -5,7 +5,7 @@
 // then launches one OmniQuantAI market round and prints the presentation URL.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -42,6 +42,33 @@ function runOptional(label, cmd, args, opts = {}) {
 function clearPort(port) {
   const script = `pids=$(lsof -ti tcp:${port} 2>/dev/null || true); if [ -n "$pids" ]; then echo "killing stale process(es) on :${port}: $pids"; kill $pids || true; fi`
   spawnSync('bash', ['-lc', script], { cwd: root, stdio: 'inherit' })
+}
+
+function shellOutput(cmd) {
+  const res = spawnSync('bash', ['-lc', cmd], { cwd: root, encoding: 'utf8' })
+  return res.status === 0 ? res.stdout.trim() : ''
+}
+
+function dockerGatewayAddress() {
+  if (process.env.CORAL_DOCKER_ADDRESS) return process.env.CORAL_DOCKER_ADDRESS
+  if (process.platform !== 'linux') return 'host.docker.internal'
+  return shellOutput("docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}'") || '172.17.0.1'
+}
+
+function writeRuntimeCoralConfig() {
+  const address = dockerGatewayAddress()
+  const source = join(root, 'examples', 'txodds', 'coral', 'coral.toml')
+  const runtimeDir = join(root, '.runtime')
+  const target = join(runtimeDir, 'coral.toml')
+  mkdirSync(runtimeDir, { recursive: true })
+  const config = readFileSync(source, 'utf8').replace(
+    /address = ".*"/,
+    `address = "${address}"`,
+  )
+  writeFileSync(target, config)
+  process.env.CORAL_CONFIG_FILE = target
+  console.log(`[demo] CoralOS Docker callback address: ${address}`)
+  console.log(`[demo] CoralOS runtime config: ${target}`)
 }
 
 function start(label, cmd, args, cwd = root) {
@@ -148,7 +175,8 @@ async function main() {
   printWalletHint()
 
   run('check Docker is running', 'docker', ['info'])
-  run('start CoralOS', 'docker', ['compose', 'up', '-d', 'coral'])
+  writeRuntimeCoralConfig()
+  run('start CoralOS', 'docker', ['compose', 'up', '-d', '--force-recreate', 'coral'])
   clearPort(4000)
   clearPort(5173)
 

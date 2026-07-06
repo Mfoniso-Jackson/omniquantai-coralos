@@ -42,6 +42,6 @@ services:
       - TRACE=${TRACE:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./examples/txodds/coral/coral.toml:/config/coral.toml:ro
+      - ${CORAL_CONFIG_FILE:-./examples/txodds/coral/coral.toml}:/config/coral.toml:ro
       - ./coral-agents:/agents:ro
     restart: unless-stopped
