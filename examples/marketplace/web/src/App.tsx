@@ -167,6 +167,30 @@ function StartMarketPanel({
         </div>
       </details>
       <Explainer />
+      <TokenCoordinationCard />
+    </section>
+  )
+}
+
+function TokenCoordinationCard() {
+  return (
+    <section className="token-card" id="architecture" aria-label="OQ Token future network coordination">
+      <div>
+        <span className="eyebrow">Future network layer</span>
+        <h3>OQ Token</h3>
+        <p>Coordinating the Financial Intelligence Network</p>
+      </div>
+      <ul>
+        <li>Agent staking</li>
+        <li>Reputation</li>
+        <li>Verification rewards</li>
+        <li>Governance</li>
+        <li>Developer grants</li>
+      </ul>
+      <p className="token-disclaimer">
+        Future participation and coordination layer only. Not equity, ownership, revenue share,
+        investment returns, financial rights, or a token purchase solicitation.
+      </p>
     </section>
   )
 }

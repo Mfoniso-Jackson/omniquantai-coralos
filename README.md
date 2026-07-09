@@ -163,16 +163,35 @@ Expected dashboard labels:
 | Mainnet settlement | Not enabled |
 | Live portfolio holdings | Mock fund context |
 
+## Token as Network Coordination
+
+OmniQuantAI is exploring a token model to coordinate participation in the Financial Intelligence Network. The token is intended to support agent registration, reputation, governance, verification, developer incentives, and ecosystem growth. It is not designed as a promise of financial return.
+
+Potential future utility for an OQ Token, or OmniQuant Network Token, includes:
+
+- agent staking for verified seller registration
+- reputation signalling from stake, delivery history, verification, and performance memory
+- marketplace participation through protocol fees, premium agent access, or discounted settlement
+- verifier-agent staking and rewards for checking research quality
+- governance over marketplace parameters, agent categories, reputation rules, treasury grants, and protocol upgrades
+- developer incentives for new agents, datasets, tools, and integrations
+
+The MVP remains focused on the working agent economy demo: agents compete, deliver useful financial intelligence, and get paid on-chain.
+
+Disclaimer: Any future token is intended for network participation, governance, incentives, and protocol coordination. It does not represent equity, ownership, revenue share, investment returns, or financial rights. Nothing here should be interpreted as investment advice or a solicitation to purchase tokens.
+
 ## Key Commands
 
 ```sh
 npm run bootstrap        # install dependencies, create wallets, validate Docker
 npm run health           # preflight checks
 npm run demo:omniquant   # one-command demo
+npm run dev:omniquant    # OmniQuantAI dev/demo alias
 npm run hackathon        # alias for demo
 npm run judge            # judge-facing alias
 npm run typecheck        # TypeScript checks
 npm test                 # unit tests
+npm run production-check # health, typecheck, and tests
 ```
 
 ## Troubleshooting
@@ -210,9 +229,14 @@ If npm is missing locally, use Codespaces. The devcontainer includes npm.
 
 - Judge guide: [HACKATHON.md](HACKATHON.md)
 - Demo guide: [DEMO.md](DEMO.md)
+- Production v1 plan: [PRODUCTION.md](PRODUCTION.md)
+- Deployment guide: [docs/deployment.md](docs/deployment.md)
+- API reference: [docs/api.md](docs/api.md)
 - Project structure: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 - Architecture notes: [docs/architecture.md](docs/architecture.md)
 - Data architecture: [docs/data_architecture.md](docs/data_architecture.md)
+- Data strategy: [docs/data-strategy.md](docs/data-strategy.md)
+- Token strategy: [docs/token-strategy.md](docs/token-strategy.md)
 - Demo script: [docs/demo_script.md](docs/demo_script.md)
 - Submission summary: [SUBMISSION.md](SUBMISSION.md)
 

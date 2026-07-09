@@ -15,6 +15,7 @@
  *      SESSION, MARKET_SELLERS (csv for the declined column), FEED_FIXTURE, PORT (default 4000).
  */
 import express from 'express'
+import type { Request, Response } from 'express'
 import { existsSync, readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -115,10 +116,9 @@ app.use((_req, res, next) => {
 
 app.use(express.json())
 
-app.get('/api/health', async (req, res) => {
-  const quick = req.query.quick === '1'
+async function healthPayload(quick: boolean) {
   const coral = quick ? { ok: false, status: 'not_checked' } : await coralHealth()
-  res.json({
+  return {
     ok: true,
     coral: BASE,
     coralReachable: coral.ok,
@@ -126,11 +126,24 @@ app.get('/api/health', async (req, res) => {
     build: BUILD,
     defaultSession: DEFAULT_SESSION || undefined,
     fixture: FIXTURE || undefined,
-  })
+  }
+}
+
+app.get('/health', async (req, res) => {
+  const quick = req.query.quick === '1'
+  res.json(await healthPayload(quick))
 })
 
+app.get('/api/health', async (req, res) => {
+  const quick = req.query.quick === '1'
+  res.json(await healthPayload(quick))
+})
+
+app.post('/api/sessions/start', startSession)
+app.post('/api/start', startSession)
+
 /** Operator trigger: launch a market session (runs the marketplace launcher) and return its id. */
-app.post('/api/start', (_req, res) => {
+function startSession(_req: Request, res: Response) {
   const launcher = launcherCommand()
   const child = spawn(launcher.cmd, launcher.args, { cwd: MARKET_DIR, shell: false, env: process.env })
   let buf = ''
@@ -167,7 +180,7 @@ app.post('/api/start', (_req, res) => {
     })
   })
   setTimeout(() => reply(504, { error: 'launcher timed out', log: buf.slice(-800) }), Math.max(60_000, START_READY_RETRIES * START_READY_RETRY_MS + 10_000))
-})
+}
 
 function launcherCommand(): { cmd: string; args: string[] } {
   const localTsx = join(MARKET_DIR, 'node_modules', '.bin', process.platform === 'win32' ? 'tsx.cmd' : 'tsx')
@@ -235,11 +248,49 @@ function dockerOutput(args: readonly string[]): Promise<string> {
   })
 }
 
+app.get('/api/sessions/:id', async (req, res) => {
+  const requestedNamespace = (req.query.namespace as string) || sessionNamespaces.get(req.params.id) || NS
+  const result = await feedSnapshot(req.params.id, requestedNamespace)
+  res.status(result.status).json(result.body)
+})
+
+app.get('/api/market/:id/status', async (req, res) => {
+  const requestedNamespace = (req.query.namespace as string) || sessionNamespaces.get(req.params.id) || NS
+  const result = await feedSnapshot(req.params.id, requestedNamespace)
+  const body = result.body as FeedResponse
+  const latest = body.rounds.at(0)
+  res.status(result.status).json({
+    session: body.session,
+    namespace: body.namespace,
+    status: latest?.status ?? 'waiting',
+    latestRound: latest?.round,
+    diagnostics: body.diagnostics,
+    updatedAt: body.updatedAt,
+    error: body.error,
+  })
+})
+
 app.get('/api/feed', async (req, res) => {
   const session = FIXTURE ? 'fixture' : ((req.query.session as string) || DEFAULT_SESSION)
   const requestedNamespace = FIXTURE ? 'fixture' : ((req.query.namespace as string) || sessionNamespaces.get(session) || NS)
+  const result = await feedSnapshot(session, requestedNamespace)
+  res.status(result.status).json(result.body)
+})
+
+interface FeedResponse {
+  session: string
+  namespace?: string
+  rounds: Round[]
+  updatedAt: string
+  diagnostics: ReturnType<typeof diagnostics>
+  error?: string
+}
+
+async function feedSnapshot(session: string, requestedNamespace: string): Promise<{ status: number; body: FeedResponse }> {
   if (!FIXTURE && !session) {
-    return res.json({
+    return {
+      status: 200,
+      body: {
       session: '',
       rounds: [],
       updatedAt: new Date().toISOString(),
@@ -254,7 +305,8 @@ app.get('/api/feed', async (req, res) => {
         sellerBidCount: 0,
         escrowStatus: 'No session',
       },
-    })
+      },
+    }
   }
   try {
     const messages = collectMessages(await readState(session, requestedNamespace))
@@ -265,9 +317,14 @@ app.get('/api/feed', async (req, res) => {
     void persistMarketplaceData({ sessionId: session, rounds }).catch((error) => {
       console.error(`[feed] persistence failed for session ${session}: ${(error as Error).message}`)
     })
-    res.json({ session, namespace, rounds, updatedAt: new Date().toISOString(), diagnostics: diag })
+    return {
+      status: 200,
+      body: { session, namespace, rounds, updatedAt: new Date().toISOString(), diagnostics: diag },
+    }
   } catch (e) {
-    res.status(502).json({
+    return {
+      status: 502,
+      body: {
       session,
       namespace: sessionNamespaces.get(session) || requestedNamespace,
       rounds: [],
@@ -284,9 +341,10 @@ app.get('/api/feed', async (req, res) => {
         sellerBidCount: 0,
         escrowStatus: 'Unknown',
       },
-    })
+      },
+    }
   }
-})
+}
 
 app.listen(PORT, () => console.error(`[feed] http://localhost:${PORT}/api/feed  (${FIXTURE ? `fixture=${FIXTURE}` : `coral=${BASE}`})`))
 

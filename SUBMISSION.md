@@ -68,6 +68,12 @@ The project preserves the starter kit's arbiter-gated Solana devnet escrow. Afte
 
 The financial evidence is deterministic mock research for demo reliability. Production would connect market data, filings, news, macro data, and portfolio holdings.
 
+## Future Network Coordination
+
+OmniQuantAI is exploring a future OQ Token, or OmniQuant Network Token, as a participation and coordination layer for the Financial Intelligence Network. The token model is intended to support agent registration, reputation, verification, governance, developer incentives, and ecosystem growth. It is not part of the current hackathon settlement flow.
+
+Any future token is intended for network participation, governance, incentives, and protocol coordination. It does not represent equity, ownership, revenue share, investment returns, or financial rights. Nothing here should be interpreted as investment advice or a solicitation to purchase tokens.
+
 ## Safety
 
 OmniQuantAI is research support only. It does not execute trades, does not provide personalized financial advice, and requires human approval before any allocation decision.
