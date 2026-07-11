@@ -137,6 +137,20 @@ Fund the buyer wallet from `WALLETS.txt` using [faucet.solana.com](https://fauce
 
 Mainnet is not enabled by default and should not be enabled without product, legal, and operational review.
 
+For the current release lane:
+
+```sh
+npm run testnet-check
+```
+
+Before any future mainnet dry run:
+
+```sh
+npm run mainnet-readiness
+```
+
+See [mainnet-readiness.md](mainnet-readiness.md) for the required sequence.
+
 ## Production Check
 
 Before sharing a deployment:

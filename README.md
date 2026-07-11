@@ -189,6 +189,8 @@ npm run demo:omniquant   # one-command demo
 npm run dev:omniquant    # OmniQuantAI dev/demo alias
 npm run hackathon        # alias for demo
 npm run judge            # judge-facing alias
+npm run testnet-check    # verify current devnet/testnet release settings
+npm run mainnet-readiness # list blockers before any future mainnet dry run
 npm run typecheck        # TypeScript checks
 npm test                 # unit tests
 npm run production-check # health, typecheck, and tests
@@ -236,6 +238,7 @@ If npm is missing locally, use Codespaces. The devcontainer includes npm.
 - Architecture notes: [docs/architecture.md](docs/architecture.md)
 - Data architecture: [docs/data_architecture.md](docs/data_architecture.md)
 - Data strategy: [docs/data-strategy.md](docs/data-strategy.md)
+- Mainnet readiness: [docs/mainnet-readiness.md](docs/mainnet-readiness.md)
 - Token strategy: [docs/token-strategy.md](docs/token-strategy.md)
 - Demo script: [docs/demo_script.md](docs/demo_script.md)
 - Submission summary: [SUBMISSION.md](SUBMISSION.md)

@@ -122,6 +122,8 @@ Out of scope:
 
 - Maintain `npm run health`, `npm run typecheck`, `npm test`, `npm run judge`.
 - Add `npm run production-check`.
+- Use `npm run testnet-check` for the current devnet/testnet release lane.
+- Use `npm run mainnet-readiness` before any later mainnet dry run.
 - Keep GitHub Actions secret-free.
 - Document local, Codespaces, and deployment paths.
 

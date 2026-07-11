@@ -18,6 +18,8 @@
     "typecheck": "npm run typecheck --prefix packages/agent-runtime && npm run typecheck --prefix coral-agents/buyer-agent && npm run typecheck --prefix coral-agents/seller-agent && npm run typecheck --prefix examples/marketplace && npm run typecheck --prefix examples/marketplace/feed && npm run typecheck --prefix examples/marketplace/web",
     "lint": "npm run typecheck",
     "test": "npm test --prefix packages/agent-runtime && npm test --prefix coral-agents/buyer-agent && npm test --prefix coral-agents/seller-agent && npm test --prefix examples/marketplace/feed && npm test --prefix examples/marketplace/web",
+    "testnet-check": "node scripts/testnet-check.mjs",
+    "mainnet-readiness": "node scripts/mainnet-readiness-check.mjs",
     "production-check": "npm run health && npm run typecheck && npm test",
     "marketplace": "node scripts/run-example.js examples/marketplace start",
     "marketplace:feed": "node scripts/run-example.js examples/marketplace/feed start",
