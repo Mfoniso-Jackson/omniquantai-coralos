@@ -32,7 +32,7 @@ flowchart LR
 | Buyer agent | `coral-agents/buyer-agent/src/index.ts` | broadcasts research request, receives bids, scores value, opens escrow |
 | Seller service | `coral-agents/seller-agent/src/service.ts` | delivers the OmniQuantAI investment committee memo |
 | Seller bidding | `coral-agents/seller-agent/src/bidder.ts` | creates bid notes with quality, relevance, confidence, speed, and fit metrics |
-| Personas | `coral-agents/*/coral-agent.toml` | configures four financial seller identities |
+| Personas | `coral-agents/*/coral-agent.toml` | configures the current bootstrap financial seller identities |
 | Marketplace launcher | `examples/marketplace/start.ts` | starts buyer and sellers in one CoralOS session |
 | Dashboard | `examples/marketplace/web` | visualizes bids, settlement, verification, and delivered intelligence |
 | Escrow clients | `coral-agents/buyer-agent/src/arbiter.ts`, `coral-agents/seller-agent/src/payment.ts` | preserve the starter kit's Solana devnet escrow flow |
@@ -70,6 +70,12 @@ The winning seller returns:
 - final synthesis,
 - human approval reminder,
 - research-only disclaimer.
+
+## Platform Direction
+
+The current session uses a four-agent bootstrap roster. The marketplace protocol, launcher configuration, and seller-agent runtime should continue moving toward an open seller network rather than assuming a fixed number of agents.
+
+The six strategic layers are documented in [platform-layers.md](platform-layers.md).
 
 ## Demo Reliability
 

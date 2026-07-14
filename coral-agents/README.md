@@ -22,5 +22,5 @@ verifies that vault-backed escrow, and the neutral arbiter key releases payment 
 bash build-agents.sh
 ```
 
-The round launcher creates one buyer and four seller instances. All four reuse `seller-agent:0.1.0`
-with different `AGENT_NAME`, `PERSONA`, `FLOOR_SOL`, and buyer-scoring metrics.
+The current round launcher creates one buyer and a bootstrap seller roster. The seller personas reuse
+`seller-agent:0.1.0` with different `AGENT_NAME`, `PERSONA`, `FLOOR_SOL`, and buyer-scoring metrics.

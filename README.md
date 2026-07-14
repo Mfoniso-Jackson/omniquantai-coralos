@@ -26,7 +26,7 @@ Then it runs the complete loop:
 Research Request -> Agent Auction -> Buyer Decision -> Escrow Deposited -> Intelligence Delivered -> Verified -> Payment Released
 ```
 
-Four specialist seller agents bid:
+The current bootstrap market launches four specialist seller agents:
 
 | Agent | Specialist value |
 | --- | --- |
@@ -35,7 +35,7 @@ Four specialist seller agents bid:
 | Macro Risk Agent | Rates, liquidity, inflation, macro pressure on growth equities |
 | Portfolio Risk Agent | Concentration risk, sizing controls, downside scenarios |
 
-The buyer selects best value, not the cheapest bid. The winning agent delivers a structured investment committee memo, a deterministic verifier checks the report, and Solana devnet escrow releases payment.
+The buyer selects best value, not the cheapest bid. The winning agent delivers a structured investment committee memo, a deterministic verifier checks the report, and Solana devnet escrow releases payment. The architecture is intentionally marketplace-shaped so future sessions can expand beyond this initial roster.
 
 ## Architecture
 
@@ -45,7 +45,7 @@ flowchart LR
   Dashboard --> Feed["Marketplace Feed API"]
   Feed --> Coral["CoralOS Server"]
   Coral --> Buyer["Buyer Agent"]
-  Coral --> Sellers["4 Seller Agents"]
+  Coral --> Sellers["Bootstrap Seller Agents"]
   Buyer --> Escrow["Solana Devnet Escrow"]
   Sellers --> Memo["Financial Intelligence Report"]
   Memo --> Verify["Deterministic Verifier"]
@@ -243,6 +243,7 @@ If npm is missing locally, use Codespaces. The devcontainer includes npm.
 - Deployment guide: [docs/deployment.md](docs/deployment.md)
 - API reference: [docs/api.md](docs/api.md)
 - Marketplace protocol: [docs/marketplace.md](docs/marketplace.md)
+- Platform layers: [docs/platform-layers.md](docs/platform-layers.md)
 - Agent builder guide: [docs/agent-builder-guide.md](docs/agent-builder-guide.md)
 - Financial Intelligence Graph: [docs/financial-intelligence-graph.md](docs/financial-intelligence-graph.md)
 - Settlement guide: [docs/settlement.md](docs/settlement.md)

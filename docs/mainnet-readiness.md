@@ -16,7 +16,7 @@ The current release is ready when:
 
 - Start Market creates a session without manual session paste
 - buyer broadcasts `WANT`
-- four seller agents bid
+- bootstrap seller agents bid
 - buyer awards best value
 - winner delivers the investment committee memo
 - verification passes

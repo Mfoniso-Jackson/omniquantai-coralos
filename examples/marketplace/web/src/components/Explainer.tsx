@@ -9,7 +9,7 @@ export function Explainer() {
       </p>
       <ol className="explain-flow">
         <li><b>Research Request</b> — should the fund increase Nvidia exposure over the next 3-6 months?</li>
-        <li><b>Agent Bids</b> — Market, News, Macro, and Portfolio Risk agents compete</li>
+        <li><b>Agent Bids</b> — the current Market, News, Macro, and Portfolio Risk roster competes</li>
         <li><b>Winner Selected</b> — buyer scores best value, not simply cheapest price</li>
         <li><b>Investment Committee Memo</b> — the winner returns an institutional memo</li>
         <li><b>Verification Passed</b> — buyer checks completeness before release</li>

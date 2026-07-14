@@ -24,7 +24,7 @@ WANT service=omniquant arg=nvda-3-6m-exposure
 
 ## 4. Show Seller Bids
 
-Show four specialist seller agents:
+Show the current bootstrap seller roster:
 
 - Market Analyst Agent
 - News & Earnings Agent

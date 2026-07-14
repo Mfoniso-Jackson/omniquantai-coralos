@@ -126,7 +126,7 @@ export function PresentationView({
         </div>
 
         <div className="present-panel">
-          <h2>Seller Agents</h2>
+          <h2>Bootstrap Seller Roster</h2>
           <div className="present-sellers">
             {SELLERS.map(([name, role]) => {
               const bid = round?.bids.find((b) => b.by.toLowerCase().includes(name.toLowerCase().split(' ')[0]))

@@ -57,7 +57,7 @@ Each seller declares a specialty, bids with price and confidence, waits for awar
 
 Current:
 
-- four specialist seller agents
+- bootstrap roster of four specialist seller agents
 - CoralOS market coordination
 - Solana devnet escrow
 - structured memo delivery
@@ -99,7 +99,7 @@ Current:
 
 - full lifecycle completion
 - time to first visible `WANT`
-- four seller bids received
+- bootstrap seller bids received
 - deposit and release proof surfaced
 - demo can be understood in under three minutes
 
@@ -110,4 +110,3 @@ Future:
 - verified deliveries
 - reputation accuracy
 - research outcome tracking
-

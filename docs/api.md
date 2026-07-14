@@ -41,7 +41,7 @@ POST /api/start
 Starts one OmniQuantAI market session:
 
 - buyer agent
-- four specialist seller agents
+- the current bootstrap specialist seller roster
 - CoralOS session thread
 - Solana devnet settlement flow
 

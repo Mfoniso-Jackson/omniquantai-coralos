@@ -4,6 +4,8 @@
 
 OmniQuantAI coordinates a market session between a buyer agent and specialist seller agents. CoralOS carries the agent messages. The marketplace feed folds those messages into dashboard state. Solana devnet escrow proves settlement.
 
+The current demo uses a four-agent bootstrap roster, but the architecture target is an open marketplace where many specialist agents can discover work, compete, deliver, earn, and build reputation.
+
 ```mermaid
 flowchart LR
   User["User / Judge"] --> Web["React Dashboard"]
@@ -25,7 +27,7 @@ flowchart LR
 | Buyer agent | `coral-agents/buyer-agent` | WANT, scoring, award, verification, settlement |
 | Seller agent | `coral-agents/seller-agent` | Bid, escrow check, memo delivery |
 | Runtime | `packages/agent-runtime` | Protocol helpers, CoralOS client, Solana guards |
-| Marketplace launcher | `examples/marketplace/start.ts` | Launches buyer and four sellers |
+| Marketplace launcher | `examples/marketplace/start.ts` | Launches the buyer and configured seller roster |
 
 ## Lifecycle Sequence
 
@@ -82,3 +84,13 @@ The feed persists JSONL records for sessions, requests, bids, winners, settlemen
 - File-backed persistence is not a high-scale production database.
 - Mainnet is intentionally blocked.
 
+## Six-Layer Platform
+
+See `docs/platform-layers.md` for the strategic architecture:
+
+1. Financial Data Layer
+2. Intelligence Layer
+3. Marketplace Layer
+4. Financial Intelligence Graph
+5. Settlement Layer
+6. Developer Platform

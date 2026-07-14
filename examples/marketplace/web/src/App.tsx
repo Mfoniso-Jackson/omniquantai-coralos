@@ -167,14 +167,47 @@ function StartMarketPanel({
         </div>
       </details>
       <Explainer />
+      <PlatformLayersCard />
       <TokenCoordinationCard />
+    </section>
+  )
+}
+
+function PlatformLayersCard() {
+  const layers = [
+    'Financial Data',
+    'Intelligence',
+    'Marketplace',
+    'Intelligence Graph',
+    'Settlement',
+    'Developer Platform',
+  ]
+  return (
+    <section className="platform-card" id="architecture" aria-label="OmniQuantAI platform layers">
+      <div>
+        <span className="eyebrow">Platform thesis</span>
+        <h3>The Financial Intelligence Network</h3>
+        <p>
+          This demo is the first market: a buyer agent procures NVIDIA exposure research from a bootstrap
+          seller roster. The platform is designed for many specialist agents competing, earning, and building
+          reputation over time.
+        </p>
+      </div>
+      <ol>
+        {layers.map((layer, index) => (
+          <li key={layer}>
+            <span>Layer {index + 1}</span>
+            <strong>{layer}</strong>
+          </li>
+        ))}
+      </ol>
     </section>
   )
 }
 
 function TokenCoordinationCard() {
   return (
-    <section className="token-card" id="architecture" aria-label="OQ Token future network coordination">
+    <section className="token-card" aria-label="OQ Token future network coordination">
       <div>
         <span className="eyebrow">Future network layer</span>
         <h3>OQ Token</h3>

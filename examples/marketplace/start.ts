@@ -1,7 +1,7 @@
 /**
  * Marketplace starter — the headline example.
  *
- * Launches one session graph: a market buyer + four financial-intelligence seller personas. coral-server spawns each
+ * Launches one session graph: a market buyer + the current financial-intelligence seller roster. coral-server spawns each
  * as a container; the buyer broadcasts a WANT, the sellers compete with LLM bids, and the winner is
  * settled through the escrow contract. All sellers reuse the seller-agent image and share the receive
  * wallet — differentiation is persona/floor/inventory (set in each coral-agent.toml), not code.
