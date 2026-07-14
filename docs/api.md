@@ -12,7 +12,9 @@ http://localhost:4000
 
 ```http
 GET /health
+GET /status
 GET /api/health
+GET /api/status
 ```
 
 Query:
@@ -59,6 +61,8 @@ The endpoint returns after CoralOS creates the session. The dashboard then polls
 ## Session Snapshot
 
 ```http
+GET /session/:id
+GET /api/session/:id
 GET /api/sessions/:id
 ```
 
@@ -74,15 +78,31 @@ Response:
   "namespace": "omniquant",
   "rounds": [],
   "updatedAt": "2026-07-09T12:00:00.000Z",
+  "marketStatus": {
+    "currentStage": "SESSION_CREATED",
+    "currentStageLabel": "Session created",
+    "buyerStatus": "Waiting for buyer to broadcast WANT.",
+    "sellerStatus": "Seller agents may still be starting.",
+    "sellerBidCount": 0,
+    "settlementStatus": "Not started",
+    "dataSource": "Unknown",
+    "elapsedMs": 4231
+  },
   "diagnostics": {
     "api": "ok",
     "coral": "ok",
     "build": "feed-direct-launcher-v6",
+    "currentStage": "SESSION_CREATED",
+    "currentStageLabel": "Session created",
+    "elapsedMs": 4231,
     "messageCount": 0,
     "lastEventType": "NONE",
     "lastEvent": "No events for this session yet",
     "buyerStatus": "No CoralOS thread messages yet. Buyer may still be starting.",
+    "sellerStatus": "Seller agents may still be starting.",
     "sellerBidCount": 0,
+    "settlementStatus": "Not started",
+    "dataSource": "Unknown",
     "escrowStatus": "Not started"
   }
 }
@@ -109,6 +129,8 @@ Returns folded marketplace rounds for the dashboard:
 ## Market Status
 
 ```http
+GET /market/:id
+GET /api/market/:id
 GET /api/market/:id/status
 ```
 
@@ -118,16 +140,57 @@ Response:
 {
   "session": "394f18fe-842e-4243-8b84-8a1365b4a31c",
   "namespace": "omniquant",
-  "status": "bidding",
+  "status": "BIDS_RECEIVED",
+  "currentStage": "BIDS_RECEIVED",
+  "currentStageLabel": "Bids received",
   "latestRound": 1,
+  "settlementStatus": "Not started",
+  "elapsedMs": 12000,
+  "dataSource": "Unknown",
   "diagnostics": {
     "coral": "ok",
     "sellerBidCount": 4,
-    "escrowStatus": "Awaiting deposit"
+    "settlementStatus": "Not started",
+    "escrowStatus": "Not started"
   },
   "updatedAt": "2026-07-09T12:00:00.000Z"
 }
 ```
+
+## Lifecycle Status
+
+`marketStatus.currentStage` is the canonical API stage for the market loop:
+
+```text
+NO_SESSION
+SESSION_CREATED
+WANT_BROADCAST
+BIDS_RECEIVED
+WINNER_SELECTED
+ESCROW_REQUESTED
+ESCROW_DEPOSITED
+INTELLIGENCE_DELIVERED
+VERIFICATION_COMPLETE
+PAYMENT_RELEASED
+REFUNDED
+ERROR
+```
+
+Use `marketStatus` for automation and dashboards. Use `diagnostics` for debugging runtime health.
+
+## Execution Flow And Recovery
+
+| Step | Input | Output | Failure mode | Recovery |
+| --- | --- | --- | --- | --- |
+| Frontend | User clicks Start Market | `POST /api/start` | API unavailable | Restart `npm run judge`, confirm port `4000` |
+| API | Start request | Session ID and namespace | launcher timeout | Inspect feed logs and Docker status |
+| Marketplace launcher | `.env`, CoralOS URL | buyer and seller containers | Docker unavailable | Start Docker or use Codespaces |
+| Buyer | session graph | `WANT`, `AWARD`, `DEPOSITED`, `VERIFIED`, `RELEASED` | wallet unfunded or no bids | Fund devnet wallet, inspect buyer logs |
+| CoralOS | agent messages | session extended state | namespace/session not found | feed retries and namespace scan; restart CoralOS if persistent |
+| Sellers | `WANT`, `AWARD`, `DEPOSITED` | `BID`, `ESCROW_REQUIRED`, `DELIVERED` | seller startup or escrow check failure | inspect seller logs, verify settlement mode |
+| Data providers | optional API keys | live or fallback evidence | provider outage | deterministic fallback with data badge |
+| Settlement | escrow terms | deposit/release signatures | RPC/funding issue | fund buyer wallet, retry session |
+| Persistence | folded rounds | JSONL records | local write failure | check `OMNIQUANT_DATA_DIR` permissions |
 
 ## Error Shape
 
@@ -141,10 +204,14 @@ Errors are JSON and include actionable context where possible:
   "updatedAt": "2026-07-09T12:00:00.000Z",
   "error": "feed failed: coral 404: Session not found",
   "diagnostics": {
-    "api": "ok",
-    "coral": "unreachable",
-    "buyerStatus": "CoralOS extended state could not be read for this session.",
-    "escrowStatus": "Unknown"
+      "api": "ok",
+      "coral": "unreachable",
+      "currentStage": "ERROR",
+      "currentStageLabel": "Runtime error",
+      "buyerStatus": "CoralOS extended state could not be read for this session.",
+      "sellerStatus": "Unknown",
+      "settlementStatus": "Unknown",
+      "escrowStatus": "Unknown"
   }
 }
 ```

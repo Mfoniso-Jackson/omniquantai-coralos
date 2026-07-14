@@ -31,17 +31,54 @@ export interface Feed {
   updatedAt: string
   error?: string
   diagnostics?: FeedDiagnostics
+  marketStatus?: MarketStatus
+}
+
+export type MarketStage =
+  | 'NO_SESSION'
+  | 'SESSION_CREATED'
+  | 'WANT_BROADCAST'
+  | 'BIDS_RECEIVED'
+  | 'WINNER_SELECTED'
+  | 'ESCROW_REQUESTED'
+  | 'ESCROW_DEPOSITED'
+  | 'INTELLIGENCE_DELIVERED'
+  | 'VERIFICATION_COMPLETE'
+  | 'PAYMENT_RELEASED'
+  | 'REFUNDED'
+  | 'ERROR'
+
+export interface MarketStatus {
+  currentStage: MarketStage
+  currentStageLabel: string
+  latestRound?: number
+  buyerStatus: string
+  sellerStatus: string
+  sellerBidCount: number
+  winningAgent?: string
+  settlementStatus: string
+  explorerLink?: string
+  dataSource: 'Live data' | 'Demo fallback data' | 'Unknown'
+  elapsedMs?: number
 }
 
 export interface FeedDiagnostics {
   api: string
   coral: string
   build?: string
+  currentStage?: MarketStage
+  currentStageLabel?: string
+  elapsedMs?: number
   messageCount: number
   lastEventType: string
   lastEvent: string
   buyerStatus: string
+  sellerStatus?: string
   sellerBidCount: number
+  winningAgent?: string
+  settlementStatus?: string
+  explorerLink?: string
+  dataSource?: 'Live data' | 'Demo fallback data' | 'Unknown'
   escrowStatus: string
 }
 

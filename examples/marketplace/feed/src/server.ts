@@ -24,6 +24,7 @@ import { foldRounds } from './foldRounds.js'
 import { collectMessages } from './coralState.js'
 import type { RawMessage, Round } from './foldRounds.js'
 import { persistMarketplaceData } from './data/persistence.js'
+import { deriveMarketStatus, type MarketStatus } from './marketStatus.js'
 
 const MARKET_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..') // examples/marketplace
 
@@ -39,6 +40,7 @@ const START_READY_RETRIES = Number(process.env.FEED_START_READY_RETRIES ?? 35)
 const START_READY_RETRY_MS = Number(process.env.FEED_START_READY_RETRY_MS ?? 1000)
 const BUILD = 'feed-direct-launcher-v6'
 const sessionNamespaces = new Map<string, string>()
+const sessionStartedAt = new Map<string, number>()
 const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
 
@@ -134,7 +136,17 @@ app.get('/health', async (req, res) => {
   res.json(await healthPayload(quick))
 })
 
+app.get('/status', async (req, res) => {
+  const quick = req.query.quick === '1'
+  res.json(await healthPayload(quick))
+})
+
 app.get('/api/health', async (req, res) => {
+  const quick = req.query.quick === '1'
+  res.json(await healthPayload(quick))
+})
+
+app.get('/api/status', async (req, res) => {
   const quick = req.query.quick === '1'
   res.json(await healthPayload(quick))
 })
@@ -157,6 +169,7 @@ function startSession(_req: Request, res: Response) {
       matched = true
       const { session, namespace } = parsed
       sessionNamespaces.set(session, namespace)
+      sessionStartedAt.set(session, Date.now())
       console.error(`[feed] launched market session ${session} namespace=${namespace}`)
       reply(200, { session, namespace })
       void waitForWant(session, namespace)
@@ -254,21 +267,43 @@ app.get('/api/sessions/:id', async (req, res) => {
   res.status(result.status).json(result.body)
 })
 
-app.get('/api/market/:id/status', async (req, res) => {
+app.get('/session/:id', async (req, res) => {
+  const requestedNamespace = (req.query.namespace as string) || sessionNamespaces.get(req.params.id) || NS
+  const result = await feedSnapshot(req.params.id, requestedNamespace)
+  res.status(result.status).json(result.body)
+})
+
+app.get('/api/session/:id', async (req, res) => {
+  const requestedNamespace = (req.query.namespace as string) || sessionNamespaces.get(req.params.id) || NS
+  const result = await feedSnapshot(req.params.id, requestedNamespace)
+  res.status(result.status).json(result.body)
+})
+
+async function marketStatusResponse(req: Request, res: Response) {
   const requestedNamespace = (req.query.namespace as string) || sessionNamespaces.get(req.params.id) || NS
   const result = await feedSnapshot(req.params.id, requestedNamespace)
   const body = result.body as FeedResponse
-  const latest = body.rounds.at(0)
   res.status(result.status).json({
     session: body.session,
     namespace: body.namespace,
-    status: latest?.status ?? 'waiting',
-    latestRound: latest?.round,
+    status: body.marketStatus.currentStage,
+    currentStage: body.marketStatus.currentStage,
+    currentStageLabel: body.marketStatus.currentStageLabel,
+    latestRound: body.marketStatus.latestRound,
+    winningAgent: body.marketStatus.winningAgent,
+    settlementStatus: body.marketStatus.settlementStatus,
+    explorerLink: body.marketStatus.explorerLink,
+    elapsedMs: body.marketStatus.elapsedMs,
+    dataSource: body.marketStatus.dataSource,
     diagnostics: body.diagnostics,
     updatedAt: body.updatedAt,
     error: body.error,
   })
-})
+}
+
+app.get('/api/market/:id/status', marketStatusResponse)
+app.get('/market/:id', marketStatusResponse)
+app.get('/api/market/:id', marketStatusResponse)
 
 app.get('/api/feed', async (req, res) => {
   const session = FIXTURE ? 'fixture' : ((req.query.session as string) || DEFAULT_SESSION)
@@ -283,27 +318,38 @@ interface FeedResponse {
   rounds: Round[]
   updatedAt: string
   diagnostics: ReturnType<typeof diagnostics>
+  marketStatus: MarketStatus
   error?: string
 }
 
 async function feedSnapshot(session: string, requestedNamespace: string): Promise<{ status: number; body: FeedResponse }> {
   if (!FIXTURE && !session) {
+    const marketStatus = deriveMarketStatus({ rounds: [] })
     return {
       status: 200,
       body: {
       session: '',
       rounds: [],
       updatedAt: new Date().toISOString(),
+      marketStatus,
       diagnostics: {
         api: 'ok',
         coral: 'not_checked',
         build: BUILD,
+        currentStage: marketStatus.currentStage,
+        currentStageLabel: marketStatus.currentStageLabel,
+        elapsedMs: marketStatus.elapsedMs,
         messageCount: 0,
         lastEventType: 'NONE',
         lastEvent: 'No session supplied',
-        buyerStatus: 'No session. Pass ?session=<id> or set SESSION.',
-        sellerBidCount: 0,
-        escrowStatus: 'No session',
+        buyerStatus: marketStatus.buyerStatus,
+        sellerStatus: marketStatus.sellerStatus,
+        sellerBidCount: marketStatus.sellerBidCount,
+        winningAgent: marketStatus.winningAgent,
+        settlementStatus: marketStatus.settlementStatus,
+        explorerLink: marketStatus.explorerLink,
+        dataSource: marketStatus.dataSource,
+        escrowStatus: marketStatus.settlementStatus,
       },
       },
     }
@@ -312,16 +358,18 @@ async function feedSnapshot(session: string, requestedNamespace: string): Promis
     const messages = collectMessages(await readState(session, requestedNamespace))
     const namespace = sessionNamespaces.get(session) || requestedNamespace
     const rounds = foldRounds(messages, SELLERS)
-    const diag = diagnostics(messages, rounds)
+    const marketStatus = deriveMarketStatus({ session, rounds, startedAt: sessionStartedAt.get(session) })
+    const diag = diagnostics(messages, rounds, marketStatus)
     console.error(`[feed] session=${session} namespace=${namespace} messages=${diag.messageCount} rounds=${rounds.length} last_event_type=${diag.lastEventType} seller_bids=${diag.sellerBidCount} escrow=${diag.escrowStatus}`)
     void persistMarketplaceData({ sessionId: session, rounds }).catch((error) => {
       console.error(`[feed] persistence failed for session ${session}: ${(error as Error).message}`)
     })
     return {
       status: 200,
-      body: { session, namespace, rounds, updatedAt: new Date().toISOString(), diagnostics: diag },
+      body: { session, namespace, rounds, updatedAt: new Date().toISOString(), diagnostics: diag, marketStatus },
     }
   } catch (e) {
+    const marketStatus = deriveMarketStatus({ session, rounds: [], startedAt: sessionStartedAt.get(session), error: (e as Error).message })
     return {
       status: 502,
       body: {
@@ -330,6 +378,7 @@ async function feedSnapshot(session: string, requestedNamespace: string): Promis
       rounds: [],
       updatedAt: new Date().toISOString(),
       error: `feed failed: ${(e as Error).message}`,
+      marketStatus,
       diagnostics: {
         api: 'ok',
         coral: 'unreachable',
@@ -337,9 +386,17 @@ async function feedSnapshot(session: string, requestedNamespace: string): Promis
         messageCount: 0,
         lastEventType: 'ERROR',
         lastEvent: (e as Error).message,
-        buyerStatus: 'CoralOS extended state could not be read for this session.',
+        currentStage: marketStatus.currentStage,
+        currentStageLabel: marketStatus.currentStageLabel,
+        elapsedMs: marketStatus.elapsedMs,
+        buyerStatus: marketStatus.buyerStatus,
+        sellerStatus: marketStatus.sellerStatus,
         sellerBidCount: 0,
-        escrowStatus: 'Unknown',
+        winningAgent: marketStatus.winningAgent,
+        settlementStatus: marketStatus.settlementStatus,
+        explorerLink: marketStatus.explorerLink,
+        dataSource: marketStatus.dataSource,
+        escrowStatus: marketStatus.settlementStatus,
       },
       },
     }
@@ -348,31 +405,27 @@ async function feedSnapshot(session: string, requestedNamespace: string): Promis
 
 app.listen(PORT, () => console.error(`[feed] http://localhost:${PORT}/api/feed  (${FIXTURE ? `fixture=${FIXTURE}` : `coral=${BASE}`})`))
 
-function diagnostics(messages: RawMessage[], rounds: Round[]) {
+function diagnostics(messages: RawMessage[], rounds: Round[], marketStatus: MarketStatus) {
   const latest = [...rounds].sort((a, b) => b.round - a.round)[0]
   const last = messages.at(-1)
-  const sellerBidCount = latest ? new Set(latest.bids.map((b) => b.by)).size : 0
-  const escrowStatus =
-    latest?.release ? 'Released'
-      : latest?.refunded ? 'Refunded'
-        : latest?.deposit ? 'Deposited'
-          : latest?.escrow ? 'Escrow requested'
-            : latest?.award ? 'Awaiting deposit'
-              : 'Not started'
-  const buyerStatus =
-    latest?.want ? `WANT broadcast for ${latest.want.service}:${latest.want.arg}`
-      : messages.length ? 'Messages exist, but no buyer WANT has been parsed yet.'
-        : 'No CoralOS thread messages yet. Buyer may still be starting.'
   return {
     api: 'ok',
     coral: 'ok',
     build: BUILD,
+    currentStage: marketStatus.currentStage,
+    currentStageLabel: marketStatus.currentStageLabel,
+    elapsedMs: marketStatus.elapsedMs,
     messageCount: messages.length,
     lastEventType: last ? lastEventType(last.text) : 'NONE',
     lastEvent: last ? `${last.sender}: ${last.text.slice(0, 160)}` : 'No events for this session yet',
-    buyerStatus,
-    sellerBidCount,
-    escrowStatus,
+    buyerStatus: marketStatus.buyerStatus,
+    sellerStatus: marketStatus.sellerStatus,
+    sellerBidCount: marketStatus.sellerBidCount,
+    winningAgent: marketStatus.winningAgent,
+    settlementStatus: marketStatus.settlementStatus,
+    explorerLink: marketStatus.explorerLink,
+    dataSource: marketStatus.dataSource,
+    escrowStatus: marketStatus.settlementStatus,
   }
 }
 

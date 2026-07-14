@@ -304,11 +304,16 @@ function DebugPanel({
         <dt>API URL</dt><dd>{apiUrl || API_BASE_URL}</dd>
         <dt>API</dt><dd>{connected ? 'connected' : 'disconnected'}</dd>
         <dt>API build</dt><dd>{diagnostics?.build ?? 'unknown'}</dd>
+        <dt>Stage</dt><dd>{diagnostics?.currentStageLabel ?? latest?.status ?? 'not started'}</dd>
+        <dt>Elapsed</dt><dd>{formatElapsed(diagnostics?.elapsedMs)}</dd>
         <dt>Polling</dt><dd>{polling ? 'active' : 'idle'}</dd>
         <dt>CoralOS</dt><dd>{diagnostics?.coral ?? 'unknown'}</dd>
         <dt>Buyer</dt><dd>{diagnostics?.buyerStatus ?? 'waiting for feed'}</dd>
-        <dt>Sellers</dt><dd>{sellerCount} bid(s) received</dd>
-        <dt>Escrow</dt><dd>{diagnostics?.escrowStatus ?? latest?.status ?? 'not started'}</dd>
+        <dt>Sellers</dt><dd>{diagnostics?.sellerStatus ?? `${sellerCount} bid(s) received`}</dd>
+        <dt>Winner</dt><dd>{diagnostics?.winningAgent ?? latest?.award?.to ?? 'pending'}</dd>
+        <dt>Settlement</dt><dd>{diagnostics?.settlementStatus ?? diagnostics?.escrowStatus ?? latest?.status ?? 'not started'}</dd>
+        <dt>Data</dt><dd>{diagnostics?.dataSource ?? 'unknown'}</dd>
+        {diagnostics?.explorerLink && <><dt>Explorer</dt><dd><a href={diagnostics.explorerLink} target="_blank" rel="noreferrer">Open proof</a></dd></>}
         <dt>Wallet</dt><dd>{diagnostics?.escrowStatus === 'Deposited' || latest?.deposit ? 'funded / deposit seen' : 'unknown until escrow deposit'}</dd>
         <dt>Events</dt><dd>{diagnostics?.messageCount ?? 0}</dd>
         <dt>Last type</dt><dd>{diagnostics?.lastEventType ?? 'none'}</dd>
@@ -321,4 +326,10 @@ function DebugPanel({
 
 function isUiError(value: unknown): value is UiError {
   return Boolean(value && typeof value === 'object' && 'title' in value && 'suggestedFix' in value)
+}
+
+function formatElapsed(value?: number): string {
+  if (value == null) return 'unknown'
+  if (value < 1000) return `${value}ms`
+  return `${Math.round(value / 1000)}s`
 }
