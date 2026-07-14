@@ -81,18 +81,18 @@ Passing this check does not mean “safe to launch.” It only means the repo is
 
    Deploy fresh escrow and arbiter programs to mainnet. Do not reuse devnet program IDs.
 
-4. **Add settlement provider abstraction**
+4. **Extend settlement provider abstraction**
 
-   Introduce a `SettlementProvider` interface:
+   The buyer now routes settlement through `coral-agents/buyer-agent/src/settlement.ts`.
+   Before mainnet, extend that boundary with the remaining production controls:
 
-   - `createEscrow`
-   - `confirmDeposit`
-   - `releasePayment`
-   - `refundPayment`
-   - `getExplorerUrl`
-   - `getStatus`
+   - mainnet-specific provider implementation
+   - explicit `getStatus` confirmation checks
+   - refund path exposed through the provider
+   - capped order-size enforcement at the provider boundary
+   - mainnet Explorer URL generation
 
-   Keep `SolanaDevnetSettlementProvider` as the default and add `SolanaMainnetSettlementProvider` only after deployment.
+   Keep the Solana devnet provider as the default and add `SolanaMainnetSettlementProvider` only after deployment.
 
 5. **Separate key custody**
 

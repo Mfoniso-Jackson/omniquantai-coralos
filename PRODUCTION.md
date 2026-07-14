@@ -23,7 +23,7 @@ Core paths:
 | Marketplace launcher | `examples/marketplace/start.ts` | Creates CoralOS buyer/seller session graph |
 | Buyer agent | `coral-agents/buyer-agent` | WANT, bid scoring, award, verification, escrow deposit/release |
 | Seller agent | `coral-agents/seller-agent` | Specialist bidding and investment memo delivery |
-| Settlement | `coral-agents/*/src/escrow.ts`, `arbiter.ts` | Solana devnet escrow, arbiter-gated release |
+| Settlement | `coral-agents/buyer-agent/src/settlement.ts`, `escrow.ts`, `arbiter.ts` | Provider-shaped Solana devnet escrow, arbiter-gated release |
 | Data | `providers/` under seller/feed | Live-if-available, deterministic fallback |
 | Persistence | `examples/marketplace/feed/src/data` | JSONL records for sessions, bids, memos, settlement, reputation |
 
@@ -114,7 +114,7 @@ Out of scope:
 ### Phase 4: Reputation And Settlement Abstraction
 
 - Promote reputation snapshots into a clearer dashboard/API model.
-- Define `SettlementProvider` interface for `createEscrow`, `confirmDeposit`, `releasePayment`, `refundPayment`, `getExplorerUrl`, and `getStatus`.
+- Keep the buyer-side `SettlementProvider` interface as the boundary for `open`, `release`, and Explorer proof.
 - Keep Solana devnet as the only implemented provider.
 - Document Sui as a future adapter only.
 

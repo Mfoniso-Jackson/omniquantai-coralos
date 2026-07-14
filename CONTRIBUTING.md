@@ -1,44 +1,75 @@
 # Contributing
 
-Contributions are welcome. The `main` branch is the integration branch — target all PRs at `main`.
+Contributions are welcome. Target pull requests at `main`.
 
-## Repo Layout
+## Read First
 
-| Directory | Language | Typical changes |
-|-----------|----------|-----------------|
-| `packages/agent-runtime/` | TypeScript | The runtime: LLM shim, Solana Pay + devnet guard, CoralOS MCP client, the market protocol |
-| `examples/txodds/` | TypeScript | The World Cup Oracle — the edge transform, the proxy, the web app |
-| `examples/txodds/escrow/` | Rust (Anchor) | The escrow settlement contract |
+- `README.md`
+- `AGENTS.md`
+- `PRODUCTION.md`
+- `ENGINEERING_PRINCIPLES.md`
+- `SECURITY.md`
 
 ## Prerequisites
 
 - Node.js 20+
-- An LLM key + a funded devnet wallet to run the live demo (see the root README). **No Docker needed.**
+- npm
+- Docker for the full CoralOS demo
+- Git
+- Devnet SOL for live settlement demos
 
-## Development Commands
+Codespaces is recommended because it includes the expected runtime.
+
+## Repo Layout
+
+| Path | Purpose |
+| --- | --- |
+| `packages/agent-runtime` | CoralOS, market protocol, Solana helpers |
+| `coral-agents/buyer-agent` | Buyer, scoring, verification, settlement |
+| `coral-agents/seller-agent` | Specialist seller runtime and memo delivery |
+| `examples/marketplace/feed` | API, session start, feed folding, persistence |
+| `examples/marketplace/web` | React dashboard |
+| `examples/marketplace/start.ts` | Market launcher |
+| `docs` | Detailed operating docs |
+
+## Workflow
+
+1. Create a focused branch.
+2. Pick one vertical slice.
+3. Add or update tests.
+4. Update docs for changed behavior.
+5. Run the narrowest meaningful checks.
+6. Open a PR with evidence.
+
+## Commands
 
 ```sh
-# build the runtime first — examples/txodds depends on its dist via a file: dep
-cd packages/agent-runtime && npm install && npm run build && npm run typecheck && npm test
-
-# typecheck + test the example
-cd examples/txodds && npm install && npm run typecheck && npm test
+npm run health
+npm run smoke:testnet
+npm run typecheck
+npm test
 ```
 
-## PR Workflow
+For package-specific changes, run that package's local typecheck and tests.
 
-1. Open an issue or comment on an existing one to discuss your change.
-2. Fork the repo and create a feature branch from `main`.
-3. Make your change. Add tests for new behavior.
-4. Run lint and typecheck locally before pushing.
-5. Use [conventional commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, etc.).
-6. Open a PR against `main`.
+## Adding A Seller Agent
 
-## Code Style
+Start with `coral-agents/seller-agent`:
 
-- **TypeScript:** run `npm run typecheck && npm test` in `packages/agent-runtime/` (and the package you changed) before committing.
-- **Documentation:** READMEs should explain *why* a module exists, not just *what* it does.
+- define persona and services
+- set floor price and confidence
+- implement delivery in `src/service.ts`
+- add tests
+- add launcher configuration if it should join the default market
+
+See `docs/agent-builder-guide.md`.
+
+## Commits And PRs
+
+- Keep commits focused.
+- Explain behavior changes, tests, and docs.
+- Do not include generated secrets, `.env`, wallets, or private logs.
 
 ## Security
 
-See [SECURITY.md](./SECURITY.md) for the security policy and vulnerability reporting process.
+See `SECURITY.md`. Do not report vulnerabilities in public issues.

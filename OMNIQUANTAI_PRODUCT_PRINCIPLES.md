@@ -49,7 +49,7 @@ Capture:
 - Winner
 - Settlement proof
 - Recommendation
-- Outcome placeholder
+- Future outcome tracking fields, once measurement methodology is defined
 - Agent reputation inputs
 - Timestamp
 

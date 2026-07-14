@@ -22,12 +22,8 @@ import {
   type Bid, type EscrowTerms, type CoralAgentContext,
 } from '@pay/agent-runtime'
 import { PublicKey } from '@solana/web3.js'
-import { makeProgram, deposit, release, escrowPda } from './escrow.js'
-import {
-  ARBITER_PROGRAM_ID, ensureArbiterConfig, ensureArbiterFunded, makeArbiter,
-  openArbitrated, arbitrateRelease, arbitratedEscrowPda,
-} from './arbiter.js'
 import { payoutMatches } from './guard.js'
+import { createSettlementProvider, normalizeSettlementMode } from './settlement.js'
 
 const RPC = process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
 const BUDGET = Number(process.env.BUYER_MAX_SOL ?? '0.03')
@@ -43,11 +39,10 @@ const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,mac
 // F3: the payout wallet the buyer expects (personas share one in the demo). If set, the buyer refuses
 // to deposit to an ESCROW_REQUIRED whose seller= pubkey differs - binding the award to the payout.
 const EXPECTED_SELLER_WALLET = process.env.SELLER_WALLET ?? ''
-const SETTLEMENT_MODE = (process.env.SETTLEMENT_MODE ?? 'arbiter').toLowerCase()
+const SETTLEMENT_MODE = normalizeSettlementMode(process.env.SETTLEMENT_MODE)
 const trace = process.env.TRACE === '1'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-const expl = (kind: 'tx' | 'address', id: string) => `https://explorer.solana.com/${kind}/${id}?cluster=devnet`
 
 const metric = (note: string | undefined, key: string, fallback: number): number =>
   Number(note?.match(new RegExp(`${key}=([\\d.]+)`))?.[1] ?? fallback)
@@ -179,11 +174,8 @@ await startCoralAgent({ agentName: process.env.AGENT_NAME ?? 'buyer-agent' }, as
   }
   const thread = await ctx.createThread('market', SELLERS)
   console.error(`[buyer] session=${process.env.SESSION_ID ?? 'coral-injected'} thread=${thread} created participants=[${SELLERS.join(',')}]`)
-  const program = await makeProgram(buyer, RPC)
-  if (arbiter) {
-    await ensureArbiterConfig(buyer, arbiter.publicKey, RPC)
-    await ensureArbiterFunded(buyer, arbiter.publicKey, RPC)
-  }
+  const settlementProvider = createSettlementProvider(SETTLEMENT_MODE, buyer, arbiter, RPC)
+  await settlementProvider.setup()
   let round = 0
 
   while (true) {
@@ -220,27 +212,20 @@ await startCoralAgent({ agentName: process.env.AGENT_NAME ?? 'buyer-agent' }, as
 
       const reference = new PublicKey(terms.reference)
       const seller = new PublicKey(terms.seller)
-      const requestedSettlement = terms.settlement ?? (SETTLEMENT_MODE === 'direct' ? 'direct' : 'arbiter')
-      let depositSig: string
-      let vault: PublicKey | undefined
-      if (requestedSettlement === 'arbiter') {
-        if (!arbiter) throw new Error('ARBITER_KEYPAIR_B58 is required for SETTLEMENT_MODE=arbiter')
-        const opened = await openArbitrated(makeArbiter(buyer, RPC), buyer, seller, reference, terms.amountSol, terms.deadlineSecs)
-        depositSig = opened.sig
-        vault = opened.vault
-      } else {
-        depositSig = await deposit(program, buyer, seller, reference, terms.amountSol, terms.deadlineSecs)
+      const requestedSettlement = terms.settlement ?? settlementProvider.mode
+      if (requestedSettlement !== settlementProvider.mode) {
+        throw new Error(`seller requested ${requestedSettlement} settlement but buyer is configured for ${settlementProvider.mode}`)
       }
+      const opened = await settlementProvider.open({ seller, reference, amountSol: terms.amountSol, deadlineSecs: terms.deadlineSecs })
       console.error(`[buyer] round ${round}: DEPOSITED ${terms.amountSol} SOL -> ${winner.by}`)
       if (trace) {
-        if (requestedSettlement === 'arbiter' && vault) {
-          console.error(`[buyer]   arbiter: ${expl('address', ARBITER_PROGRAM_ID.toBase58())}`)
-          console.error(`[buyer]   vault PDA: ${expl('address', vault.toBase58())}`)
-          console.error(`[buyer]   escrow PDA: ${expl('address', arbitratedEscrowPda(vault, reference).toBase58())}`)
-          console.error(`[buyer]   open tx: ${expl('tx', depositSig)}`)
+        if (opened.settlement === 'arbiter' && opened.vault) {
+          console.error(`[buyer]   vault PDA: ${settlementProvider.explorerUrl('address', opened.vault.toBase58())}`)
+          console.error(`[buyer]   escrow PDA: ${settlementProvider.explorerUrl('address', opened.escrow.toBase58())}`)
+          console.error(`[buyer]   open tx: ${settlementProvider.explorerUrl('tx', opened.sig)}`)
         } else {
-          console.error(`[buyer]   escrow PDA: ${expl('address', escrowPda(buyer.publicKey, reference).toBase58())}`)
-          console.error(`[buyer]   deposit tx: ${expl('tx', depositSig)}`)
+          console.error(`[buyer]   escrow PDA: ${settlementProvider.explorerUrl('address', opened.escrow.toBase58())}`)
+          console.error(`[buyer]   deposit tx: ${settlementProvider.explorerUrl('tx', opened.sig)}`)
         }
       }
       await ctx.send(
@@ -248,9 +233,9 @@ await startCoralAgent({ agentName: process.env.AGENT_NAME ?? 'buyer-agent' }, as
           round,
           reference: terms.reference,
           buyer: buyer.publicKey.toBase58(),
-          sig: depositSig,
-          settlement: requestedSettlement,
-          ...(vault && arbiter ? { vault: vault.toBase58(), arbiter: arbiter.publicKey.toBase58() } : {}),
+          sig: opened.sig,
+          settlement: opened.settlement,
+          ...(opened.vault && arbiter ? { vault: opened.vault.toBase58(), arbiter: arbiter.publicKey.toBase58() } : {}),
         }),
         thread, [winner.by],
       )
@@ -270,12 +255,10 @@ await startCoralAgent({ agentName: process.env.AGENT_NAME ?? 'buyer-agent' }, as
           console.error(`[buyer] round ${round}: verification failed - funds stay in escrow, refundable after the deadline`)
           await sleep(CYCLE_MS); continue
         }
-        const releaseSig = requestedSettlement === 'arbiter' && arbiter
-          ? await arbitrateRelease(makeArbiter(arbiter, RPC), arbiter, seller, reference)
-          : await release(program, buyer, seller, reference)
-        const releaseVerb = requestedSettlement === 'arbiter' ? 'ARBITER_RELEASED' : 'RELEASED'
-        console.error(`[buyer] round ${round}: ${releaseVerb} to ${winner.by} - ${expl('tx', releaseSig)}`)
-        await ctx.send(`${releaseVerb} round=${round} sig=${releaseSig} settlement=${requestedSettlement}`, thread, [winner.by])
+        const releaseSig = await settlementProvider.release({ seller, reference })
+        const releaseVerb = settlementProvider.mode === 'arbiter' ? 'ARBITER_RELEASED' : 'RELEASED'
+        console.error(`[buyer] round ${round}: ${releaseVerb} to ${winner.by} - ${settlementProvider.explorerUrl('tx', releaseSig)}`)
+        await ctx.send(`${releaseVerb} round=${round} sig=${releaseSig} settlement=${settlementProvider.mode}`, thread, [winner.by])
       } else {
         console.error(`[buyer] round ${round}: no delivery - funds stay in escrow, refundable after the deadline`)
       }
