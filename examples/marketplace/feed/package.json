@@ -8,7 +8,8 @@
   "scripts": {
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke:testnet": "vitest run src/marketLifecycle.smoke.test.ts"
   },
   "dependencies": {
     "@pay/agent-runtime": "file:../../../packages/agent-runtime",

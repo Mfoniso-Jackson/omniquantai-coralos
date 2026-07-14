@@ -123,6 +123,7 @@ Out of scope:
 - Maintain `npm run health`, `npm run typecheck`, `npm test`, `npm run judge`.
 - Add `npm run production-check`.
 - Use `npm run testnet-check` for the current devnet/testnet release lane.
+- Use `npm run smoke:testnet` to verify the captured WANT -> RELEASED lifecycle and persistence evidence before release.
 - Use `npm run mainnet-readiness` before any later mainnet dry run.
 - Keep GitHub Actions secret-free.
 - Document local, Codespaces, and deployment paths.
@@ -132,6 +133,7 @@ Out of scope:
 Use the smallest test set that protects the demo:
 
 - feed folding and event parsing
+- captured testnet lifecycle smoke from WANT through RELEASED
 - buyer scoring logic
 - seller bid generation
 - memo generation

@@ -19,6 +19,7 @@
     "lint": "npm run typecheck",
     "test": "npm test --prefix packages/agent-runtime && npm test --prefix coral-agents/buyer-agent && npm test --prefix coral-agents/seller-agent && npm test --prefix examples/marketplace/feed && npm test --prefix examples/marketplace/web",
     "testnet-check": "node scripts/testnet-check.mjs",
+    "smoke:testnet": "npm run testnet-check && npm run smoke:testnet --prefix examples/marketplace/feed",
     "mainnet-readiness": "node scripts/mainnet-readiness-check.mjs",
     "production-check": "npm run health && npm run typecheck && npm test",
     "marketplace": "node scripts/run-example.js examples/marketplace start",

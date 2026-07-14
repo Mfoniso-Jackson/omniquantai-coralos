@@ -190,6 +190,7 @@ npm run dev:omniquant    # OmniQuantAI dev/demo alias
 npm run hackathon        # alias for demo
 npm run judge            # judge-facing alias
 npm run testnet-check    # verify current devnet/testnet release settings
+npm run smoke:testnet    # verify captured WANT -> RELEASED lifecycle and persistence evidence
 npm run mainnet-readiness # list blockers before any future mainnet dry run
 npm run typecheck        # TypeScript checks
 npm test                 # unit tests
