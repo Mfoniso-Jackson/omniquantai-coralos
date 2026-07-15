@@ -11,6 +11,7 @@
 - Added a six-layer platform map and updated demo/docs language so the current four-agent roster is framed as the bootstrap market, not an architectural ceiling.
 - Added canonical market lifecycle status, route aliases, and richer debug diagnostics for the marketplace feed.
 - Added distribution, developer-relations, content, community, enterprise, partnership, launch, media-kit, case-study, design-partner, and GitHub contribution templates.
+- Added an ecosystem playbook and supporting strategy docs for the agent economy, platform roadmap, partnerships, network effects, and Financial Intelligence Network.
 
 ### Notes
 
