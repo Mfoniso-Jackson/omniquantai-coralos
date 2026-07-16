@@ -3,12 +3,57 @@ import type { Feed, FeedDiagnostics } from './types'
 
 const FEED_URL = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_FEED_URL ?? ''
 export const API_BASE_URL = FEED_URL || 'same-origin /api proxy'
+const HEALTH_TIMEOUT_MS = 2500
 
 export interface UiError {
   title: string
   what: string
   likelyCause: string
   suggestedFix: string
+}
+
+export interface ApiHealthState {
+  status: 'checking' | 'online' | 'offline'
+  apiUrl: string
+  detail?: string
+}
+
+export function useApiHealth(intervalMs = 15000): ApiHealthState {
+  const [state, setState] = useState<ApiHealthState>({ status: 'checking', apiUrl: API_BASE_URL })
+
+  useEffect(() => {
+    let stopped = false
+    const check = async () => {
+      const controller = new AbortController()
+      const timeout = window.setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS)
+      try {
+        const res = await fetch(`${FEED_URL}/api/health?quick=1`, { signal: controller.signal })
+        const body = (await res.json().catch(() => ({}))) as { ok?: boolean; build?: string; error?: string }
+        if (!stopped) {
+          setState({
+            status: res.ok && body.ok !== false ? 'online' : 'offline',
+            apiUrl: API_BASE_URL,
+            detail: body.build ?? body.error ?? `health ${res.status}`,
+          })
+        }
+      } catch (error) {
+        if (!stopped) {
+          setState({
+            status: 'offline',
+            apiUrl: API_BASE_URL,
+            detail: error instanceof Error ? error.message : 'API health check failed',
+          })
+        }
+      } finally {
+        window.clearTimeout(timeout)
+      }
+    }
+    void check()
+    const id = window.setInterval(check, intervalMs)
+    return () => { stopped = true; window.clearInterval(id) }
+  }, [intervalMs])
+
+  return state
 }
 
 /** Ask the feed server to launch a market session; returns its id. (Fund wallets first.) */

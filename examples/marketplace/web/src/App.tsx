@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { API_BASE_URL, friendlyError, useFeed, startMarket, type UiError } from './api'
+import { API_BASE_URL, friendlyError, useFeed, startMarket, useApiHealth, type ApiHealthState, type UiError } from './api'
 import { MarketView } from './components/MarketView'
 import { Explainer } from './components/Explainer'
 import { PresentationView } from './components/PresentationView'
@@ -9,6 +9,10 @@ import type { FeedDiagnostics, Round } from './types'
 const initialSession = new URLSearchParams(window.location.search).get('session') ?? ''
 const initialNamespace = new URLSearchParams(window.location.search).get('namespace') ?? ''
 const initialPresentationMode = new URLSearchParams(window.location.search).get('presentation') === '1'
+const proofReleaseUrl = 'https://github.com/Mfoniso-Jackson/omniquantai-coralos/releases/tag/proof-2026-07-16'
+const proofVideoUrl = 'https://github.com/Mfoniso-Jackson/omniquantai-coralos/releases/download/proof-2026-07-16/omniquantai-proof-demo.mp4'
+const depositProofUrl = 'https://explorer.solana.com/tx/27ZyJMrfz6eArcKJnUDamNzcDdxuVCxsEZP1vufVYQcm5WU5wcGwXAFZD7a3oL42iXDJ1zMyv2RNDmXMa9XZzs4r?cluster=devnet'
+const releaseProofUrl = 'https://explorer.solana.com/tx/265d6bKH2miwXQtEqkVNcVJQfyGDWj5wAxqrEr7yiSSyMdLDE7q4nhjh9XwiMgM1rPiz5eLXg82iH9jGmExALLn1?cluster=devnet'
 
 export default function App() {
   const [session, setSession] = useState(initialSession)
@@ -16,6 +20,7 @@ export default function App() {
   const [presentationMode, setPresentationMode] = useState(initialPresentationMode)
   const [starting, setStarting] = useState(false)
   const [startErr, setStartErr] = useState<UiError>()
+  const apiHealth = useApiHealth()
   const { rounds, connected, error, diagnostics, updatedAt, polling, apiUrl } = useFeed(session, namespace)
 
   async function onStart() {
@@ -95,6 +100,7 @@ export default function App() {
           investment intelligence through programmable settlement.
         </p>
       </section>
+      <ModeBanner apiHealth={apiHealth} />
 
       {(starting || session) && <LaunchProgress starting={starting} session={session} rounds={rounds} connected={connected} diagnostics={diagnostics} />}
       {startErr && <ErrorCard error={startErr} onRetry={onStart} testId="start-err" />}
@@ -106,6 +112,7 @@ export default function App() {
           <StartMarketPanel
             starting={starting}
             session={session}
+            apiHealth={apiHealth}
             onStart={onStart}
             onSession={(nextSession) => {
               setSession(nextSession)
@@ -125,18 +132,21 @@ function shortId(value: string): string {
 function StartMarketPanel({
   starting,
   session,
+  apiHealth,
   onStart,
   onSession,
 }: {
   starting: boolean
   session: string
+  apiHealth: ApiHealthState
   onStart: () => void
   onSession: (session: string) => void
 }) {
   const [draft, setDraft] = useState(session)
   return (
     <section className="empty-market">
-      <PublicHero starting={starting} onStart={onStart} />
+      <PublicHero starting={starting} apiHealth={apiHealth} onStart={onStart} />
+      <ProofModePanel apiHealth={apiHealth} />
       <details className="reconnect-panel">
         <summary>Reconnect to Existing Session</summary>
         <div className="session-bar">
@@ -169,7 +179,32 @@ function StartMarketPanel({
   )
 }
 
-function PublicHero({ starting, onStart }: { starting: boolean; onStart: () => void }) {
+function ModeBanner({ apiHealth }: { apiHealth: ApiHealthState }) {
+  const online = apiHealth.status === 'online'
+  const checking = apiHealth.status === 'checking'
+  return (
+    <section className={`mode-banner ${online ? 'mode-live' : 'mode-proof'}`} aria-live="polite">
+      <div>
+        <span className="eyebrow">{checking ? 'Checking Market Runtime' : online ? 'Live Market Online' : 'Public Proof Mode'}</span>
+        <p>
+          {checking
+            ? 'Checking whether the market API is reachable.'
+            : online
+            ? 'The market API is reachable. Start Market will launch a live buyer/seller session.'
+            : 'The live API is offline, so the public site defaults to verifiable proof video and Solana Explorer links.'}
+        </p>
+      </div>
+      <div className="mode-actions">
+        {!online && <a href={proofVideoUrl} target="_blank" rel="noreferrer">Watch Proof Run</a>}
+        {!online && <a href={releaseProofUrl} target="_blank" rel="noreferrer">Explorer Proof</a>}
+        <span>{apiHealth.apiUrl}</span>
+      </div>
+    </section>
+  )
+}
+
+function PublicHero({ starting, apiHealth, onStart }: { starting: boolean; apiHealth: ApiHealthState; onStart: () => void }) {
+  const apiOnline = apiHealth.status === 'online'
   return (
     <section className="public-hero" aria-labelledby="public-hero-title">
       <div className="public-copy">
@@ -181,8 +216,17 @@ function PublicHero({ starting, onStart }: { starting: boolean; onStart: () => v
           through programmable settlement.
         </p>
         <div className="empty-actions">
-          <button className="primary-action" onClick={onStart} disabled={starting} data-testid="start">
-            {starting ? 'Starting Market...' : 'Start Live Market'}
+          <a className="primary-action proof-action" href={proofVideoUrl} target="_blank" rel="noreferrer">
+            Watch Proof Run
+          </a>
+          <button
+            className="primary-action"
+            onClick={onStart}
+            disabled={starting || !apiOnline}
+            data-testid="start"
+            title={apiOnline ? 'Start a live market session' : 'Live market requires a reachable Codespaces or Docker API runtime'}
+          >
+            {starting ? 'Starting Market...' : apiOnline ? 'Start Live Market' : 'Live Market Offline'}
           </button>
           <a className="secondary-action" href="#architecture">Explore Architecture</a>
           <a className="secondary-action" href="#developers">Build an Agent</a>
@@ -190,6 +234,29 @@ function PublicHero({ starting, onStart }: { starting: boolean; onStart: () => v
         </div>
       </div>
       <MarketLifecycleAnimation />
+    </section>
+  )
+}
+
+function ProofModePanel({ apiHealth }: { apiHealth: ApiHealthState }) {
+  const online = apiHealth.status === 'online'
+  return (
+    <section className={`proof-mode-panel ${online ? 'proof-live' : ''}`} aria-labelledby="proof-mode-title">
+      <div>
+        <span className="eyebrow">{online ? 'Live Mode Available' : 'Public Proof Mode'}</span>
+        <h3 id="proof-mode-title">{online ? 'The market runtime is online.' : 'The free public site defaults to verifiable proof.'}</h3>
+        <p>
+          {online
+            ? 'You can start a fresh market now. The proof links remain available as a stable public reference.'
+            : 'The always-on website links to a captured devnet market round. Live Start Market sessions run through Codespaces or a local Docker host until a permanent API host is online.'}
+        </p>
+      </div>
+      <div className="proof-links" aria-label="Proof links">
+        <a href={proofVideoUrl} target="_blank" rel="noreferrer">Demo Video</a>
+        <a href={proofReleaseUrl} target="_blank" rel="noreferrer">GitHub Release</a>
+        <a href={depositProofUrl} target="_blank" rel="noreferrer">Deposit Proof</a>
+        <a href={releaseProofUrl} target="_blank" rel="noreferrer">Release Proof</a>
+      </div>
     </section>
   )
 }
@@ -223,14 +290,14 @@ function LiveMarketPreview() {
       <div className="section-heading">
         <div>
           <span className="eyebrow">Live Agent Market</span>
-          <h3 id="market-title">One click starts the market loop</h3>
+          <h3 id="market-title">One click starts the market loop when a demo runtime is online</h3>
         </div>
         <span className="section-meta">WANT {'->'} BID {'->'} AWARD {'->'} DEPOSITED {'->'} DELIVERED {'->'} VERIFIED {'->'} RELEASED</span>
       </div>
       <div className="market-preview-grid">
-        <PreviewMetric label="Current Session" value="Created on demand" />
+        <PreviewMetric label="Public Default" value="Proof mode" />
         <PreviewMetric label="Research Request" value="NVDA 3-6 month exposure" />
-        <PreviewMetric label="Seller Agents" value="4 specialists" />
+        <PreviewMetric label="Live Runtime" value="Codespaces / local Docker" />
         <PreviewMetric label="Settlement" value="Solana devnet proof" />
       </div>
     </section>

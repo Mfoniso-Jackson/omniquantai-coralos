@@ -317,6 +317,21 @@ body {
 }
 .network-thesis p { margin: 0; color: var(--txt); font-size: 18px; line-height: 1.5; max-width: 980px; }
 
+.mode-banner {
+  margin: -6px 0 22px; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+  background: rgba(5, 7, 11, .52); display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px; align-items: center;
+}
+.mode-banner p { margin: 5px 0 0; color: var(--dim); line-height: 1.45; }
+.mode-live { border-color: rgba(83, 209, 140, .55); background: rgba(27, 84, 55, .14); }
+.mode-proof { border-color: rgba(103, 168, 255, .34); }
+.mode-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.mode-actions a, .mode-actions span {
+  border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: var(--link);
+  text-decoration: none; font-size: 12px; background: rgba(5, 7, 11, .38);
+}
+.mode-actions span { color: var(--dim); overflow-wrap: anywhere; }
+
 .empty-market {
   display: grid; gap: 18px; border: 1px solid var(--line); border-radius: 8px;
   background: linear-gradient(135deg, rgba(13,18,27,.92), rgba(5,7,11,.84));
@@ -372,15 +387,35 @@ body {
   color: #04130a; background: linear-gradient(135deg, var(--won), #9df7c4);
   border: 0; border-radius: 8px; padding: 12px 16px; font: inherit; font-weight: 850;
   cursor: pointer; transition: transform .18s ease, box-shadow .18s ease;
+  text-decoration: none; display: inline-flex; align-items: center; justify-content: center;
 }
 .primary-action:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 16px 36px rgba(83, 209, 140, .22); }
 .primary-action:disabled { opacity: .62; cursor: default; }
+.proof-action {
+  color: var(--txt); background: linear-gradient(135deg, rgba(0, 132, 255, .94), rgba(167, 139, 250, .78));
+}
 .reconnect-panel {
   border: 1px dashed var(--line); border-radius: 8px; padding: 12px; color: var(--dim);
   background: rgba(5,7,11,.34);
 }
 .reconnect-panel summary { cursor: pointer; color: var(--link); font-weight: 750; }
 .reconnect-panel .session-bar { margin: 12px 0 0; }
+
+.proof-mode-panel {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .8fr); gap: 18px; align-items: center;
+  border: 1px solid rgba(103, 168, 255, .32); border-radius: 8px; padding: 18px;
+  background: linear-gradient(135deg, rgba(13, 22, 36, .84), rgba(5, 7, 11, .62));
+}
+.proof-live { border-color: rgba(83, 209, 140, .48); background: linear-gradient(135deg, rgba(27, 84, 55, .18), rgba(5, 7, 11, .62)); }
+.proof-mode-panel h3 { margin: 8px 0 8px; font-size: clamp(22px, 3vw, 34px); line-height: 1.08; }
+.proof-mode-panel p { color: var(--dim); line-height: 1.55; margin: 0; max-width: 840px; }
+.proof-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.proof-links a {
+  color: var(--txt); text-decoration: none; border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px; background: rgba(5, 7, 11, .44); font-weight: 750; text-align: center;
+  transition: border-color .18s ease, color .18s ease, transform .18s ease;
+}
+.proof-links a:hover { border-color: var(--link); color: var(--link); transform: translateY(-1px); }
 
 .portal-section {
   border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 7, 11, .34);
@@ -606,11 +641,14 @@ body {
   .settlement-timeline { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .launch-progress, .settlement-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .market-preview-grid, .portal-grid, .agent-profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .proof-mode-panel { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 720px) {
   .app { width: min(100vw - 24px, 680px); padding-top: 18px; }
   .app-head, .round-head, .section-heading, .waiting-stage { align-items: flex-start; flex-direction: column; }
+  .mode-banner { grid-template-columns: 1fr; }
+  .mode-actions { justify-content: flex-start; }
   .top-nav { justify-content: flex-start; }
   .trust-strip { border-radius: 8px; flex-wrap: wrap; }
   .session-bar { flex-direction: column; }
@@ -621,6 +659,7 @@ body {
   .empty-actions { flex-direction: column; align-items: stretch; }
   .secondary-action, .primary-action { text-align: center; }
   .market-preview-grid, .portal-grid, .agent-profile-grid { grid-template-columns: 1fr; }
+  .proof-links { grid-template-columns: 1fr; }
   .section-meta { white-space: normal; border-radius: 8px; }
   .settlement-timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .launch-progress, .settlement-facts { grid-template-columns: 1fr; }
