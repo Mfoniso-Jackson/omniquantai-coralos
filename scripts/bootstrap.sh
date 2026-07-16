@@ -55,6 +55,7 @@ fi
 
 npm_install "scripts"
 npm_install "packages/agent-runtime"
+npm_install "packages/sdk"
 npm_install "coral-agents/buyer-agent"
 npm_install "coral-agents/seller-agent"
 npm_install "examples/marketplace"
@@ -64,6 +65,11 @@ npm_install "examples/marketplace/web"
 if [ ! -d "packages/agent-runtime/dist" ]; then
   log "Building @pay/agent-runtime"
   npm run build --prefix packages/agent-runtime
+fi
+
+if [ ! -d "packages/sdk/dist" ]; then
+  log "Building @omniquant/sdk"
+  npm run build --prefix packages/sdk
 fi
 
 log "Ensuring .env has all demo wallets"

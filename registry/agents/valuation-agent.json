@@ -1,0 +1,8 @@
+{
+  "id": "valuation-agent",
+  "manifestPath": "sample-agents/valuation-agent/agent.json",
+  "status": "verified",
+  "registeredAt": "2026-07-16T00:00:00.000Z",
+  "publisher": "OmniQuantAI",
+  "notes": "Reference SDK agent for valuation workflows."
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@omniquant/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for building OmniQuantAI financial-intelligence agents.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "oq": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.7.2"
+  }
+}

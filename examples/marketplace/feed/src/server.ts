@@ -25,6 +25,14 @@ import { collectMessages } from './coralState.js'
 import type { RawMessage, Round } from './foldRounds.js'
 import { persistMarketplaceData } from './data/persistence.js'
 import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, listAgents, listMarkets } from './data/history.js'
+import {
+  discoverRegisteredAgents,
+  getRegisteredAgent,
+  listRegisteredAgents,
+  registerAgentManifest,
+  updateAgentManifest,
+  type RegistryStatus,
+} from './data/registryStore.js'
 import { deriveMarketStatus, type MarketStatus } from './marketStatus.js'
 
 const MARKET_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..') // examples/marketplace
@@ -169,6 +177,41 @@ app.get('/api/agents', async (_req, res) => {
   res.json({ agents: await listAgents() })
 })
 
+app.post('/api/agents/register', async (req, res) => {
+  try {
+    const { manifest, status } = registrationInput(req.body)
+    const registration = await registerAgentManifest(manifest, { status })
+    res.status(201).json({ ok: true, agent: registration })
+  } catch (error) {
+    res.status(400).json({ ok: false, error: (error as Error).message })
+  }
+})
+
+app.get('/api/registry/agents', async (_req, res) => {
+  res.json({ agents: await listRegisteredAgents() })
+})
+
+app.get('/api/registry/discover', async (req, res) => {
+  const capabilities = typeof req.query.capabilities === 'string'
+    ? req.query.capabilities.split(',').map((item) => item.trim()).filter(Boolean)
+    : undefined
+  res.json({
+    agents: await discoverRegisteredAgents({
+      market: typeof req.query.market === 'string' ? req.query.market : undefined,
+      capabilities,
+    }),
+  })
+})
+
+app.get('/api/registry/agents/:id', async (req, res) => {
+  const agent = await getRegisteredAgent(req.params.id)
+  if (!agent) return res.status(404).json({ error: 'registered agent not found', agentId: req.params.id })
+  return res.json(agent)
+})
+
+app.patch('/api/agents/:id', updateRegisteredAgent)
+app.post('/api/agents/:id', updateRegisteredAgent)
+
 app.get('/api/agents/:id', async (req, res) => {
   const agent = await getAgent(req.params.id)
   if (!agent) return res.status(404).json({ error: 'agent not found', agentId: req.params.id })
@@ -247,6 +290,29 @@ function parseLauncherSession(text: string): { session: string; namespace: strin
   if (!session) return null
   const namespace = text.match(/namespace:\s*([A-Za-z0-9_.-]+)/i)?.[1] ?? NS
   return { session, namespace }
+}
+
+async function updateRegisteredAgent(req: Request, res: Response) {
+  try {
+    const { manifest, status } = registrationInput(req.body)
+    const registration = await updateAgentManifest(req.params.id, manifest, { status })
+    res.json({ ok: true, agent: registration })
+  } catch (error) {
+    res.status(400).json({ ok: false, error: (error as Error).message })
+  }
+}
+
+function registrationInput(body: unknown): { manifest: unknown; status?: RegistryStatus } {
+  if (!body || typeof body !== 'object') return { manifest: body }
+  const obj = body as { manifest?: unknown; status?: unknown }
+  const status = parseRegistryStatus(obj.status)
+  return { manifest: obj.manifest ?? body, status }
+}
+
+function parseRegistryStatus(value: unknown): RegistryStatus | undefined {
+  if (value === undefined) return undefined
+  if (value === 'pending' || value === 'active' || value === 'verified' || value === 'suspended') return value
+  throw new Error(`invalid registry status: ${String(value)}`)
 }
 
 async function waitForWant(session: string, namespace: string): Promise<void> {

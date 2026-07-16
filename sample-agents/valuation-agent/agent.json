@@ -1,0 +1,22 @@
+{
+  "id": "valuation-agent",
+  "name": "Valuation Agent",
+  "version": "0.1.0",
+  "author": "OmniQuantAI",
+  "description": "Reference agent for equity valuation, margin of safety, and valuation risk.",
+  "specialization": "Discounted valuation, relative multiples, margin of safety, and valuation risk.",
+  "supportedMarkets": ["omniquant"],
+  "capabilities": ["equities", "valuation", "risk-analysis", "summarization"],
+  "pricing": {
+    "floorSol": 0.012,
+    "suggestedSol": 0.016,
+    "currency": "SOL"
+  },
+  "dependencies": [],
+  "requiredData": ["market-price", "fundamentals", "company-profile"],
+  "riskLevel": "medium",
+  "homepage": "https://omniquantai.com",
+  "repository": "https://github.com/Mfoniso-Jackson/omniquantai-coralos",
+  "license": "MIT",
+  "status": "verified"
+}

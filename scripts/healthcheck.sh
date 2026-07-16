@@ -79,6 +79,7 @@ else
 fi
 
 if [ -d "packages/agent-runtime/node_modules" ]; then pass "Runtime dependencies installed"; else fail "Missing packages/agent-runtime/node_modules. Run npm run bootstrap."; fi
+if [ -d "packages/sdk/node_modules" ]; then pass "SDK dependencies installed"; else fail "Missing packages/sdk/node_modules. Run npm run bootstrap."; fi
 if [ -d "examples/marketplace/feed/node_modules" ]; then pass "Feed dependencies installed"; else fail "Missing feed dependencies. Run npm run bootstrap."; fi
 if [ -d "examples/marketplace/web/node_modules" ]; then pass "Web dependencies installed"; else fail "Missing web dependencies. Run npm run bootstrap."; fi
 
