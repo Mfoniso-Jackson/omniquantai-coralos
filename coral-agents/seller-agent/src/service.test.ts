@@ -42,6 +42,22 @@ describe('deliverService routing', () => {
     expect(out.investment_committee_memo.recent_headlines).toHaveLength(3)
     expect(out.investment_committee_memo.solana_oracle_context.symbol).toBe('SOL/USD')
     expect(out.investment_committee_memo.confidence_caveat).toContain('deterministic demo data')
+    expect(out.investment_committee_memo.data_sources.every((source: { label?: string; mode?: string; timestamp?: string }) => (
+      source.label && source.mode && source.timestamp
+    ))).toBe(true)
+    expect(out.investment_committee_memo.provider_observability).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        capability: 'market-price',
+        mode: 'DEMO FALLBACK DATA',
+        fallbackUsed: true,
+      }),
+      expect.objectContaining({
+        capability: 'company-profile',
+        provider: expect.stringContaining('Deterministic demo company profile'),
+        mode: 'DEMO FALLBACK DATA',
+        fallbackUsed: true,
+      }),
+    ]))
     expect(out.risks).toContain('25-40% drawdown scenario')
   })
 

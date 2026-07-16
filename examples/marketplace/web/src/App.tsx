@@ -10,9 +10,9 @@ const initialSession = new URLSearchParams(window.location.search).get('session'
 const initialNamespace = new URLSearchParams(window.location.search).get('namespace') ?? ''
 const initialPresentationMode = new URLSearchParams(window.location.search).get('presentation') === '1'
 const proofReleaseUrl = 'https://github.com/Mfoniso-Jackson/omniquantai-coralos/releases/tag/proof-2026-07-16'
-const proofVideoUrl = 'https://github.com/Mfoniso-Jackson/omniquantai-coralos/releases/download/proof-2026-07-16/omniquantai-proof-demo.mp4'
-const depositProofUrl = 'https://explorer.solana.com/tx/27ZyJMrfz6eArcKJnUDamNzcDdxuVCxsEZP1vufVYQcm5WU5wcGwXAFZD7a3oL42iXDJ1zMyv2RNDmXMa9XZzs4r?cluster=devnet'
-const releaseProofUrl = 'https://explorer.solana.com/tx/265d6bKH2miwXQtEqkVNcVJQfyGDWj5wAxqrEr7yiSSyMdLDE7q4nhjh9XwiMgM1rPiz5eLXg82iH9jGmExALLn1?cluster=devnet'
+const proofVideoUrl = 'https://github.com/Mfoniso-Jackson/omniquantai-coralos/releases/download/proof-2026-07-16/omniquantai-data-provenance-proof.webm'
+const depositProofUrl = 'https://explorer.solana.com/tx/4YqJfxV4hWaj2VzNaCVfaDwNeU18aVrJg64borLAMfdBxxULPXD4niU234ucWe4XB5Q9F2ya536mfFss7bvshiFX?cluster=devnet'
+const releaseProofUrl = 'https://explorer.solana.com/tx/5R8QLMFdRshz7iKan11ZN4upKG7Dia5mtEAxQWqupn2j1QbBxJudCRgXqPkkTDKDeSm8gMuD1R8zVM3mVSvTBgE7?cluster=devnet'
 
 export default function App() {
   const [session, setSession] = useState(initialSession)

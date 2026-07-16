@@ -1,4 +1,5 @@
 import { getFundamentals } from './fundamentalsProvider.js'
+import { getFmpCompanyProfile } from './fmpProvider.js'
 import { getMarketPrice } from './marketDataProvider.js'
 import { getNewsHeadlines } from './newsProvider.js'
 import { getSolanaOracleContext } from './solanaOracleProvider.js'
@@ -62,7 +63,7 @@ export class OmniQuantFinancialDataProvider implements FinancialDataProvider {
       observe('news', () => getNewsHeadlines(asset), observations),
       observe('fundamentals', () => getFundamentals(asset), observations),
       observe('solana-oracle', () => getSolanaOracleContext(), observations),
-      observe('company-profile', async () => mockCompanyProfile('live company profile provider not configured', asset), observations),
+      observe('company-profile', () => getCompanyProfile(asset), observations),
       observe('macro', async () => mockMacroIndicators('live macro provider not configured'), observations),
       observe('technicals', async () => mockTechnicals('live technical indicator provider not configured', asset), observations),
     ])
@@ -105,6 +106,14 @@ export function financialDataProviderFromEnv(): FinancialDataProvider {
 
 export async function getFinancialDataContext(asset: string): Promise<FinancialDataContext> {
   return financialDataProviderFromEnv().getContext({ asset })
+}
+
+async function getCompanyProfile(asset: string): Promise<CompanyProfile> {
+  try {
+    return await getFmpCompanyProfile(asset)
+  } catch (error) {
+    return mockCompanyProfile((error as Error).message, asset)
+  }
 }
 
 export function normalizeAsset(input: string): string {

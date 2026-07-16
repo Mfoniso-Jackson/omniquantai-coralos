@@ -12,6 +12,8 @@ coral-agents/seller-agent/src/providers/financialDataProvider.ts
 
 The context may include a mixture of live and fallback sources. The aggregate `dataMode` becomes `LIVE DATA` when at least one live source is present.
 
+When `FMP_API_KEY` is configured, the gateway uses Financial Modeling Prep for company profiles and richer fundamentals. If FMP is unavailable, those capabilities fall back to deterministic demo data while preserving the same memo schema.
+
 ## Memo Provenance
 
 Investment Committee Memos include:

@@ -9,7 +9,8 @@ OmniQuantAI uses a provider-based Financial Data Layer. Agents consume normalize
 | Equity price | Yahoo Finance chart API | no key |
 | News | Finnhub | `FINNHUB_API_KEY` |
 | News | NewsAPI | `NEWS_API_KEY` |
-| Fundamentals | Financial Modeling Prep | `FMP_API_KEY` |
+| Fundamentals | Financial Modeling Prep profile, quote, and key metrics APIs | `FMP_API_KEY` |
+| Company profile | Financial Modeling Prep profile API | `FMP_API_KEY` |
 | Solana oracle context | Pyth Hermes | optional `PYTH_SOL_USD_FEED_ID` |
 
 ## Current Fallback Providers

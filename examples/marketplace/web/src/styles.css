@@ -90,6 +90,16 @@ body { margin: 0; background: var(--bg); color: var(--txt); }
 .oracle-note h3 { margin: 0 0 7px; font-size: 12px; color: var(--premium); }
 .oracle-note p { margin: 0 0 5px; color: var(--txt); font-size: 12px; }
 .oracle-note span { display: block; color: var(--dim); font-size: 11px; line-height: 1.4; }
+.provider-observability { border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; margin: 10px 0; }
+.provider-observability h3 { margin: 0 0 8px; font-size: 12px; color: var(--premium); }
+.provider-observability-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.provider-observability article { border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px; background: rgba(8, 13, 22, .46); min-width: 0; }
+.provider-observability div { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 5px; }
+.provider-observability strong { color: var(--txt); font-size: 12px; text-transform: capitalize; }
+.provider-observability em { font-style: normal; border: 1px solid currentColor; border-radius: 999px; padding: 2px 6px; font-size: 10px; white-space: nowrap; }
+.provider-observability p { margin: 0 0 4px; color: var(--txt); font-size: 12px; overflow-wrap: anywhere; }
+.provider-observability span { display: block; color: var(--dim); font-size: 11px; line-height: 1.35; }
+.provider-observability .provider-error { color: var(--lost); margin-top: 3px; }
 .intel-question { color: var(--txt); border-top: 1px dashed var(--line); padding-top: 10px; }
 .portfolio-strip, .agent-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
 .portfolio-strip span, .agent-strip span { border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px; color: var(--dim); font-size: 12px; }
@@ -570,7 +580,7 @@ body {
 
 .intel-panel { border-color: rgba(103, 168, 255, .45); background: rgba(5, 7, 11, .5); border-radius: 8px; padding: 18px; }
 .intel-head { font-size: 13px; color: var(--link); }
-.memo-hero div, .data-strip div, .headline-list, .oracle-note, .evidence-cards article {
+.memo-hero div, .data-strip div, .headline-list, .oracle-note, .provider-observability, .evidence-cards article {
   background: rgba(8, 13, 22, .72); border-radius: 8px;
 }
 .memo-hero strong { font-size: 20px; }
@@ -652,7 +662,7 @@ body {
   .top-nav { justify-content: flex-start; }
   .trust-strip { border-radius: 8px; flex-wrap: wrap; }
   .session-bar { flex-direction: column; }
-  .request-grid, .bids, .memo-hero, .data-strip, .evidence-cards, .intel-grid, .verify-checks, .rejection-grid {
+  .request-grid, .bids, .memo-hero, .data-strip, .provider-observability-grid, .evidence-cards, .intel-grid, .verify-checks, .rejection-grid {
     grid-template-columns: 1fr;
   }
   .public-copy { min-height: 520px; }

@@ -49,6 +49,17 @@ interface IntelligenceReport {
       source?: { label?: string; mode?: string; timestamp?: string }
     }
     data_sources?: { label: string; mode: string; timestamp: string }[]
+    provider_observability?: {
+      provider: string
+      capability: string
+      mode: string
+      latencyMs: number
+      cacheHit: boolean
+      success: boolean
+      fallbackUsed: boolean
+      error?: string
+      timestamp: string
+    }[]
     data_timestamp?: string
     confidence_caveat?: string
     executive_summary?: string
@@ -73,6 +84,7 @@ const list = (items: Array<string | { source?: string; timestamp?: string; findi
 export function IntelligencePanel({ report }: { report: IntelligenceReport }) {
   const memo = report.investment_committee_memo
   const badge = memo?.data_badge
+  const observations = memo?.provider_observability ?? []
   return (
     <div className="intel-panel" data-testid="intel-report">
       <div className="intel-head">
@@ -202,6 +214,26 @@ export function IntelligencePanel({ report }: { report: IntelligenceReport }) {
         <p className="intel-note">
           <strong>Data sources:</strong> {memo.data_sources.map((source) => `${source.label} (${source.mode}, ${formatTime(source.timestamp)})`).join('; ')}
         </p>
+      )}
+      {observations.length > 0 && (
+        <section className="provider-observability">
+          <h3>Provider Observability</h3>
+          <div className="provider-observability-grid">
+            {observations.map((observation) => (
+              <article key={`${observation.capability}-${observation.provider}-${observation.timestamp}`}>
+                <div>
+                  <strong>{observation.capability}</strong>
+                  <em className={observation.mode === 'LIVE DATA' ? 'data-live' : 'data-demo'}>{observation.mode}</em>
+                </div>
+                <p>{observation.provider}</p>
+                <span>
+                  {observation.latencyMs}ms · {observation.fallbackUsed ? 'fallback used' : 'live path'} · {observation.cacheHit ? 'cache hit' : 'fresh read'}
+                </span>
+                {observation.error && <span className="provider-error">{observation.error}</span>}
+              </article>
+            ))}
+          </div>
+        </section>
       )}
       <p className="intel-note">{memo?.disclaimer ?? report.disclaimer}</p>
     </div>

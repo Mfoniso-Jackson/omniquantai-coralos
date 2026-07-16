@@ -65,7 +65,7 @@ Demo data must never be presented as live data.
 ```text
 Agent
   -> FinancialDataProvider
-  -> market/news/fundamentals/oracle providers
+  -> market/news/fundamentals/profile/oracle providers
   -> deterministic fallback dataset
   -> normalized FinancialDataContext
   -> Investment Committee Memo
@@ -99,6 +99,13 @@ Current behavior:
 - if keys are missing, fallback data is used
 - the platform does not fail because a provider is unavailable
 
+Current real adapters:
+
+- Yahoo Finance chart API for no-key equity prices
+- Finnhub and NewsAPI for headlines when keys are configured
+- Financial Modeling Prep for fundamentals and company profiles when `FMP_API_KEY` is configured
+- Pyth Hermes for Solana oracle context
+
 ## Observability
 
 Each provider call records:
@@ -119,7 +126,7 @@ These records are included in the memo payload under `provider_observability`.
 Planned adapters:
 
 - Twelve Data / Polygon / Alpha Vantage for prices and technicals
-- Finnhub / FMP for fundamentals and company profiles
+- expanded Finnhub / FMP coverage for fundamentals and estimates
 - Finnhub / Marketaux / NewsAPI for news
 - FRED / ECB / World Bank for macro
 - CoinGecko / Birdeye / Helius for digital assets

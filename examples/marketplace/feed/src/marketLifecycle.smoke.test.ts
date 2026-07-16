@@ -16,7 +16,7 @@ const omniquantProofPath = join(
   '..',
   '..',
   'evidence',
-  '2026-07-16-public-proof-direct',
+  '2026-07-16-data-provenance-proof',
   'feed.json',
 )
 const state = JSON.parse(readFileSync(fixturePath, 'utf8'))
@@ -96,9 +96,19 @@ describe('testnet market lifecycle smoke', () => {
       'news-earnings',
       'portfolio-risk',
     ])
-    expect(round?.award?.to).toBe('portfolio-risk')
+    expect(round?.award?.to).toBe('news-earnings')
     expect(round?.deposit?.sig).toBeTruthy()
     expect(round?.delivered?.data?.investment_committee_memo).toBeTruthy()
+    const memo = round?.delivered?.data?.investment_committee_memo as {
+      data_sources?: Array<{ label?: string; mode?: string; timestamp?: string }>
+      latest_price?: { source?: string; timestamp?: string }
+      recent_headlines?: Array<{ source?: string; timestamp?: string }>
+    } | undefined
+    expect(memo?.data_sources?.length).toBeGreaterThan(0)
+    expect(memo?.data_sources?.every((source) => source.label && source.mode && source.timestamp)).toBe(true)
+    expect(memo?.data_sources?.map((source) => source.mode)).toEqual(expect.arrayContaining(['DEMO FALLBACK DATA']))
+    expect(memo?.latest_price).toEqual(expect.objectContaining({ source: expect.any(String), timestamp: expect.any(String) }))
+    expect(memo?.recent_headlines?.every((headline) => headline.source && headline.timestamp)).toBe(true)
     expect(round?.delivered?.data?.disclaimer).toContain('Not financial advice')
     expect(round?.verified).toMatchObject({ status: 'PASS', score: 100 })
     expect(round?.release?.sig).toBeTruthy()

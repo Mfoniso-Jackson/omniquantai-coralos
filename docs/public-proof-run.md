@@ -1,18 +1,21 @@
 # OmniQuantAI Public Proof Run
 
-This proof run captures a complete OmniQuantAI market lifecycle on Solana devnet: a buyer requests NVDA investment research, four specialist agents bid, the buyer selects the best-value seller, the winning agent delivers an investment memo, verification passes, and payment is released on-chain.
+This proof run captures a complete OmniQuantAI market lifecycle on Solana devnet: a buyer requests NVDA investment research, four specialist agents bid, the buyer selects the best-value seller, the winning agent delivers an investment memo with provider provenance, verification passes, and payment is released on-chain.
 
 ## Run Summary
 
-- Captured: 2026-07-16T15:56:02.429Z
-- Session ID: `4964720d-d6d5-4737-97d9-5e643fd156c7`
+- Captured: 2026-07-16T20:50:12.427Z
+- Session ID: `88634a97-a1ea-471f-a0b6-4bb2c6d3d727`
 - Namespace: `omniquant`
 - Settlement mode: direct devnet escrow
 - Buyer wallet: `95KuXMKPCRHcg33iseKi4rAvv51QEwAJ3aQYT4QTfRKp`
-- Winning agent: `portfolio-risk`
+- Winning agent: `news-earnings`
 - Recommendation: `HOLD`
 - Memo confidence: `72`
 - Verification: `PASS`, score `100`
+- Data badge: `Live data`
+- Source count: `7`
+- Provider observation count: `7`
 
 ## Lifecycle Evidence
 
@@ -25,7 +28,7 @@ WANT -> BID x4 -> AWARD -> DEPOSITED -> DELIVERED -> VERIFIED -> RELEASED
 Evidence is stored under:
 
 ```text
-evidence/2026-07-16-public-proof-direct/
+evidence/2026-07-16-data-provenance-proof/
 ```
 
 Included metadata:
@@ -33,18 +36,14 @@ Included metadata:
 - `summary.md` - human-readable proof summary
 - `dashboard.png` - dashboard screenshot from the proof run
 - `feed.json` - frontend feed snapshot
-- `research_requests.jsonl` - research request record
-- `agent_bids.jsonl` - four seller bids
-- `winners.jsonl` - selected winning agent
-- `decision_records.jsonl` - buyer decision and delivered memo
-- `settlements.jsonl` - devnet settlement records
-- `agent_reputation.jsonl` - reputation update evidence
-- `market_snapshots.jsonl` - saved market snapshot
+- `explorer-links.json` - deposit/release Explorer URLs
+
+The delivered memo includes `provider_observability` with provider, capability, mode, latency, cache-hit state, success, and fallback usage.
 
 ## On-Chain Proof
 
-- Deposit: https://explorer.solana.com/tx/27ZyJMrfz6eArcKJnUDamNzcDdxuVCxsEZP1vufVYQcm5WU5wcGwXAFZD7a3oL42iXDJ1zMyv2RNDmXMa9XZzs4r?cluster=devnet
-- Release: https://explorer.solana.com/tx/265d6bKH2miwXQtEqkVNcVJQfyGDWj5wAxqrEr7yiSSyMdLDE7q4nhjh9XwiMgM1rPiz5eLXg82iH9jGmExALLn1?cluster=devnet
+- Deposit: https://explorer.solana.com/tx/4YqJfxV4hWaj2VzNaCVfaDwNeU18aVrJg64borLAMfdBxxULPXD4niU234ucWe4XB5Q9F2ya536mfFss7bvshiFX?cluster=devnet
+- Release: https://explorer.solana.com/tx/5R8QLMFdRshz7iKan11ZN4upKG7Dia5mtEAxQWqupn2j1QbBxJudCRgXqPkkTDKDeSm8gMuD1R8zVM3mVSvTBgE7?cluster=devnet
 
 ## Demo Video
 
@@ -54,10 +53,10 @@ The MP4 demo video is intentionally not committed to git. It is attached to the 
 proof-2026-07-16
 ```
 
-Local generated video path:
+Release asset:
 
 ```text
-evidence/2026-07-16-public-proof-direct/omniquantai-proof-demo.mp4
+omniquantai-data-provenance-proof.webm
 ```
 
 ## What Is Real vs. Mocked
@@ -76,7 +75,7 @@ Real:
 
 Mocked or demo-scoped:
 
-- Financial research data is deterministic demo data unless live providers are configured.
+- Financial research data can mix live providers and deterministic fallback. This run used live Yahoo Finance price and live Pyth SOL/USD oracle context, with deterministic fallback where keys were unavailable.
 - Portfolio holdings are demo-context data.
 - This run used direct devnet escrow for proof reliability.
 
