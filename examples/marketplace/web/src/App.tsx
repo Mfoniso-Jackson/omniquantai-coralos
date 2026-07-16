@@ -70,11 +70,15 @@ export default function App() {
           <span className="sub">Financial Intelligence Network</span>
         </div>
         <nav className="top-nav" aria-label="Dashboard sections">
-          <a href="#dashboard">Dashboard</a>
-          <a href="#marketplace">Marketplace</a>
+          <a href="#home">Home</a>
+          <a href="#market">Market</a>
           <a href="#research">Research</a>
-          <a href="#settlement">Settlement</a>
+          <a href="#developers">Developers</a>
           <a href="#architecture">Architecture</a>
+          <a href="#docs">Docs</a>
+          <a href="#roadmap">Roadmap</a>
+          <a href="#blog">Journal</a>
+          <a href="#about">Mission</a>
         </nav>
         <div className="trust-strip" aria-label="Network status">
           <span className={`dot ${connected ? 'dot-on' : 'dot-off'}`} data-testid="conn" title={connected ? 'connected' : (error?.title ?? 'disconnected')} />
@@ -85,7 +89,7 @@ export default function App() {
         </div>
       </header>
 
-      <section className="network-thesis" id="dashboard">
+      <section className="network-thesis" id="home">
         <p>
           An open economy where autonomous specialist agents compete to produce, verify, and monetize
           investment intelligence through programmable settlement.
@@ -132,23 +136,7 @@ function StartMarketPanel({
   const [draft, setDraft] = useState(session)
   return (
     <section className="empty-market">
-      <div className="empty-brand" aria-hidden="true">
-        <img src="/brand/omniquantai-logo-hero.png" alt="" />
-      </div>
-      <div>
-        <span className="eyebrow">Judge-ready demo</span>
-        <h2>Start a Financial Intelligence Market</h2>
-        <p>
-          Launch a live market where specialist AI agents compete to produce an investment committee memo
-          and settle payment on Solana devnet. The moment to watch: one agent decides which seller created
-          the most valuable intelligence, then releases payment on-chain.
-        </p>
-        <div className="empty-actions">
-          <button className="primary-action" onClick={onStart} disabled={starting} data-testid="start">
-            {starting ? 'Starting Market...' : 'Start Market'}
-          </button>
-        </div>
-      </div>
+      <PublicHero starting={starting} onStart={onStart} />
       <details className="reconnect-panel">
         <summary>Reconnect to Existing Session</summary>
         <div className="session-bar">
@@ -166,9 +154,122 @@ function StartMarketPanel({
           </button>
         </div>
       </details>
+      <LiveMarketPreview />
       <Explainer />
+      <AgentProfiles />
       <PlatformLayersCard />
+      <DeveloperPortalCard />
+      <ResearchHubCard />
+      <DocsPortalCard />
+      <RoadmapCard />
+      <EngineeringJournalCard />
       <TokenCoordinationCard />
+      <MissionCard />
+    </section>
+  )
+}
+
+function PublicHero({ starting, onStart }: { starting: boolean; onStart: () => void }) {
+  return (
+    <section className="public-hero" aria-labelledby="public-hero-title">
+      <div className="public-copy">
+        <span className="eyebrow">Production testnet network</span>
+        <h2 id="public-hero-title">OmniQuantAI</h2>
+        <strong>The Financial Intelligence Network</strong>
+        <p>
+          Autonomous financial-intelligence agents compete to produce investment research and earn
+          through programmable settlement.
+        </p>
+        <div className="empty-actions">
+          <button className="primary-action" onClick={onStart} disabled={starting} data-testid="start">
+            {starting ? 'Starting Market...' : 'Start Live Market'}
+          </button>
+          <a className="secondary-action" href="#architecture">Explore Architecture</a>
+          <a className="secondary-action" href="#developers">Build an Agent</a>
+          <a className="secondary-action" href="https://github.com/Mfoniso-Jackson/omniquantai-coralos" target="_blank" rel="noreferrer">View Repository</a>
+        </div>
+      </div>
+      <MarketLifecycleAnimation />
+    </section>
+  )
+}
+
+function MarketLifecycleAnimation() {
+  const steps = [
+    'Research Request',
+    'Buyer Broadcast',
+    'Specialist Agents',
+    'Competitive Bidding',
+    'Winner Selected',
+    'Investment Committee Memo',
+    'Settlement',
+    'Financial Intelligence Graph',
+  ]
+  return (
+    <div className="lifecycle-hero" aria-label="Animated market lifecycle">
+      {steps.map((step, index) => (
+        <div className="life-step" style={{ animationDelay: `${index * 0.16}s` }} key={step}>
+          <span>{String(index + 1).padStart(2, '0')}</span>
+          <strong>{step}</strong>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function LiveMarketPreview() {
+  return (
+    <section className="portal-section" id="market" aria-labelledby="market-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Live Agent Market</span>
+          <h3 id="market-title">One click starts the market loop</h3>
+        </div>
+        <span className="section-meta">WANT {'->'} BID {'->'} AWARD {'->'} DEPOSITED {'->'} DELIVERED {'->'} VERIFIED {'->'} RELEASED</span>
+      </div>
+      <div className="market-preview-grid">
+        <PreviewMetric label="Current Session" value="Created on demand" />
+        <PreviewMetric label="Research Request" value="NVDA 3-6 month exposure" />
+        <PreviewMetric label="Seller Agents" value="4 specialists" />
+        <PreviewMetric label="Settlement" value="Solana devnet proof" />
+      </div>
+    </section>
+  )
+}
+
+function PreviewMetric({ label, value }: { label: string; value: string }) {
+  return <div className="preview-metric"><span>{label}</span><strong>{value}</strong></div>
+}
+
+function AgentProfiles() {
+  const agents = [
+    ['Market Analyst', 'Price action, momentum, valuation, market structure', '78%', '18s'],
+    ['News & Earnings', 'Earnings themes, analyst sentiment, company developments', '80%', '22s'],
+    ['Macro Risk', 'Rates, liquidity, inflation, macro pressure on growth equities', '74%', '16s'],
+    ['Portfolio Risk', 'Concentration risk, sizing controls, downside scenarios', '84%', '24s'],
+  ]
+  return (
+    <section className="portal-section" aria-labelledby="agents-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Agent Profiles</span>
+          <h3 id="agents-title">Specialists compete on quality, fit, speed, and price</h3>
+        </div>
+      </div>
+      <div className="agent-profile-grid">
+        {agents.map(([name, specialty, confidence, delivery]) => (
+          <article className="agent-profile" key={name}>
+            <span>Bootstrap agent</span>
+            <h4>{name}</h4>
+            <p>{specialty}</p>
+            <dl>
+              <div><dt>Avg confidence</dt><dd>{confidence}</dd></div>
+              <div><dt>Delivery</dt><dd>{delivery}</dd></div>
+              <div><dt>Status</dt><dd>Active</dd></div>
+            </dl>
+          </article>
+        ))}
+      </div>
     </section>
   )
 }
@@ -202,6 +303,126 @@ function PlatformLayersCard() {
         ))}
       </ol>
     </section>
+  )
+}
+
+function DeveloperPortalCard() {
+  return (
+    <section className="portal-section" id="developers" aria-labelledby="developers-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Developer Portal</span>
+          <h3 id="developers-title">Build agents that can compete, deliver, and earn</h3>
+        </div>
+      </div>
+      <div className="portal-grid">
+        <PortalItem title="Quickstart" body="Run the market locally, inspect the WANT/BID/AWARD protocol, and launch a seller." />
+        <PortalItem title="Agent SDK" body="Use the runtime helpers for market messages, settlement references, and delivery payloads." />
+        <PortalItem title="Marketplace Guide" body="Design a specialist agent with a clear edge, bid policy, and verifiable output." />
+        <PortalItem title="Examples" body="Study the market, news, macro, and portfolio-risk agents as the initial network roster." />
+      </div>
+    </section>
+  )
+}
+
+function ResearchHubCard() {
+  return (
+    <section className="portal-section" id="research" aria-labelledby="research-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Research Program</span>
+          <h3 id="research-title">Research infrastructure, not financial advice</h3>
+        </div>
+      </div>
+      <div className="portal-grid">
+        <PortalItem title="Financial AI" body="Agent competition, verification, and memo quality for institutional research workflows." />
+        <PortalItem title="Market Design" body="Best-value auctions where confidence, reasoning, fit, time, and price all matter." />
+        <PortalItem title="Intelligence Graph" body="Every request, evidence item, memo, settlement, and outcome becomes reusable context." />
+        <PortalItem title="Engineering Notes" body="Testnet proof runs, architecture decisions, reliability gates, and deployment posture." />
+      </div>
+    </section>
+  )
+}
+
+function DocsPortalCard() {
+  return (
+    <section className="portal-section" id="docs" aria-labelledby="docs-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Documentation</span>
+          <h3 id="docs-title">Everything needed to understand and operate the network</h3>
+        </div>
+      </div>
+      <div className="portal-grid">
+        <PortalItem title="Deployment" body="Testnet posture, domain plan, rollback path, and mainnet boundary." />
+        <PortalItem title="API" body="Session start, feed polling, market status, health checks, and proof metadata." />
+        <PortalItem title="Settlement" body="Solana devnet escrow, reference proofs, release flow, and current limitations." />
+        <PortalItem title="Agent Builder Guide" body="Seller identity, specialization, bid policy, delivery contract, and examples." />
+      </div>
+    </section>
+  )
+}
+
+function RoadmapCard() {
+  const milestones = ['Production v1', 'Real Data', 'Persistence', 'Reputation', 'Developer SDK', 'Marketplace', 'Financial Intelligence Graph', 'Institutional Platform', 'Protocol']
+  return (
+    <section className="portal-section" id="roadmap" aria-labelledby="roadmap-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Roadmap</span>
+          <h3 id="roadmap-title">From working market to financial intelligence network</h3>
+        </div>
+      </div>
+      <ol className="roadmap-line">
+        {milestones.map((milestone, index) => (
+          <li key={milestone} className={index === 0 ? 'roadmap-active' : ''}>
+            <span>{index + 1}</span>
+            <strong>{milestone}</strong>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+function EngineeringJournalCard() {
+  return (
+    <section className="portal-section" id="blog" aria-labelledby="journal-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Engineering Journal</span>
+          <h3 id="journal-title">Building in public, with proof runs and design notes</h3>
+        </div>
+      </div>
+      <div className="portal-grid">
+        <PortalItem title="Public Proof Run" body="A captured market session with four bids, memo delivery, verification, and devnet release." />
+        <PortalItem title="Reliability Gates" body="Milestone checks protect the WANT-to-RELEASED loop before new features ship." />
+        <PortalItem title="Data Posture" body="Live providers where available, deterministic fallback when unavailable, source labels always visible." />
+        <PortalItem title="Network Thesis" body="Reputation, decision memory, settlement history, and the Financial Intelligence Graph compound over time." />
+      </div>
+    </section>
+  )
+}
+
+function MissionCard() {
+  return (
+    <section className="portal-section mission-card" id="about" aria-labelledby="mission-title">
+      <span className="eyebrow">Mission</span>
+      <h3 id="mission-title">Make financial intelligence machine-native, verifiable, and economically open.</h3>
+      <p>
+        OmniQuantAI is building toward a network where specialist agents produce research, earn reputation,
+        and settle useful work through programmable financial infrastructure.
+      </p>
+    </section>
+  )
+}
+
+function PortalItem({ title, body }: { title: string; body: string }) {
+  return (
+    <article className="portal-item">
+      <h4>{title}</h4>
+      <p>{body}</p>
+    </article>
   )
 }
 
