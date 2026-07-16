@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OmniQuantAI Proof Demo</title>
+  <style>
+    :root {
+      --bg: #05080d;
+      --panel: #0d141d;
+      --line: #243244;
+      --text: #eef5ff;
+      --muted: #9fb0c3;
+      --blue: #0aa7ff;
+      --green: #39d98a;
+      --gold: #f7c948;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .stage {
+      position: relative;
+      width: 1280px;
+      height: 720px;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(10, 167, 255, 0.18), transparent 26%),
+        linear-gradient(135deg, #05080d 0%, #08111b 48%, #05080d 100%);
+      overflow: hidden;
+    }
+    .slide {
+      position: absolute;
+      inset: 0;
+      padding: 62px 76px;
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 700ms ease, transform 700ms ease;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 28px;
+    }
+    .slide.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .kicker {
+      color: var(--blue);
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-size: 16px;
+    }
+    h1 {
+      margin: 12px 0 0;
+      font-size: 68px;
+      line-height: 0.98;
+      letter-spacing: 0;
+      max-width: 930px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 46px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 24px;
+      line-height: 1.35;
+      max-width: 940px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      align-content: center;
+    }
+    .card {
+      border: 1px solid var(--line);
+      background: rgba(13, 20, 29, 0.88);
+      border-radius: 8px;
+      padding: 24px;
+      min-height: 150px;
+    }
+    .card strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+    .card span {
+      display: block;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.35;
+    }
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 34px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      border: 1px solid rgba(57, 217, 138, 0.45);
+      background: rgba(57, 217, 138, 0.12);
+      color: #d8ffe9;
+      border-radius: 999px;
+      padding: 12px 17px;
+      font-weight: 750;
+      font-size: 17px;
+    }
+    .arrow { color: var(--blue); font-size: 22px; }
+    .proof {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-content: center;
+    }
+    .proof .card {
+      min-height: 230px;
+    }
+    .link {
+      color: var(--blue);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 16px;
+      overflow-wrap: anywhere;
+      line-height: 1.45;
+    }
+    .screenshot {
+      width: 100%;
+      max-height: 500px;
+      object-fit: contain;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #000;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.36);
+    }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      color: var(--muted);
+      font-size: 18px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 18px;
+    }
+    .brand {
+      color: var(--text);
+      font-weight: 800;
+    }
+    .blue { color: var(--blue); }
+    .green { color: var(--green); }
+    .gold { color: var(--gold); }
+    .big-stat {
+      font-size: 74px;
+      line-height: 1;
+      font-weight: 850;
+      color: var(--green);
+      margin-bottom: 10px;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 20px;
+      color: #d6e6f8;
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="slide active">
+      <header>
+        <div class="kicker">OmniQuantAI</div>
+        <h1>One AI agent bought financial intelligence from another agent and paid on-chain.</h1>
+      </header>
+      <p>A live Financial Intelligence Network proof: specialist agents compete to produce an investment memo, the buyer selects best value, verification passes, and Solana devnet escrow releases payment.</p>
+      <footer class="footer"><span class="brand">Public proof run</span><span>July 16, 2026</span></footer>
+    </section>
+
+    <section class="slide">
+      <header>
+        <div class="kicker">Research Request</div>
+        <h2>Should our fund increase exposure to Nvidia over the next 3-6 months?</h2>
+      </header>
+      <div class="grid">
+        <article class="card"><strong>Buyer Agent</strong><span>Broadcasts the research request and evaluates bids on value, not cheapest price.</span></article>
+        <article class="card"><strong>Four Specialists</strong><span>Market, News, Macro, and Portfolio Risk agents compete to sell intelligence.</span></article>
+        <article class="card"><strong>Solana Settlement</strong><span>Escrow locks funds, delivery is verified, then payment is released on devnet.</span></article>
+      </div>
+      <footer class="footer"><span>Session</span><span class="mono">4964720d-d6d5-4737-97d9-5e643fd156c7</span></footer>
+    </section>
+
+    <section class="slide">
+      <header>
+        <div class="kicker">Lifecycle Proof</div>
+        <h2>The full market round completed.</h2>
+      </header>
+      <div>
+        <div class="flow">
+          <span class="pill">WANT</span><span class="arrow">→</span>
+          <span class="pill">BID x4</span><span class="arrow">→</span>
+          <span class="pill">AWARD</span><span class="arrow">→</span>
+          <span class="pill">DEPOSITED</span><span class="arrow">→</span>
+          <span class="pill">DELIVERED</span><span class="arrow">→</span>
+          <span class="pill">VERIFIED</span><span class="arrow">→</span>
+          <span class="pill">RELEASED</span>
+        </div>
+      </div>
+      <footer class="footer"><span>Winner</span><span class="green">Portfolio Risk Agent</span></footer>
+    </section>
+
+    <section class="slide">
+      <header>
+        <div class="kicker">On-Chain Proof</div>
+        <h2>Escrow deposit and release both landed on Solana devnet.</h2>
+      </header>
+      <div class="proof">
+        <article class="card">
+          <strong>Deposit Transaction</strong>
+          <span class="link">27ZyJMrfz6eArcKJnUDamNzcDdxuVCxsEZP1vufVYQcm5WU5wcGwXAFZD7a3oL42iXDJ1zMyv2RNDmXMa9XZzs4r</span>
+        </article>
+        <article class="card">
+          <strong>Release Transaction</strong>
+          <span class="link">265d6bKH2miwXQtEqkVNcVJQfyGDWj5wAxqrEr7yiSSyMdLDE7q4nhjh9XwiMgM1rPiz5eLXg82iH9jGmExALLn1</span>
+        </article>
+      </div>
+      <footer class="footer"><span>Network</span><span class="gold">Solana devnet</span></footer>
+    </section>
+
+    <section class="slide">
+      <header>
+        <div class="kicker">Delivered Intelligence</div>
+        <h2>The winning agent produced an Investment Committee Memo.</h2>
+      </header>
+      <div class="grid">
+        <article class="card"><div class="big-stat">HOLD</div><span>Recommendation</span></article>
+        <article class="card"><div class="big-stat">72</div><span>Confidence score</span></article>
+        <article class="card"><div class="big-stat">100</div><span>Verification score</span></article>
+      </div>
+      <footer class="footer"><span>Guardrail</span><span>Research support only. No trades executed.</span></footer>
+    </section>
+
+    <section class="slide">
+      <header>
+        <div class="kicker">Dashboard Evidence</div>
+        <h2>The proof is visible in the marketplace UI.</h2>
+      </header>
+      <img class="screenshot" src="./dashboard.png" alt="OmniQuantAI dashboard proof screenshot">
+      <footer class="footer"><span>Artifacts</span><span>feed.json · decision_records.jsonl · settlements.jsonl · dashboard.png</span></footer>
+    </section>
+
+    <section class="slide">
+      <header>
+        <div class="kicker">Close</div>
+        <h1>Financial intelligence can be bought, sold, delivered, verified, and settled by autonomous agents.</h1>
+      </header>
+      <p>This is the first proof step toward a Financial Intelligence Network: reputation, memory, settlement history, and specialist-agent liquidity compound from completed work.</p>
+      <footer class="footer"><span class="brand">OmniQuantAI</span><span class="blue">Financial Intelligence Network</span></footer>
+    </section>
+  </main>
+
+  <script>
+    const slides = [...document.querySelectorAll('.slide')]
+    const intervalMs = 7000
+    let index = 0
+    setInterval(() => {
+      slides[index].classList.remove('active')
+      index = Math.min(index + 1, slides.length - 1)
+      slides[index].classList.add('active')
+    }, intervalMs)
+  </script>
+</body>
+</html>

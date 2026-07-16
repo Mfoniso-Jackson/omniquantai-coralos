@@ -46,3 +46,8 @@ WALLETS.txt
 
 # OmniQuantAI local data persistence
 .omniquant-data/
+
+# Public proof run binaries and transient process files
+evidence/**/*.mp4
+evidence/**/*.webm
+evidence/**/*.pid
