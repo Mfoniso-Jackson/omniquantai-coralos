@@ -12,7 +12,7 @@ export async function getFundamentals(symbol = 'NVDA'): Promise<FundamentalsSnap
     cache.set(key, live)
     return live
   } catch (error) {
-    const fallback = mockFundamentals((error as Error).message)
+    const fallback = mockFundamentals((error as Error).message, symbol)
     cache.set(key, fallback)
     return fallback
   }

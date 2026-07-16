@@ -16,7 +16,7 @@ export async function getNewsHeadlines(symbol = 'NVDA'): Promise<NewsHeadline[]>
     cache.set(key, live)
     return live
   } catch (error) {
-    const fallback = mockHeadlines((error as Error).message)
+    const fallback = mockHeadlines((error as Error).message, symbol)
     cache.set(key, fallback)
     return fallback
   }

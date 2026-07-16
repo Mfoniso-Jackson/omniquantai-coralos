@@ -6,11 +6,7 @@
  * uses the `omniquant` service.
  */
 import { complete, parseJsonReply } from '@pay/agent-runtime'
-import { getMarketPrice } from './providers/marketDataProvider.js'
-import { getNewsHeadlines } from './providers/newsProvider.js'
-import { getFundamentals } from './providers/fundamentalsProvider.js'
-import { getSolanaOracleContext } from './providers/solanaOracleProvider.js'
-import type { OmniQuantDataContext } from './providers/mockDataProvider.js'
+import { getFinancialDataContext, normalizeAsset, type FinancialDataContext } from './providers/financialDataProvider.js'
 
 const TXLINE_BASE = process.env.TXLINE_BASE_URL || 'https://txline-dev.txodds.com'
 
@@ -30,7 +26,7 @@ async function omniQuantService(request: string): Promise<unknown> {
   const agentName = process.env.AGENT_NAME ?? 'seller-agent'
   const persona = process.env.PERSONA ?? 'financial intelligence seller'
   const understood = request || 'nvda-3-6m-exposure'
-  const dataContext = await getDataContext('NVDA')
+  const dataContext = await getDataContext(normalizeAsset(understood))
   const portfolioContext = [
     { holding: 'Apple', weight: 18 },
     { holding: 'Microsoft', weight: 22 },
@@ -152,8 +148,12 @@ async function omniQuantService(request: string): Promise<unknown> {
       },
       recent_headlines: dataContext.headlines,
       fundamentals: dataContext.fundamentals,
+      company_profile: dataContext.companyProfile,
+      macro_indicators: dataContext.macroIndicators,
+      technicals: dataContext.technicals,
       solana_oracle_context: dataContext.solanaOracle,
       data_sources: dataContext.sources,
+      provider_observability: dataContext.observability,
       data_timestamp: new Date().toISOString(),
       confidence_caveat: dataContext.confidenceCaveat,
       executive_summary:
@@ -173,40 +173,8 @@ async function omniQuantService(request: string): Promise<unknown> {
   }
 }
 
-async function getDataContext(asset: string): Promise<OmniQuantDataContext> {
-  const [price, headlines, fundamentals, solanaOracle] = await Promise.all([
-    getMarketPrice(asset),
-    getNewsHeadlines(asset),
-    getFundamentals(asset),
-    getSolanaOracleContext(),
-  ])
-  const hasLiveNews = headlines.some((headline) => !headline.source.includes('Deterministic mock'))
-  const dataMode = (
-    price.source.mode === 'LIVE DATA' ||
-    hasLiveNews ||
-    fundamentals.source.mode === 'LIVE DATA' ||
-    solanaOracle.source.mode === 'LIVE DATA'
-  )
-    ? 'LIVE DATA'
-    : 'DEMO FALLBACK DATA'
-  return {
-    asset,
-    dataMode,
-    price,
-    headlines,
-    fundamentals,
-    solanaOracle,
-    sources: [
-      price.source,
-      fundamentals.source,
-      solanaOracle.source,
-      { label: hasLiveNews ? 'Live news provider' : headlines[0]?.source ?? 'Deterministic mock news', mode: hasLiveNews ? 'LIVE DATA' : 'DEMO FALLBACK DATA', timestamp: headlines[0]?.timestamp ?? new Date().toISOString() },
-    ],
-    confidenceCaveat:
-      dataMode === 'LIVE DATA'
-        ? 'Live data improves freshness, but this remains research support and requires human review.'
-        : 'Live APIs were unavailable or unconfigured, so deterministic demo data was used for reliability.',
-  }
+async function getDataContext(asset: string): Promise<FinancialDataContext> {
+  return getFinancialDataContext(asset)
 }
 
 function formatMoney(value: number, currency: string): string {
