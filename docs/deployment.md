@@ -75,6 +75,8 @@ OMNIQUANT_PERSIST=1
 
 Never expose wallet keys or API keys to the frontend.
 
+For a deployment-ready devnet template, copy `.env.testnet.example` to `.env` and fill only host-local secrets. See [testnet-deployment.md](testnet-deployment.md) for the current deployment posture, gates, and rollback path.
+
 ## Frontend Deployment
 
 The dashboard lives in `examples/marketplace/web`.
@@ -96,6 +98,8 @@ The frontend works with:
 - same-origin `/api` proxy in local dev
 - Codespaces forwarded URLs
 - explicit API base URL when deployed
+
+Use `VITE_API_BASE_URL` for public deployments. `VITE_FEED_URL` remains supported as a backwards-compatible alias. See [omniquantai-com-deployment.md](omniquantai-com-deployment.md) for the domain deployment plan.
 
 ## API Deployment
 
@@ -140,6 +144,7 @@ Mainnet is not enabled by default and should not be enabled without product, leg
 For the current release lane:
 
 ```sh
+npm run smoke:testnet
 npm run testnet-check
 ```
 

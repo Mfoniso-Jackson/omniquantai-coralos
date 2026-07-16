@@ -105,6 +105,9 @@ For a preflight check:
 npm run health
 ```
 
+For the current testnet/devnet release posture, see [docs/testnet-deployment.md](docs/testnet-deployment.md). Use `.env.testnet.example` as the host-local deployment template.
+For the public domain plan, see [docs/omniquantai-com-deployment.md](docs/omniquantai-com-deployment.md).
+
 ## Environment
 
 `npm run bootstrap` creates `.env` and devnet wallets if missing. `.env` is gitignored.
@@ -189,6 +192,7 @@ npm run demo:omniquant   # one-command demo
 npm run dev:omniquant    # OmniQuantAI dev/demo alias
 npm run hackathon        # alias for demo
 npm run judge            # judge-facing alias
+npm run milestone:market # Milestone 1 gate: market loop + testnet posture
 npm run testnet-check    # verify current devnet/testnet release settings
 npm run smoke:testnet    # verify captured WANT -> RELEASED lifecycle and persistence evidence
 npm run mainnet-readiness # list blockers before any future mainnet dry run

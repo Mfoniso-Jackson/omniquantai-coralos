@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Feed, FeedDiagnostics } from './types'
 
-const FEED_URL = import.meta.env.VITE_FEED_URL ?? ''
+const FEED_URL = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_FEED_URL ?? ''
 export const API_BASE_URL = FEED_URL || 'same-origin /api proxy'
 
 export interface UiError {

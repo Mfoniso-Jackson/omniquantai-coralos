@@ -9,6 +9,16 @@ import { foldRounds } from './foldRounds.js'
 import { persistMarketplaceData } from './data/persistence.js'
 
 const fixturePath = join(dirname(fileURLToPath(import.meta.url)), '..', 'tests', 'coral-session.json')
+const omniquantProofPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  '..',
+  'evidence',
+  '2026-07-16-public-proof-direct',
+  'feed.json',
+)
 const state = JSON.parse(readFileSync(fixturePath, 'utf8'))
 const sellers = ['seller-cheap', 'seller-premium', 'seller-lazy']
 
@@ -53,5 +63,46 @@ describe('testnet market lifecycle smoke', () => {
     } finally {
       await rm(dataDir, { recursive: true, force: true })
     }
+  })
+
+  it('guards the OmniQuantAI proof loop from buyer WANT through released settlement', () => {
+    const proof = JSON.parse(readFileSync(omniquantProofPath, 'utf8')) as {
+      session: string
+      namespace: string
+      rounds: Array<{
+        status: string
+        want?: { service: string; arg: string; budgetSol: number }
+        bids: Array<{ by: string; priceSol: number; note?: string }>
+        award?: { to: string }
+        deposit?: { sig: string; buyer: string }
+        delivered?: { data?: Record<string, unknown> }
+        verified?: { status: string; score: number }
+        release?: { sig: string }
+      }>
+    }
+    const round = proof.rounds.find((candidate) => candidate.want?.service === 'omniquant')
+
+    expect(proof.session).toBeTruthy()
+    expect(proof.namespace).toBe('omniquant')
+    expect(round?.want).toMatchObject({
+      service: 'omniquant',
+      arg: 'nvda-3-6m-exposure',
+      budgetSol: 0.03,
+    })
+    expect(round?.bids).toHaveLength(4)
+    expect(round?.bids.map((bid) => bid.by).sort()).toEqual([
+      'macro-risk',
+      'market-analyst',
+      'news-earnings',
+      'portfolio-risk',
+    ])
+    expect(round?.award?.to).toBe('portfolio-risk')
+    expect(round?.deposit?.sig).toBeTruthy()
+    expect(round?.delivered?.data?.investment_committee_memo).toBeTruthy()
+    expect(round?.delivered?.data?.disclaimer).toContain('Not financial advice')
+    expect(round?.verified).toMatchObject({ status: 'PASS', score: 100 })
+    expect(round?.release?.sig).toBeTruthy()
+    expect(round?.status).toBe('settled')
+    expect(`https://explorer.solana.com/tx/${round?.release?.sig}?cluster=devnet`).toContain('cluster=devnet')
   })
 })
