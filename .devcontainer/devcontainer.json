@@ -9,6 +9,9 @@
     },
     "ghcr.io/devcontainers/features/rust:1": {
       "version": "stable"
+    },
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
     }
   },
   "postCreateCommand": "bash scripts/bootstrap.sh",
