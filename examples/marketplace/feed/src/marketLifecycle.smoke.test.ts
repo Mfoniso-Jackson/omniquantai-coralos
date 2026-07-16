@@ -50,6 +50,9 @@ describe('testnet market lifecycle smoke', () => {
       const reputation = await readJsonl<{ agentId: string; jobsCompleted: number; wins: number; revenueSol: number }>(
         join(dataDir, 'agent_reputation.jsonl'),
       )
+      const events = await readJsonl<{ type: string; sessionId: string }>(join(dataDir, 'market_events.jsonl'))
+      const nodes = await readJsonl<{ type: string; sessionId: string }>(join(dataDir, 'graph_nodes.jsonl'))
+      const edges = await readJsonl<{ type: string; sessionId: string }>(join(dataDir, 'graph_edges.jsonl'))
 
       expect(requests[0]).toMatchObject({ service: 'coingecko', argument: 'SOL-USDC' })
       expect(bids).toHaveLength(2)
@@ -60,6 +63,19 @@ describe('testnet market lifecycle smoke', () => {
         wins: 1,
         revenueSol: settled.bids.find((bid) => bid.by === settled.award?.to)?.priceSol,
       })
+      expect(events.map((event) => event.type)).toEqual(expect.arrayContaining([
+        'SessionCreated',
+        'WantBroadcast',
+        'BidSubmitted',
+        'WinnerSelected',
+        'SettlementInitiated',
+        'MemoGenerated',
+        'SettlementCompleted',
+        'MarketClosed',
+        'ReputationUpdated',
+      ]))
+      expect(nodes.map((node) => node.type)).toEqual(expect.arrayContaining(['MarketSession', 'ResearchRequest', 'Agent', 'AgentBid', 'Settlement']))
+      expect(edges.map((edge) => edge.type)).toEqual(expect.arrayContaining(['contains_request', 'submits_bid', 'selects_winner', 'settled_through']))
     } finally {
       await rm(dataDir, { recursive: true, force: true })
     }

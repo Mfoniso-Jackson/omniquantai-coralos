@@ -101,7 +101,96 @@ export interface AgentReputationRecord {
   timestamp: string
 }
 
-export interface IntelligenceGraphStub {
-  nodes: Array<{ id: string; type: string; label: string }>
-  edges: Array<{ from: string; to: string; type: string }>
+export type MarketEventType =
+  | 'SessionCreated'
+  | 'WantBroadcast'
+  | 'BidSubmitted'
+  | 'WinnerSelected'
+  | 'EscrowRequested'
+  | 'SettlementInitiated'
+  | 'MemoGenerated'
+  | 'VerificationPassed'
+  | 'VerificationFailed'
+  | 'SettlementCompleted'
+  | 'MarketClosed'
+  | 'ReputationUpdated'
+
+export interface MarketSessionRecord {
+  id: string
+  sessionId: string
+  namespace: string
+  status: string
+  currentStage: string
+  createdAt: string
+  completedAt?: string
+  winningAgentId?: string
+  settlementStatus?: string
+  dataSource?: string
+  updatedAt: string
+}
+
+export interface MarketEventRecord {
+  id: string
+  sessionId: string
+  round: number
+  type: MarketEventType
+  actorId?: string
+  entityId?: string
+  payload: unknown
+  timestamp: string
+}
+
+export interface InvestmentMemoRecord {
+  id: string
+  sessionId: string
+  round: number
+  memoId: string
+  agentId?: string
+  question?: string
+  recommendation?: string
+  confidence?: number
+  dataSources: unknown[]
+  providerObservability: unknown[]
+  memo: unknown
+  createdAt: string
+}
+
+export interface AgentProfileRecord {
+  id: string
+  agentId: string
+  specialization: string
+  marketsCompleted: number
+  wins: number
+  revenueSol: number
+  averageConfidence?: number
+  averageDeliveryTimeSeconds?: number
+  verificationRate?: number
+  lastSessionId?: string
+  updatedAt: string
+}
+
+export interface GraphNodeRecord {
+  id: string
+  sessionId: string
+  type: string
+  label: string
+  entityId: string
+  properties?: unknown
+  timestamp: string
+}
+
+export interface GraphEdgeRecord {
+  id: string
+  sessionId: string
+  from: string
+  to: string
+  type: string
+  properties?: unknown
+  timestamp: string
+}
+
+export interface IntelligenceGraphSnapshot {
+  sessionId: string
+  nodes: GraphNodeRecord[]
+  edges: GraphEdgeRecord[]
 }

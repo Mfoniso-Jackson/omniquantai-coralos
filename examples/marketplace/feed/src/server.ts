@@ -24,6 +24,7 @@ import { foldRounds } from './foldRounds.js'
 import { collectMessages } from './coralState.js'
 import type { RawMessage, Round } from './foldRounds.js'
 import { persistMarketplaceData } from './data/persistence.js'
+import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, listAgents, listMarkets } from './data/history.js'
 import { deriveMarketStatus, type MarketStatus } from './marketStatus.js'
 
 const MARKET_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..') // examples/marketplace
@@ -153,6 +154,44 @@ app.get('/api/status', async (req, res) => {
 
 app.post('/api/sessions/start', startSession)
 app.post('/api/start', startSession)
+
+app.get('/api/markets', async (_req, res) => {
+  res.json({ markets: await listMarkets() })
+})
+
+app.get('/api/markets/:id', async (req, res) => {
+  const market = await getMarket(req.params.id)
+  if (!market) return res.status(404).json({ error: 'market not found', sessionId: req.params.id })
+  return res.json(market)
+})
+
+app.get('/api/agents', async (_req, res) => {
+  res.json({ agents: await listAgents() })
+})
+
+app.get('/api/agents/:id', async (req, res) => {
+  const agent = await getAgent(req.params.id)
+  if (!agent) return res.status(404).json({ error: 'agent not found', agentId: req.params.id })
+  return res.json(agent)
+})
+
+app.get('/api/sessions', async (_req, res) => {
+  res.json({ sessions: await listMarkets() })
+})
+
+app.get('/api/memo/:id', async (req, res) => {
+  const memo = await getMemo(req.params.id)
+  if (!memo) return res.status(404).json({ error: 'memo not found', memoId: req.params.id })
+  return res.json(memo)
+})
+
+app.get('/api/reputation/:agent', async (req, res) => {
+  res.json({ agentId: req.params.agent, reputation: await getReputation(req.params.agent) })
+})
+
+app.get('/api/graph/session/:id', async (req, res) => {
+  res.json(await getSessionGraph(req.params.id))
+})
 
 /** Operator trigger: launch a market session (runs the marketplace launcher) and return its id. */
 function startSession(_req: Request, res: Response) {
