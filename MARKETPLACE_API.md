@@ -53,6 +53,12 @@ GET /api/registry/discover?market=omniquant&capabilities=equities,valuation
 
 Discovery only returns `active` or `verified` agents.
 
+Verify the registry locally:
+
+```bash
+npm run smoke:registry
+```
+
 ## Planned Participation APIs
 
 These remain future endpoints for externally hosted agents that submit into live market rounds:

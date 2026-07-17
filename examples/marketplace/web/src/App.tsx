@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { API_BASE_URL, friendlyError, useFeed, startMarket, useApiHealth, type ApiHealthState, type UiError } from './api'
+import { API_BASE_URL, friendlyError, useFeed, startMarket, useApiHealth, useAgentRegistry, type ApiHealthState, type RegistryState, type UiError } from './api'
 import { MarketView } from './components/MarketView'
 import { Explainer } from './components/Explainer'
 import { PresentationView } from './components/PresentationView'
-import type { FeedDiagnostics, Round } from './types'
+import type { AgentRegistration, FeedDiagnostics, Round } from './types'
 
 /** Read ?session=<id> from the URL so the launcher can deep-link straight to a live market. */
 const initialSession = new URLSearchParams(window.location.search).get('session') ?? ''
@@ -21,6 +21,7 @@ export default function App() {
   const [starting, setStarting] = useState(false)
   const [startErr, setStartErr] = useState<UiError>()
   const apiHealth = useApiHealth()
+  const registry = useAgentRegistry(apiHealth)
   const { rounds, connected, error, diagnostics, updatedAt, polling, apiUrl } = useFeed(session, namespace)
 
   async function onStart() {
@@ -109,12 +110,13 @@ export default function App() {
 
       <main>
         {session ? <MarketView rounds={rounds} /> : (
-          <StartMarketPanel
-            starting={starting}
-            session={session}
-            apiHealth={apiHealth}
-            onStart={onStart}
-            onSession={(nextSession) => {
+        <StartMarketPanel
+          starting={starting}
+          session={session}
+          apiHealth={apiHealth}
+          registry={registry}
+          onStart={onStart}
+          onSession={(nextSession) => {
               setSession(nextSession)
               setNamespace('')
             }}
@@ -133,12 +135,14 @@ function StartMarketPanel({
   starting,
   session,
   apiHealth,
+  registry,
   onStart,
   onSession,
 }: {
   starting: boolean
   session: string
   apiHealth: ApiHealthState
+  registry: RegistryState
   onStart: () => void
   onSession: (session: string) => void
 }) {
@@ -168,7 +172,7 @@ function StartMarketPanel({
       <Explainer />
       <AgentProfiles />
       <PlatformLayersCard />
-      <DeveloperPortalCard />
+      <DeveloperPortalCard registry={registry} />
       <ResearchHubCard />
       <DocsPortalCard />
       <RoadmapCard />
@@ -373,7 +377,7 @@ function PlatformLayersCard() {
   )
 }
 
-function DeveloperPortalCard() {
+function DeveloperPortalCard({ registry }: { registry: RegistryState }) {
   return (
     <section className="portal-section" id="developers" aria-labelledby="developers-title">
       <div className="section-heading">
@@ -381,14 +385,87 @@ function DeveloperPortalCard() {
           <span className="eyebrow">Developer Portal</span>
           <h3 id="developers-title">Build agents that can compete, deliver, and earn</h3>
         </div>
+        <span className="section-meta">
+          {registry.status === 'online' ? `${registry.discoverable.length} discoverable / ${registry.agents.length} registered` : 'Registry offline'}
+        </span>
       </div>
+      <DeveloperRegistry registry={registry} />
       <div className="portal-grid">
         <PortalItem title="Quickstart" body="Run the market locally, inspect the WANT/BID/AWARD protocol, and launch a seller." />
-        <PortalItem title="Agent SDK" body="Use the runtime helpers for market messages, settlement references, and delivery payloads." />
-        <PortalItem title="Marketplace Guide" body="Design a specialist agent with a clear edge, bid policy, and verifiable output." />
-        <PortalItem title="Examples" body="Study the market, news, macro, and portfolio-risk agents as the initial network roster." />
+        <PortalItem title="Agent SDK" body="Extend FinancialAgent, validate agent.json, simulate locally, then register through the marketplace API." />
+        <PortalItem title="Marketplace Guide" body="Design a specialist agent with clear capabilities, pricing, risk level, bid policy, and verifiable output." />
+        <PortalItem title="Examples" body="Study the valuation and macro sample agents, then register your own manifest." />
       </div>
     </section>
+  )
+}
+
+function DeveloperRegistry({ registry }: { registry: RegistryState }) {
+  const visible = registry.discoverable.length > 0 ? registry.discoverable : registry.agents
+  return (
+    <div className="registry-panel" aria-label="Developer agent registry">
+      <div className="registry-head">
+        <div>
+          <span className="eyebrow">Agent Registry</span>
+          <h4>Registered specialist agents</h4>
+          <p>
+            Third-party agents declare capabilities, markets, pricing, and risk posture before becoming
+            discoverable by the marketplace.
+          </p>
+        </div>
+        <dl className="registry-metrics">
+          <div><dt>Registered</dt><dd>{registry.agents.length}</dd></div>
+          <div><dt>Discoverable</dt><dd>{registry.discoverable.length}</dd></div>
+          <div><dt>Pending</dt><dd>{registry.pending.length}</dd></div>
+        </dl>
+      </div>
+      {registry.status === 'offline' && (
+        <div className="registry-empty">
+          <strong>{registry.error?.title ?? 'Registry API offline'}</strong>
+          <span>{registry.error?.what ?? 'Start the marketplace feed API to view live registered agents.'}</span>
+        </div>
+      )}
+      {registry.status === 'checking' && <div className="registry-empty"><strong>Loading registry</strong><span>Checking registered agent manifests.</span></div>}
+      {registry.status === 'online' && visible.length === 0 && (
+        <div className="registry-empty">
+          <strong>No agents registered yet</strong>
+          <span>Run `oq register sample-agents/valuation-agent/agent.json` with MARKETPLACE_API_URL set.</span>
+        </div>
+      )}
+      {visible.length > 0 && (
+        <div className="registry-grid">
+          {visible.map((agent) => <RegistryAgentCard key={agent.manifest.id} agent={agent} />)}
+        </div>
+      )}
+      {registry.pending.length > 0 && (
+        <div className="pending-strip">
+          <span>Pending review</span>
+          {registry.pending.map((agent) => <strong key={agent.manifest.id}>{agent.manifest.name}</strong>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RegistryAgentCard({ agent }: { agent: AgentRegistration }) {
+  const { manifest } = agent
+  return (
+    <article className="registry-agent">
+      <div className="registry-agent-head">
+        <span className={`registry-status registry-${agent.status}`}>{agent.status}</span>
+        <span>{manifest.riskLevel} risk</span>
+      </div>
+      <h5>{manifest.name}</h5>
+      <p>{manifest.specialization}</p>
+      <div className="capability-list">
+        {manifest.capabilities.slice(0, 5).map((capability) => <span key={capability}>{capability}</span>)}
+      </div>
+      <dl>
+        <div><dt>Floor</dt><dd>{manifest.pricing.floorSol} {manifest.pricing.currency}</dd></div>
+        <div><dt>Suggested</dt><dd>{manifest.pricing.suggestedSol ?? manifest.pricing.floorSol} {manifest.pricing.currency}</dd></div>
+        <div><dt>Version</dt><dd>{manifest.version}</dd></div>
+      </dl>
+    </article>
   )
 }
 

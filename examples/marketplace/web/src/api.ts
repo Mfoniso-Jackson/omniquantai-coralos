@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Feed, FeedDiagnostics } from './types'
+import type { AgentRegistration, Feed, FeedDiagnostics } from './types'
 
 const FEED_URL = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_FEED_URL ?? ''
 export const API_BASE_URL = FEED_URL || 'same-origin /api proxy'
@@ -16,6 +16,15 @@ export interface ApiHealthState {
   status: 'checking' | 'online' | 'offline'
   apiUrl: string
   detail?: string
+}
+
+export interface RegistryState {
+  agents: AgentRegistration[]
+  discoverable: AgentRegistration[]
+  pending: AgentRegistration[]
+  status: 'checking' | 'online' | 'offline'
+  error?: UiError
+  updatedAt?: string
 }
 
 export function useApiHealth(intervalMs = 15000): ApiHealthState {
@@ -52,6 +61,56 @@ export function useApiHealth(intervalMs = 15000): ApiHealthState {
     const id = window.setInterval(check, intervalMs)
     return () => { stopped = true; window.clearInterval(id) }
   }, [intervalMs])
+
+  return state
+}
+
+export function useAgentRegistry(apiHealth: ApiHealthState, intervalMs = 15000): RegistryState {
+  const [state, setState] = useState<RegistryState>({
+    agents: [],
+    discoverable: [],
+    pending: [],
+    status: apiHealth.status === 'online' ? 'checking' : 'offline',
+  })
+
+  useEffect(() => {
+    let stopped = false
+    if (apiHealth.status !== 'online') {
+      setState({ agents: [], discoverable: [], pending: [], status: 'offline' })
+      return
+    }
+    const load = async () => {
+      try {
+        const [registeredRes, discoverRes] = await Promise.all([
+          fetch(`${FEED_URL}/api/registry/agents`),
+          fetch(`${FEED_URL}/api/registry/discover?market=omniquant`),
+        ])
+        const registeredBody = (await registeredRes.json().catch(() => ({}))) as { agents?: AgentRegistration[]; error?: string }
+        const discoverBody = (await discoverRes.json().catch(() => ({}))) as { agents?: AgentRegistration[]; error?: string }
+        if (!registeredRes.ok || !discoverRes.ok) {
+          throw new Error(registeredBody.error ?? discoverBody.error ?? `registry ${registeredRes.status}/${discoverRes.status}`)
+        }
+        const agents = registeredBody.agents ?? []
+        const discoverable = discoverBody.agents ?? []
+        const pending = agents.filter((agent) => agent.status === 'pending')
+        if (!stopped) {
+          setState({ agents, discoverable, pending, status: 'online', updatedAt: new Date().toISOString() })
+        }
+      } catch (error) {
+        if (!stopped) {
+          setState((current) => ({
+            ...current,
+            status: 'offline',
+            error: friendlyRegistryError(error),
+            updatedAt: new Date().toISOString(),
+          }))
+        }
+      }
+    }
+    void load()
+    const id = window.setInterval(load, intervalMs)
+    return () => { stopped = true; window.clearInterval(id) }
+  }, [apiHealth.status, intervalMs])
 
   return state
 }
@@ -182,5 +241,23 @@ export function friendlyError(error: unknown, phase: 'start' | 'feed'): UiError 
     what: message,
     likelyCause: 'The demo runtime returned an unexpected response.',
     suggestedFix: 'Retry once. If it repeats, inspect Debug Status and the feed server logs.',
+  }
+}
+
+function friendlyRegistryError(error: unknown): UiError {
+  const message = (error as Error).message || 'Registry request failed'
+  if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(message)) {
+    return {
+      title: 'Registry API unavailable',
+      what: 'The dashboard could not reach the agent registry endpoints.',
+      likelyCause: 'The marketplace feed API is offline or the public site is running in proof mode.',
+      suggestedFix: 'Run the local/Codespaces demo runtime, then refresh the Developer Registry panel.',
+    }
+  }
+  return {
+    title: 'Registry could not load',
+    what: message,
+    likelyCause: 'The registry endpoint returned an unexpected response.',
+    suggestedFix: 'Check /api/registry/agents and the feed server logs.',
   }
 }

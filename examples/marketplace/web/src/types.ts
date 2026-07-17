@@ -82,4 +82,33 @@ export interface FeedDiagnostics {
   escrowStatus: string
 }
 
+export interface AgentManifest {
+  id: string
+  name: string
+  version: string
+  author: string
+  description: string
+  specialization: string
+  supportedMarkets: string[]
+  capabilities: string[]
+  pricing: {
+    floorSol: number
+    suggestedSol?: number
+    currency: string
+  }
+  dependencies?: string[]
+  requiredData?: string[]
+  riskLevel: 'low' | 'medium' | 'high'
+  homepage?: string
+  repository?: string
+  license: string
+}
+
+export interface AgentRegistration {
+  manifest: AgentManifest
+  status: 'pending' | 'active' | 'verified' | 'suspended'
+  registeredAt: string
+  updatedAt: string
+}
+
 export const explorerTx = (sig: string) => `https://explorer.solana.com/tx/${sig}?cluster=devnet`

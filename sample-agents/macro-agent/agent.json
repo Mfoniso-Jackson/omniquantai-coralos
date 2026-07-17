@@ -1,0 +1,21 @@
+{
+  "id": "macro-agent",
+  "name": "Macro Regime Agent",
+  "version": "0.1.0",
+  "author": "OmniQuantAI",
+  "description": "Reference agent for rates, liquidity, inflation, and macro regime risk.",
+  "specialization": "Macro regime analysis for growth equities, risk assets, and portfolio timing.",
+  "supportedMarkets": ["omniquant"],
+  "capabilities": ["macro", "equities", "risk-analysis", "summarization"],
+  "pricing": {
+    "floorSol": 0.01,
+    "suggestedSol": 0.014,
+    "currency": "SOL"
+  },
+  "dependencies": [],
+  "requiredData": ["rates", "inflation", "liquidity", "market-price"],
+  "riskLevel": "medium",
+  "homepage": "https://omniquantai.com",
+  "repository": "https://github.com/Mfoniso-Jackson/omniquantai-coralos",
+  "license": "MIT"
+}

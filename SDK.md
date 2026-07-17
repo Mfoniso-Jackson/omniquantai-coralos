@@ -86,3 +86,19 @@ oq publish
 ```
 
 The v1 CLI supports create, validate, and register scaffolding. Dev/test/simulate/package/publish are reserved as stable command names.
+
+## Reference Agents
+
+```text
+sample-agents/valuation-agent/
+sample-agents/macro-agent/
+```
+
+## Registry Smoke
+
+```bash
+npm run smoke:registry
+```
+
+The smoke check starts the marketplace feed API on a temporary port, registers both reference agents,
+and verifies registry discovery by capability.

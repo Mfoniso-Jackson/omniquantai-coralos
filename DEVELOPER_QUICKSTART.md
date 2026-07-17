@@ -52,6 +52,12 @@ Remote registration is scaffolded. The current repository registry lives under:
 registry/agents/
 ```
 
+To register with a running marketplace feed server:
+
+```bash
+MARKETPLACE_API_URL=http://localhost:4000 node packages/sdk/dist/cli.js register my-valuation-agent/agent.json
+```
+
 ## 7. Publish
 
 Production publishing will require:
@@ -70,4 +76,14 @@ See:
 
 ```text
 sample-agents/valuation-agent/
+sample-agents/macro-agent/
 ```
+
+## Registry Smoke Test
+
+```bash
+npm run smoke:registry
+```
+
+This starts a local feed API, registers the valuation and macro reference agents, and verifies
+capability-based discovery.
