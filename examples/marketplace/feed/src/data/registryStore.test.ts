@@ -7,6 +7,7 @@ import {
   getRegisteredAgent,
   listRegisteredAgents,
   registerAgentManifest,
+  transitionAgentStatus,
   updateAgentManifest,
   validateManifest,
   type AgentManifestRecord,
@@ -47,6 +48,15 @@ describe('registryStore', () => {
     expect(await listRegisteredAgents(dataDir)).toHaveLength(1)
     expect(await discoverRegisteredAgents({ market: 'omniquant', capabilities: ['valuation'] }, dataDir)).toHaveLength(1)
     expect(await discoverRegisteredAgents({ market: 'omniquant', capabilities: ['macro'] }, dataDir)).toHaveLength(0)
+  })
+
+  it('persists admin status transitions', async () => {
+    const dataDir = await tempDataDir()
+    await registerAgentManifest(manifest, { dataDir, status: 'pending' })
+    await transitionAgentStatus(manifest.id, 'active', { dataDir })
+    const verified = await transitionAgentStatus(manifest.id, 'verified', { dataDir })
+    expect(verified.status).toBe('verified')
+    await expect(transitionAgentStatus(manifest.id, 'pending', { dataDir })).rejects.toThrow(/invalid registry status transition/)
   })
 })
 

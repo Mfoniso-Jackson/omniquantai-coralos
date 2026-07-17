@@ -50,3 +50,18 @@ Each sandbox must enforce:
 - output schema validation
 - rate limits
 - audit logs
+
+## Current Safety Boundary
+
+The SDK's `oq simulate` command is manifest-based by design. It validates and simulates the lifecycle
+without importing or executing third-party agent source code.
+
+External agent execution should remain out of process until the sandbox enforces:
+
+- CPU, memory, and wall-clock limits
+- network allowlists
+- read-only mounted source
+- explicit scratch output directory
+- secret scoping by agent identity
+- signed publisher identity
+- schema validation on every bid and memo

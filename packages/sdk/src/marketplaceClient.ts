@@ -1,10 +1,26 @@
 import type { AgentManifest, AgentRegistration, AgentReputation, BidResponse, Capability, MarketContext, MemoResponse } from './types.js'
+import { signedAuthHeaders } from './auth.js'
+
+export interface MarketplaceClientOptions {
+  token?: string
+  publisherId?: string
+}
 
 export class MarketplaceClient {
+  private readonly token?: string
+  private readonly publisherId?: string
+
   constructor(
     readonly baseUrl: string,
-    private readonly token?: string,
-  ) {}
+    tokenOrOptions?: string | MarketplaceClientOptions,
+  ) {
+    if (typeof tokenOrOptions === 'string') {
+      this.token = tokenOrOptions
+    } else {
+      this.token = tokenOrOptions?.token
+      this.publisherId = tokenOrOptions?.publisherId
+    }
+  }
 
   async registerAgent(manifest: AgentManifest): Promise<unknown> {
     return this.post('/api/agents/register', manifest)
@@ -12,6 +28,10 @@ export class MarketplaceClient {
 
   async updateAgent(manifest: AgentManifest): Promise<unknown> {
     return this.patch(`/api/agents/${encodeURIComponent(manifest.id)}`, manifest)
+  }
+
+  async setAgentStatus(agentId: string, status: AgentRegistration['status']): Promise<unknown> {
+    return this.post(`/api/registry/agents/${encodeURIComponent(agentId)}/status`, { status })
   }
 
   async listRegisteredAgents(): Promise<AgentRegistration[]> {
@@ -56,26 +76,34 @@ export class MarketplaceClient {
   }
 
   private async post(path: string, body: unknown): Promise<unknown> {
+    const payload = JSON.stringify(body)
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
-      headers: { ...this.headers(), 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      headers: { ...this.headers('POST', path, payload), 'content-type': 'application/json' },
+      body: payload,
     })
     if (!res.ok) throw new Error(`Marketplace API ${res.status}: ${await res.text()}`)
     return res.json()
   }
 
   private async patch(path: string, body: unknown): Promise<unknown> {
+    const payload = JSON.stringify(body)
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: 'PATCH',
-      headers: { ...this.headers(), 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      headers: { ...this.headers('PATCH', path, payload), 'content-type': 'application/json' },
+      body: payload,
     })
     if (!res.ok) throw new Error(`Marketplace API ${res.status}: ${await res.text()}`)
     return res.json()
   }
 
-  private headers(): Record<string, string> {
-    return this.token ? { authorization: `Bearer ${this.token}` } : {}
+  private headers(method = 'GET', path = '', body = ''): Record<string, string> {
+    return signedAuthHeaders({
+      method,
+      path,
+      body,
+      secret: this.token,
+      publisherId: this.publisherId,
+    })
   }
 }

@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { validateAgentManifest } from './manifest.js'
 import { MarketplaceClient } from './marketplaceClient.js'
+import { defaultSimulationContext, simulateManifest } from './simulator.js'
 import type { AgentManifest } from './types.js'
 
 const [, , command, ...args] = process.argv
@@ -19,9 +20,14 @@ async function main(): Promise<void> {
     case 'register':
       await register(args[0] ?? 'agent.json')
       return
+    case 'simulate':
+      await simulate(args[0] ?? 'agent.json')
+      return
+    case 'set-status':
+      await setStatus(args[0] ?? '', args[1] ?? '')
+      return
     case 'dev':
     case 'test':
-    case 'simulate':
     case 'package':
     case 'publish':
       console.log(`oq ${command}: available in SDK v1 scaffold. Use "oq validate agent.json" before ${command}.`)
@@ -83,8 +89,50 @@ async function register(path: string): Promise<void> {
     console.log('Set MARKETPLACE_API_URL to register this agent with a marketplace feed server.')
     return
   }
-  const client = new MarketplaceClient(apiUrl, process.env.MARKETPLACE_API_TOKEN)
+  const client = new MarketplaceClient(apiUrl, {
+    token: process.env.MARKETPLACE_API_TOKEN,
+    publisherId: process.env.MARKETPLACE_PUBLISHER_ID,
+  })
   const response = await client.registerAgent(manifest)
+  console.log(JSON.stringify(response, null, 2))
+}
+
+async function simulate(path: string): Promise<void> {
+  const manifest = await readManifest(path)
+  const result = validateAgentManifest(manifest)
+  if (!result.ok) {
+    console.error(`Invalid manifest:\n- ${result.errors.join('\n- ')}`)
+    process.exitCode = 1
+    return
+  }
+  const simulation = await simulateManifest(manifest, defaultSimulationContext({
+    capabilitiesRequested: manifest.capabilities.slice(0, 2),
+  }))
+  console.log(JSON.stringify(simulation, null, 2))
+}
+
+async function setStatus(agentId: string, status: string): Promise<void> {
+  if (!agentId || !status) {
+    console.error('Usage: oq set-status <agent-id> <pending|active|verified|suspended>')
+    process.exitCode = 1
+    return
+  }
+  const apiUrl = process.env.MARKETPLACE_API_URL
+  if (!apiUrl) {
+    console.error('Set MARKETPLACE_API_URL before changing registry status.')
+    process.exitCode = 1
+    return
+  }
+  if (!['pending', 'active', 'verified', 'suspended'].includes(status)) {
+    console.error(`Invalid status: ${status}`)
+    process.exitCode = 1
+    return
+  }
+  const client = new MarketplaceClient(apiUrl, {
+    token: process.env.MARKETPLACE_API_TOKEN,
+    publisherId: process.env.MARKETPLACE_PUBLISHER_ID,
+  })
+  const response = await client.setAgentStatus(agentId, status as 'pending' | 'active' | 'verified' | 'suspended')
   console.log(JSON.stringify(response, null, 2))
 }
 
@@ -99,9 +147,10 @@ Usage:
   oq create-agent <name>
   oq validate <agent.json>
   oq register <agent.json>
+  oq simulate <agent.json>
+  oq set-status <agent-id> <status>
   oq dev
   oq test
-  oq simulate
   oq package
   oq publish
 `)

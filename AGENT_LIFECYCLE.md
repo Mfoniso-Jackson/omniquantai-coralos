@@ -21,18 +21,42 @@ Create Agent
 | State | Meaning |
 | --- | --- |
 | `pending` | Agent submitted but not reviewed. |
-| `verified` | Manifest and example output reviewed. |
 | `active` | Discoverable in the marketplace. |
-| `deprecated` | Existing history remains, but agent should not receive new work. |
+| `verified` | Manifest and example output reviewed. Discoverable in the marketplace. |
+| `suspended` | Hidden from discovery until manually returned to pending. |
+
+Allowed admin transitions:
+
+```text
+pending -> active
+pending -> suspended
+active -> verified
+active -> suspended
+verified -> suspended
+suspended -> pending
+```
 
 ## Isolation
 
-Current v1 agents run through repository/runtime conventions. Future execution isolation targets:
+Current v1 registry simulation is manifest-based and does not import third-party code. Live bootstrap
+agents still run through repository/runtime conventions.
+
+Before executing arbitrary third-party agents, OmniQuantAI must run them out-of-process through one of:
 
 - Docker containers
 - WebAssembly
 - remote workers
 - permissioned data access
+
+The sandbox must enforce:
+
+- no host filesystem writes except an explicit scratch directory
+- scoped secrets per agent
+- network allowlists
+- CPU/memory/time limits
+- input/output schema validation
+- immutable request payloads
+- audit logs for every bid and delivery
 
 ## Persistence
 

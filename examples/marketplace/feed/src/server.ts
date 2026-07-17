@@ -16,6 +16,7 @@
  */
 import express from 'express'
 import type { Request, Response } from 'express'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -30,6 +31,7 @@ import {
   getRegisteredAgent,
   listRegisteredAgents,
   registerAgentManifest,
+  transitionAgentStatus,
   updateAgentManifest,
   type RegistryStatus,
 } from './data/registryStore.js'
@@ -125,7 +127,11 @@ app.use((_req, res, next) => {
   next()
 })
 
-app.use(express.json())
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    ;(req as Request & { rawBody?: string }).rawBody = buf.toString('utf8')
+  },
+}))
 
 async function healthPayload(quick: boolean) {
   const coral = quick ? { ok: false, status: 'not_checked' } : await coralHealth()
@@ -179,6 +185,7 @@ app.get('/api/agents', async (_req, res) => {
 
 app.post('/api/agents/register', async (req, res) => {
   try {
+    verifyRegistryAuth(req)
     const { manifest, status } = registrationInput(req.body)
     const registration = await registerAgentManifest(manifest, { status })
     res.status(201).json({ ok: true, agent: registration })
@@ -211,6 +218,7 @@ app.get('/api/registry/agents/:id', async (req, res) => {
 
 app.patch('/api/agents/:id', updateRegisteredAgent)
 app.post('/api/agents/:id', updateRegisteredAgent)
+app.post('/api/registry/agents/:id/status', updateRegisteredAgentStatus)
 
 app.get('/api/agents/:id', async (req, res) => {
   const agent = await getAgent(req.params.id)
@@ -294,12 +302,49 @@ function parseLauncherSession(text: string): { session: string; namespace: strin
 
 async function updateRegisteredAgent(req: Request, res: Response) {
   try {
+    verifyRegistryAuth(req)
     const { manifest, status } = registrationInput(req.body)
     const registration = await updateAgentManifest(req.params.id, manifest, { status })
     res.json({ ok: true, agent: registration })
   } catch (error) {
     res.status(400).json({ ok: false, error: (error as Error).message })
   }
+}
+
+async function updateRegisteredAgentStatus(req: Request, res: Response) {
+  try {
+    verifyRegistryAuth(req)
+    const status = parseRegistryStatus((req.body as { status?: unknown })?.status)
+    if (!status) throw new Error('status is required')
+    const registration = await transitionAgentStatus(req.params.id, status)
+    res.json({ ok: true, agent: registration })
+  } catch (error) {
+    const message = (error as Error).message
+    res.status(message.includes('auth') || message.includes('signature') ? 401 : 400).json({ ok: false, error: message })
+  }
+}
+
+function verifyRegistryAuth(req: Request): void {
+  const secret = process.env.REGISTRY_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN
+  if (!secret) return
+  const publisher = req.header('x-oq-publisher')
+  const timestamp = req.header('x-oq-timestamp')
+  const signature = req.header('x-oq-signature')
+  if (!publisher || !timestamp || !signature) throw new Error('registry auth headers are required')
+  const driftMs = Math.abs(Date.now() - Date.parse(timestamp))
+  if (!Number.isFinite(driftMs) || driftMs > 5 * 60_000) throw new Error('registry auth timestamp is outside allowed window')
+  const body = (req as Request & { rawBody?: string }).rawBody ?? ''
+  const expected = createHmac('sha256', secret)
+    .update(`${req.method.toUpperCase()}\n${req.path}\n${timestamp}\n${body}`)
+    .digest('hex')
+  if (!safeEqual(signature, expected)) throw new Error('registry signature verification failed')
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a, 'hex')
+  const right = Buffer.from(b, 'hex')
+  if (left.length !== right.length) return false
+  return timingSafeEqual(left, right)
 }
 
 function registrationInput(body: unknown): { manifest: unknown; status?: RegistryStatus } {

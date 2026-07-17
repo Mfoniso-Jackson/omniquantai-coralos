@@ -32,9 +32,30 @@ The full demo needs:
 
 The frontend can be deployed as a static app from `examples/marketplace/web`, but Start Market requires a live API/feed service.
 
+Until API hosting is solved, deploy `omniquantai.com` in proof mode:
+
+- GitHub Pages hosts the static frontend.
+- The site links to the latest proof video/release and Solana Explorer transactions.
+- Start Market remains disabled unless `VITE_API_BASE_URL` points to a reachable feed API.
+- Live demos run from Codespaces or local Docker using forwarded ports.
+
 ## API Deployment
 
 The API/feed can run separately from `examples/marketplace/feed`. A live agent demo requires access to CoralOS and Docker-launched agents.
+
+Free current path:
+
+1. Keep public frontend on GitHub Pages.
+2. Use Codespaces for live demos.
+3. Forward ports `5173`, `4000`, and `5555`.
+4. Set `REGISTRY_AUTH_SECRET` for signed registry writes when sharing a live API.
+
+Production path:
+
+- Docker-capable host for feed API, CoralOS, and agent containers.
+- Persistent volume for `.omniquant-data`.
+- Non-mainnet guard enabled by default until mainnet readiness is complete.
+- Separate signing secrets for publishers/admins.
 
 ## Fixture Preview
 
@@ -43,4 +64,3 @@ For public previews where Docker is unavailable, use fixture mode to serve recor
 ## Rollback
 
 If the live market fails, return to the last commit where `npm run smoke:testnet` passed and use the fixture dashboard for explanation while debugging.
-

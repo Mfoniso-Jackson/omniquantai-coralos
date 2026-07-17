@@ -15,7 +15,7 @@ export type Capability =
   | 'technical-analysis'
   | 'news-analysis'
 
-export type AgentStatus = 'pending' | 'verified' | 'active' | 'deprecated'
+export type AgentStatus = 'pending' | 'active' | 'verified' | 'suspended' | 'deprecated'
 export type RiskLevel = 'low' | 'medium' | 'high'
 
 export interface AgentPricing {

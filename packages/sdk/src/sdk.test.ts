@@ -2,8 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { FinancialAgent } from './agent.js'
 import { AgentRegistry } from './registry.js'
-import { simulateMarket } from './simulator.js'
+import { defaultSimulationContext, simulateManifest, simulateMarket } from './simulator.js'
 import { validateAgentManifest } from './manifest.js'
+import { signedAuthHeaders, signingPayload } from './auth.js'
 import type { AgentManifest, MarketContext } from './types.js'
 
 const manifest: AgentManifest = {
@@ -74,4 +75,25 @@ test('simulates a complete agent lifecycle', async () => {
   assert.equal(result.bid.agentId, 'test-agent')
   assert.equal(result.memo.notFinancialAdvice, true)
   assert.equal(result.verification.status, 'PASS')
+})
+
+test('simulates a manifest without importing third-party agent code', async () => {
+  const result = await simulateManifest(manifest, defaultSimulationContext({ capabilitiesRequested: ['valuation'] }))
+  assert.equal(result.bid.agentId, 'test-agent')
+  assert.equal(result.memo.recommendation, 'HOLD')
+})
+
+test('creates signed publisher auth headers', () => {
+  const headers = signedAuthHeaders({
+    method: 'POST',
+    path: '/api/agents/register',
+    body: '{"ok":true}',
+    publisherId: 'publisher',
+    secret: 'secret',
+    timestamp: '2026-07-17T00:00:00.000Z',
+  })
+  assert.equal(headers['x-oq-publisher'], 'publisher')
+  assert.equal(headers['x-oq-timestamp'], '2026-07-17T00:00:00.000Z')
+  assert.match(headers['x-oq-signature'], /^[a-f0-9]{64}$/)
+  assert.equal(signingPayload('post', '/p', 't', 'b'), 'POST\n/p\nt\nb')
 })

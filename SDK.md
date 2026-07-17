@@ -15,6 +15,7 @@ FinancialAgent
 AgentRegistry
 MarketplaceClient
 simulateMarket
+simulateManifest
 validateAgentManifest
 createLogger
 ```
@@ -78,14 +79,36 @@ Agents should never receive work outside declared capabilities.
 oq create-agent <name>
 oq validate <agent.json>
 oq register <agent.json>
+oq simulate
+oq set-status <agent-id> <status>
 oq dev
 oq test
-oq simulate
 oq package
 oq publish
 ```
 
-The v1 CLI supports create, validate, and register scaffolding. Dev/test/simulate/package/publish are reserved as stable command names.
+`oq simulate` runs a deterministic manifest-based market lifecycle without importing third-party code.
+This is intentional: local simulation proves the manifest, bid, memo, and verification contract before
+the platform executes external agent logic in a sandbox.
+
+Signed registry writes use:
+
+```bash
+MARKETPLACE_API_URL=http://localhost:4000 \
+MARKETPLACE_PUBLISHER_ID=<publisher-id> \
+MARKETPLACE_API_TOKEN=<shared-hmac-secret> \
+node packages/sdk/dist/cli.js register agent.json
+```
+
+Admin status transitions:
+
+```bash
+node packages/sdk/dist/cli.js set-status valuation-agent active
+node packages/sdk/dist/cli.js set-status valuation-agent verified
+node packages/sdk/dist/cli.js set-status valuation-agent suspended
+```
+
+Dev/test/package/publish are reserved as stable command names.
 
 ## Reference Agents
 

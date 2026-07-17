@@ -83,6 +83,32 @@ export async function updateAgentManifest(
   return registerAgentManifest(validManifest, input)
 }
 
+export async function transitionAgentStatus(
+  id: string,
+  status: RegistryStatus,
+  input: { dataDir?: string } = {},
+): Promise<AgentRegistrationRecord> {
+  const existing = await getRegisteredAgent(id, input.dataDir)
+  if (!existing) throw new Error(`registered agent not found: ${id}`)
+  if (!isAllowedTransition(existing.status, status)) throw new Error(`invalid registry status transition: ${existing.status} -> ${status}`)
+  const updated: AgentRegistrationRecord = {
+    ...existing,
+    status,
+    updatedAt: new Date().toISOString(),
+  }
+  await appendRegistryRecord(updated, input.dataDir)
+  return updated
+}
+
+export function isAllowedTransition(from: RegistryStatus, to: RegistryStatus): boolean {
+  if (from === to) return true
+  if (from === 'pending') return to === 'active' || to === 'suspended'
+  if (from === 'active') return to === 'verified' || to === 'suspended'
+  if (from === 'verified') return to === 'suspended'
+  if (from === 'suspended') return to === 'pending'
+  return false
+}
+
 export async function listRegisteredAgents(dataDir = dataDirFromEnv()): Promise<AgentRegistrationRecord[]> {
   const records = await readRegistryRecords(dataDir)
   const byAgent = new Map<string, AgentRegistrationRecord>()

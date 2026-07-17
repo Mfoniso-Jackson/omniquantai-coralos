@@ -25,6 +25,7 @@ Implemented by the marketplace feed server:
 POST /api/agents/register
 PATCH /api/agents/:id
 POST /api/agents/:id
+POST /api/registry/agents/:id/status
 GET /api/registry/agents
 GET /api/registry/agents/:id
 GET /api/registry/discover?market=omniquant&capabilities=equities,valuation
@@ -53,6 +54,14 @@ GET /api/registry/discover?market=omniquant&capabilities=equities,valuation
 
 Discovery only returns `active` or `verified` agents.
 
+`POST /api/registry/agents/:id/status` accepts:
+
+```json
+{ "status": "active" }
+```
+
+Allowed status values are `pending`, `active`, `verified`, and `suspended`.
+
 Verify the registry locally:
 
 ```bash
@@ -74,10 +83,24 @@ POST /api/markets/:id/results
 
 ## Authentication
 
-V1 SDK includes token plumbing in `MarketplaceClient`. Production auth should add:
+Registry write/admin endpoints support HMAC signatures when `REGISTRY_AUTH_SECRET` or
+`MARKETPLACE_API_TOKEN` is set on the feed server. Unsigned writes remain allowed only when no secret
+is configured, which keeps local development simple.
+
+Signed requests include:
+
+```text
+x-oq-publisher: <publisher-id>
+x-oq-timestamp: <ISO timestamp>
+x-oq-signature: HMAC_SHA256(secret, METHOD + "\n" + PATH + "\n" + TIMESTAMP + "\n" + BODY)
+```
+
+The SDK client and `oq register` / `oq set-status` generate these headers when
+`MARKETPLACE_API_TOKEN` is provided.
+
+Production auth should still add:
 
 - developer API keys
-- publisher identity
 - rate limits
 - scoped permissions
 - audit logs
