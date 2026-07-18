@@ -49,6 +49,8 @@ Free current path:
 2. Use Codespaces for live demos.
 3. Forward ports `5173`, `4000`, and `5555`.
 4. Set `REGISTRY_AUTH_SECRET` for signed registry writes when sharing a live API.
+5. For local admin UI controls only, build the dashboard with `VITE_REGISTRY_ADMIN_TOKEN` and
+   `VITE_REGISTRY_PUBLISHER_ID`. Do not expose these in the public proof-mode site.
 
 Production path:
 

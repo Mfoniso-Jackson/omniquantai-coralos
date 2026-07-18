@@ -490,6 +490,17 @@ body {
 .registry-agent dl div { border-top: 1px solid var(--line); padding-top: 7px; }
 .registry-agent dt { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
 .registry-agent dd { margin: 4px 0 0; color: var(--txt); font-size: 12px; font-weight: 750; }
+.registry-admin-actions {
+  border-top: 1px solid var(--line); padding-top: 9px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.registry-admin-actions span { color: var(--premium); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; font-weight: 850; margin-right: 2px; }
+.registry-admin-actions button {
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 8px;
+  background: rgba(103, 168, 255, .08); color: var(--txt); font: inherit; font-size: 11px; cursor: pointer;
+}
+.registry-admin-actions button:hover:not(:disabled) { border-color: var(--link); color: var(--link); }
+.registry-admin-actions button:disabled { opacity: .55; cursor: default; }
+.registry-admin-message { margin: 0; color: var(--dim); font-size: 12px; overflow-wrap: anywhere; }
 .registry-empty {
   border: 1px dashed var(--line); border-radius: 8px; padding: 12px;
   display: grid; gap: 4px; color: var(--dim); background: rgba(5, 7, 11, .36);

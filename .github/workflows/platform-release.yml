@@ -1,0 +1,58 @@
+name: Platform Release Gate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/marketplace/**"
+      - "packages/**"
+      - "coral-agents/**"
+      - "infrastructure/**"
+      - "supabase/**"
+      - ".github/workflows/platform-release.yml"
+
+jobs:
+  gate:
+    name: Lint, typecheck, tests, and smoke posture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Testnet posture
+        run: npm run testnet-check
+
+  docker:
+    name: Docker image build checks
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build API image
+        run: docker build -f infrastructure/docker/api.Dockerfile -t omniquant-api:ci .
+      - name: Build worker image
+        run: docker build -f infrastructure/docker/worker.Dockerfile -t omniquant-worker:ci .
+      - name: Build CoralOS bridge image
+        run: docker build -f infrastructure/docker/coral-bridge.Dockerfile -t omniquant-coral-bridge:ci .
+
+  production-approval:
+    name: Production approval placeholder
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+    steps:
+      - run: echo "Manual approval passed. Wire Railway/Vercel deploy commands after hosted services are configured."

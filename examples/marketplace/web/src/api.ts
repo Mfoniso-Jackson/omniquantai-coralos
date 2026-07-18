@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { AgentRegistration, Feed, FeedDiagnostics } from './types'
 
 const FEED_URL = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_FEED_URL ?? ''
+const REGISTRY_ADMIN_TOKEN = import.meta.env.VITE_REGISTRY_ADMIN_TOKEN ?? ''
+const REGISTRY_PUBLISHER_ID = import.meta.env.VITE_REGISTRY_PUBLISHER_ID ?? 'dashboard-admin'
 export const API_BASE_URL = FEED_URL || 'same-origin /api proxy'
+export const REGISTRY_ADMIN_ENABLED = Boolean(REGISTRY_ADMIN_TOKEN)
 const HEALTH_TIMEOUT_MS = 2500
 
 export interface UiError {
@@ -113,6 +116,19 @@ export function useAgentRegistry(apiHealth: ApiHealthState, intervalMs = 15000):
   }, [apiHealth.status, intervalMs])
 
   return state
+}
+
+export async function setRegistryAgentStatus(agentId: string, status: AgentRegistration['status']): Promise<void> {
+  if (!REGISTRY_ADMIN_TOKEN) throw new Error('Registry admin token is not configured in this dashboard build.')
+  const path = `/api/registry/agents/${encodeURIComponent(agentId)}/status`
+  const body = JSON.stringify({ status })
+  const headers = await signedRegistryHeaders('POST', path, body)
+  const res = await fetch(`${FEED_URL}${path}`, {
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body,
+  })
+  if (!res.ok) throw new Error(`status update failed: ${res.status} ${await res.text()}`)
 }
 
 /** Ask the feed server to launch a market session; returns its id. (Fund wallets first.) */
@@ -259,5 +275,23 @@ function friendlyRegistryError(error: unknown): UiError {
     what: message,
     likelyCause: 'The registry endpoint returned an unexpected response.',
     suggestedFix: 'Check /api/registry/agents and the feed server logs.',
+  }
+}
+
+async function signedRegistryHeaders(method: string, path: string, body: string): Promise<Record<string, string>> {
+  const timestamp = new Date().toISOString()
+  const payload = `${method.toUpperCase()}\n${path}\n${timestamp}\n${body}`
+  const key = await window.crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(REGISTRY_ADMIN_TOKEN),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const signature = await window.crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload))
+  return {
+    'x-oq-publisher': REGISTRY_PUBLISHER_ID,
+    'x-oq-timestamp': timestamp,
+    'x-oq-signature': [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, '0')).join(''),
   }
 }

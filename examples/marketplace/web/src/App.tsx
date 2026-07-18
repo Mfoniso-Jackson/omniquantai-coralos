@@ -1,5 +1,17 @@
 import { useState } from 'react'
-import { API_BASE_URL, friendlyError, useFeed, startMarket, useApiHealth, useAgentRegistry, type ApiHealthState, type RegistryState, type UiError } from './api'
+import {
+  API_BASE_URL,
+  REGISTRY_ADMIN_ENABLED,
+  friendlyError,
+  setRegistryAgentStatus,
+  useFeed,
+  startMarket,
+  useApiHealth,
+  useAgentRegistry,
+  type ApiHealthState,
+  type RegistryState,
+  type UiError,
+} from './api'
 import { MarketView } from './components/MarketView'
 import { Explainer } from './components/Explainer'
 import { PresentationView } from './components/PresentationView'
@@ -449,6 +461,21 @@ function DeveloperRegistry({ registry }: { registry: RegistryState }) {
 
 function RegistryAgentCard({ agent }: { agent: AgentRegistration }) {
   const { manifest } = agent
+  const [adminBusy, setAdminBusy] = useState(false)
+  const [adminMessage, setAdminMessage] = useState('')
+  async function onStatus(status: AgentRegistration['status']) {
+    setAdminBusy(true)
+    setAdminMessage('')
+    try {
+      await setRegistryAgentStatus(manifest.id, status)
+      setAdminMessage(`Updated to ${status}. Refreshing registry...`)
+      window.setTimeout(() => window.location.reload(), 700)
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : 'Status update failed')
+    } finally {
+      setAdminBusy(false)
+    }
+  }
   return (
     <article className="registry-agent">
       <div className="registry-agent-head">
@@ -465,8 +492,25 @@ function RegistryAgentCard({ agent }: { agent: AgentRegistration }) {
         <div><dt>Suggested</dt><dd>{manifest.pricing.suggestedSol ?? manifest.pricing.floorSol} {manifest.pricing.currency}</dd></div>
         <div><dt>Version</dt><dd>{manifest.version}</dd></div>
       </dl>
+      {REGISTRY_ADMIN_ENABLED && (
+        <div className="registry-admin-actions">
+          <span>Local admin</span>
+          {nextStatuses(agent.status).map((status) => (
+            <button key={status} disabled={adminBusy} onClick={() => void onStatus(status)}>{status}</button>
+          ))}
+        </div>
+      )}
+      {adminMessage && <p className="registry-admin-message">{adminMessage}</p>}
     </article>
   )
+}
+
+function nextStatuses(status: AgentRegistration['status']): AgentRegistration['status'][] {
+  if (status === 'pending') return ['active', 'suspended']
+  if (status === 'active') return ['verified', 'suspended']
+  if (status === 'verified') return ['suspended']
+  if (status === 'suspended') return ['pending']
+  return []
 }
 
 function ResearchHubCard() {

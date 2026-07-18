@@ -17,6 +17,7 @@ import type {
   WinnerRecord,
 } from './models.js'
 import { marketDataProviderFromEnv } from './providers/marketDataProvider.js'
+import { mirrorCollectionRecord } from './supabasePersistence.js'
 
 const seen = new Set<string>()
 
@@ -202,6 +203,7 @@ async function writeOnce(dataDir: string, collection: string, key: string, value
   if (seen.has(seenKey)) return
   seen.add(seenKey)
   await appendFile(join(dataDir, `${collection}.jsonl`), `${JSON.stringify(value)}\n`, 'utf8')
+  await mirrorCollectionRecord(collection, value)
 }
 
 async function writeEvent(dataDir: string, event: MarketEventRecord): Promise<void> {

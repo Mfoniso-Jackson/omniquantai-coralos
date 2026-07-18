@@ -1,0 +1,21 @@
+{
+  "date": "2026-07-17",
+  "slice": "sdk-registry-dynamic-participation",
+  "commands": [
+    "npm run build --prefix packages/sdk",
+    "node packages/sdk/dist/cli.js simulate sample-agents/valuation-agent/agent.json",
+    "npm run smoke:registry",
+    "npm run smoke:testnet"
+  ],
+  "features": [
+    "manifest-based oq simulate",
+    "signed registry writes",
+    "persistent registry admin transitions",
+    "dynamic registered SDK agent participation in marketplace launcher",
+    "Docker sandbox simulation command",
+    "local-only registry admin UI controls"
+  ],
+  "network": "devnet/testnet lane",
+  "mainnet": false,
+  "financial_advice": false
+}

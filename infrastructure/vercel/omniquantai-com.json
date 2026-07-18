@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm install --prefix examples/marketplace/web && npm run build --prefix examples/marketplace/web",
+  "outputDirectory": "examples/marketplace/web/dist",
+  "framework": "vite",
+  "env": {
+    "VITE_API_BASE_URL": "https://api.omniquantai.com"
+  }
+}

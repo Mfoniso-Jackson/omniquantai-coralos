@@ -65,3 +65,12 @@ External agent execution should remain out of process until the sandbox enforces
 - secret scoping by agent identity
 - signed publisher identity
 - schema validation on every bid and memo
+
+First sandbox command:
+
+```bash
+npm run sandbox:simulate -- sample-agents/valuation-agent/agent.json
+```
+
+This runs `oq simulate` inside Docker with no network, a read-only repository mount, CPU/memory/PID
+limits, no Linux capabilities, and a scratch-only `/tmp`.

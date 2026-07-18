@@ -1,0 +1,12 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "infrastructure/docker/coral-bridge.Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+[env]
+NODE_ENV = "production"
+CORAL_NAMESPACE = "omniquant"
+SOLANA_NETWORK = "devnet"

@@ -11,7 +11,7 @@
  *
  * Run from the host after `docker compose up coral`:  npm install && npm start
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -19,13 +19,25 @@ const BASE = process.env.CORAL_SERVER_URL ?? 'http://localhost:5555'
 const TOKEN = process.env.CORAL_TOKEN ?? 'dev'
 const NS = process.env.CORAL_NAMESPACE ?? 'omniquant'
 const AUTH = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+
+interface RegistryAgentManifest {
+  id: string
+  name: string
+  description: string
+  specialization: string
+  supportedMarkets: string[]
+  capabilities: string[]
+  pricing: { floorSol: number; suggestedSol?: number; currency?: string }
+  riskLevel: 'low' | 'medium' | 'high'
+  status?: 'pending' | 'active' | 'verified' | 'suspended'
+}
 
 // ── Load repo-root .env (2 levels up: marketplace → examples → root) ──
 function loadEnv(): Record<string, string> {
-  const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const env: Record<string, string> = { ...(process.env as Record<string, string>) }
   try {
-    for (const line of readFileSync(join(root, '.env'), 'utf8').split('\n')) {
+    for (const line of readFileSync(join(ROOT, '.env'), 'utf8').split('\n')) {
       const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
       if (m && env[m[1]] === undefined) env[m[1]] = m[2].replace(/^["']|["']$/g, '')
     }
@@ -43,6 +55,40 @@ const agent = (name: string, options: Record<string, unknown>) => ({
   provider: { type: 'local', runtime: 'docker' },
   options,
 })
+
+function loadRegisteredSdkAgents(env: Record<string, string>): RegistryAgentManifest[] {
+  if (env.DISABLE_REGISTRY_AGENTS === '1') return []
+  const registryDir = join(ROOT, 'registry', 'agents')
+  if (!existsSync(registryDir)) return []
+  const bootstrap = new Set(['market-analyst', 'news-earnings', 'macro-risk', 'portfolio-risk'])
+  return readdirSync(registryDir)
+    .filter((file) => file.endsWith('.json'))
+    .map((file) => JSON.parse(readFileSync(join(registryDir, file), 'utf8')) as RegistryAgentManifest)
+    .filter((manifest) => manifest.supportedMarkets.includes('omniquant'))
+    .filter((manifest) => manifest.status === undefined || manifest.status === 'active' || manifest.status === 'verified')
+    .filter((manifest) => !bootstrap.has(manifest.id))
+}
+
+function registryMetrics(manifest: RegistryAgentManifest): {
+  relevance: number
+  quality: number
+  confidence: number
+  fit: number
+  speed: number
+  explanation: number
+} {
+  const verifiedBoost = manifest.status === 'verified' ? 4 : 0
+  const riskPenalty = manifest.riskLevel === 'high' ? 6 : manifest.riskLevel === 'medium' ? 2 : 0
+  const capabilityDepth = Math.min(8, manifest.capabilities.length * 2)
+  return {
+    relevance: 84 + capabilityDepth + verifiedBoost,
+    quality: 82 + capabilityDepth + verifiedBoost,
+    confidence: 74 + verifiedBoost - Math.floor(riskPenalty / 2),
+    fit: 86 + capabilityDepth,
+    speed: 26 + riskPenalty,
+    explanation: 84 + verifiedBoost,
+  }
+}
 
 async function main() {
   const env = loadEnv()
@@ -85,7 +131,16 @@ async function main() {
       ...llmOpts,
     })
 
-  const sellers = ['market-analyst', 'news-earnings', 'macro-risk', 'portfolio-risk']
+  const registeredAgents = loadRegisteredSdkAgents(env)
+  const registeredSellerAgents = registeredAgents.map((manifest) => {
+    const metrics = registryMetrics(manifest)
+    const persona =
+      `Registered SDK Agent: ${manifest.name}. ${manifest.specialization}. ` +
+      `Capabilities: ${manifest.capabilities.join(', ')}. Risk level: ${manifest.riskLevel}.`
+    return seller(manifest.id, persona, manifest.pricing.floorSol, metrics)
+  })
+  const registeredSellerIds = registeredAgents.map((manifest) => manifest.id)
+  const sellers = ['market-analyst', 'news-earnings', 'macro-risk', 'portfolio-risk', ...registeredSellerIds]
 
   // Optional broker swarm (ENABLE_BROKER=1, see coral-agents/broker/README.md): the buyer buys from a
   // broker, which resells from the real sellers. Needs a funded broker wallet + seller receive wallets —
@@ -150,6 +205,7 @@ async function main() {
           seller('portfolio-risk', 'Portfolio Risk Agent: downside scenarios, concentration risk, risk controls, and invalidation triggers.', 0.014, {
             relevance: 95, quality: 92, confidence: 84, fit: 98, speed: 24, explanation: 90,
           }),
+          ...registeredSellerAgents,
           ...brokerAgents,
         ],
       },
@@ -174,12 +230,14 @@ async function main() {
   const namespace = body.namespace ?? body.session?.namespace
   const sessionNamespace = namespace ?? NS
 
+  const sdkLineup = registeredSellerIds.length ? ` registered SDK agents: ${registeredSellerIds.join(', ')}.` : ''
   const lineup = brokerReady ? `broker (reselling ${sellers.join(', ')})` : sellers.join(', ')
   console.log(`\n✅ OmniQuantAI market session ${sessionId} namespace ${sessionNamespace} — buyer + ${lineup}.`)
   console.log(`   session id: ${sessionId}`)
   console.log(`   namespace: ${sessionNamespace}`)
   console.log(`   settlement mode: ${settlementMode}`)
   console.log(`   receive wallet: ${wallet}`)
+  if (sdkLineup) console.log(`  ${sdkLineup}`)
   console.log('   The buyer requests NVDA financial intelligence; sellers bid; the winner settles via escrow.\n')
   console.log('   Watch the market:')
   console.log('     docker logs -f buyer-agent      # WANT → AWARD (with a reason) → DEPOSITED → VERIFIED → RELEASED')

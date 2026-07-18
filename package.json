@@ -20,6 +20,7 @@
     "test": "npm test --prefix packages/agent-runtime && npm run build --prefix packages/sdk && npm test --prefix packages/sdk && npm test --prefix coral-agents/buyer-agent && npm test --prefix coral-agents/seller-agent && npm test --prefix examples/marketplace/feed && npm test --prefix examples/marketplace/web",
     "testnet-check": "node scripts/testnet-check.mjs",
     "smoke:registry": "node scripts/registry-smoke.mjs",
+    "sandbox:simulate": "node scripts/sdk-agent-sandbox.mjs",
     "smoke:testnet": "npm run testnet-check && npm run smoke:testnet --prefix examples/marketplace/feed",
     "milestone:market": "npm run smoke:testnet && npm test --prefix coral-agents/seller-agent && npm run testnet-check",
     "mainnet-readiness": "node scripts/mainnet-readiness-check.mjs",

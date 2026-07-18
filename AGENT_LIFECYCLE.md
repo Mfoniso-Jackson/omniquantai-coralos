@@ -70,3 +70,11 @@ Every participation creates permanent records:
 - graph edges
 
 Nothing important disappears after refresh.
+
+## Dynamic Participation
+
+The marketplace launcher reads active or verified manifests from `registry/agents/*.json` and maps them
+into seller-agent containers for live CoralOS sessions. This makes registered SDK agents visible in the
+WANT -> BID -> AWARD loop without importing third-party source into the host process.
+
+Set `DISABLE_REGISTRY_AGENTS=1` to run only the four bootstrap specialists.

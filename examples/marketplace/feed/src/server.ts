@@ -25,7 +25,7 @@ import { foldRounds } from './foldRounds.js'
 import { collectMessages } from './coralState.js'
 import type { RawMessage, Round } from './foldRounds.js'
 import { persistMarketplaceData } from './data/persistence.js'
-import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, listAgents, listMarkets } from './data/history.js'
+import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, getSettlement, listAgents, listMarkets } from './data/history.js'
 import {
   discoverRegisteredAgents,
   getRegisteredAgent,
@@ -156,6 +156,23 @@ app.get('/status', async (req, res) => {
   res.json(await healthPayload(quick))
 })
 
+async function readinessResponse(_req: Request, res: Response) {
+  const coral = await coralHealth()
+  const ready = FIXTURE ? true : coral.ok
+  res.status(ready ? 200 : 503).json({
+    ok: ready,
+    api: 'ready',
+    coral: BASE,
+    coralReachable: coral.ok,
+    coralStatus: coral.status,
+    build: BUILD,
+    persistence: process.env.OMNIQUANT_PERSIST === '0' ? 'disabled' : 'file-backed',
+    queue: process.env.REDIS_URL ? 'configured' : 'not_configured',
+  })
+}
+
+app.get('/ready', readinessResponse)
+
 app.get('/api/health', async (req, res) => {
   const quick = req.query.quick === '1'
   res.json(await healthPayload(quick))
@@ -166,10 +183,17 @@ app.get('/api/status', async (req, res) => {
   res.json(await healthPayload(quick))
 })
 
+app.get('/api/ready', readinessResponse)
+
 app.post('/api/sessions/start', startSession)
 app.post('/api/start', startSession)
+app.post('/v1/markets', startSession)
 
 app.get('/api/markets', async (_req, res) => {
+  res.json({ markets: await listMarkets() })
+})
+
+app.get('/v1/markets', async (_req, res) => {
   res.json({ markets: await listMarkets() })
 })
 
@@ -179,7 +203,25 @@ app.get('/api/markets/:id', async (req, res) => {
   return res.json(market)
 })
 
+app.get('/v1/markets/:id', async (req, res) => {
+  const market = await getMarket(req.params.id)
+  if (!market) return res.status(404).json({ error: 'market not found', sessionId: req.params.id })
+  return res.json(market)
+})
+
+app.get('/v1/markets/:id/events', async (req, res) => {
+  const market = await getMarket(req.params.id)
+  if (!market) return res.status(404).json({ error: 'market not found', sessionId: req.params.id })
+  return res.json({ sessionId: req.params.id, events: market.timeline })
+})
+
+app.get('/v1/markets/:id/stream', marketStreamResponse)
+
 app.get('/api/agents', async (_req, res) => {
+  res.json({ agents: await listAgents() })
+})
+
+app.get('/v1/agents', async (_req, res) => {
   res.json({ agents: await listAgents() })
 })
 
@@ -226,6 +268,12 @@ app.get('/api/agents/:id', async (req, res) => {
   return res.json(agent)
 })
 
+app.get('/v1/agents/:id', async (req, res) => {
+  const agent = await getAgent(req.params.id)
+  if (!agent) return res.status(404).json({ error: 'agent not found', agentId: req.params.id })
+  return res.json(agent)
+})
+
 app.get('/api/sessions', async (_req, res) => {
   res.json({ sessions: await listMarkets() })
 })
@@ -234,6 +282,18 @@ app.get('/api/memo/:id', async (req, res) => {
   const memo = await getMemo(req.params.id)
   if (!memo) return res.status(404).json({ error: 'memo not found', memoId: req.params.id })
   return res.json(memo)
+})
+
+app.get('/v1/memos/:id', async (req, res) => {
+  const memo = await getMemo(req.params.id)
+  if (!memo) return res.status(404).json({ error: 'memo not found', memoId: req.params.id })
+  return res.json(memo)
+})
+
+app.get('/v1/settlements/:id', async (req, res) => {
+  const settlement = await getSettlement(req.params.id)
+  if (!settlement) return res.status(404).json({ error: 'settlement not found', settlementId: req.params.id })
+  return res.json(settlement)
 })
 
 app.get('/api/reputation/:agent', async (req, res) => {
@@ -454,6 +514,28 @@ async function marketStatusResponse(req: Request, res: Response) {
 app.get('/api/market/:id/status', marketStatusResponse)
 app.get('/market/:id', marketStatusResponse)
 app.get('/api/market/:id', marketStatusResponse)
+
+async function marketStreamResponse(req: Request, res: Response) {
+  const session = req.params.id
+  const requestedNamespace = (req.query.namespace as string) || sessionNamespaces.get(session) || NS
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+  })
+  let closed = false
+  req.on('close', () => { closed = true })
+  const send = async () => {
+    if (closed) return
+    const result = await feedSnapshot(session, requestedNamespace)
+    res.write(`event: snapshot\n`)
+    res.write(`data: ${JSON.stringify(result.body)}\n\n`)
+  }
+  await send()
+  const id = setInterval(() => { void send() }, 1000)
+  req.on('close', () => clearInterval(id))
+}
 
 app.get('/api/feed', async (req, res) => {
   const session = FIXTURE ? 'fixture' : ((req.query.session as string) || DEFAULT_SESSION)

@@ -125,3 +125,12 @@ npm run smoke:registry
 
 The smoke check starts the marketplace feed API on a temporary port, registers both reference agents,
 and verifies registry discovery by capability.
+
+## Sandbox Simulation
+
+```bash
+npm run sandbox:simulate -- sample-agents/valuation-agent/agent.json
+```
+
+The Docker sandbox has no network, a read-only source mount, constrained CPU/memory/PIDs, no Linux
+capabilities, and a scratch-only `/tmp`.

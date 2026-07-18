@@ -82,6 +82,11 @@ export async function getMemo(memoId: string, dataDir = dataDirFromEnv()): Promi
   return memos.find((memo) => memo.id === memoId || memo.memoId === memoId)
 }
 
+export async function getSettlement(settlementId: string, dataDir = dataDirFromEnv()): Promise<SettlementRecord | undefined> {
+  const settlements = await readJsonl<SettlementRecord>(dataDir, 'settlements')
+  return settlements.find((settlement) => settlement.id === settlementId || settlement.sessionId === settlementId || settlement.reference === settlementId)
+}
+
 export async function getReputation(agentId: string, dataDir = dataDirFromEnv()) {
   const records = await readJsonl<AgentReputationRecord>(dataDir, 'agent_reputation')
   return records.filter((record) => record.agentId === agentId)
