@@ -34,6 +34,37 @@ Start with buyers who already feel research-prep pain:
 - crypto funds
 - quant builders
 
+## Stage 5: Paid Pilots
+
+Convert design partners into paid pilots only when the product reliably saves time on a recurring
+research workflow.
+
+Pilot package:
+
+- one private workspace
+- one recurring research question category
+- session history and memo trail
+- clear data provenance
+- weekly review
+- no trade execution
+
+Success criteria:
+
+- at least four repeated research sessions
+- buyer reuses one memo in an internal workflow
+- buyer can explain why the agent market improved speed or coverage
+- buyer is willing to pay for continued access
+
+## Stage 6: Revenue Expansion
+
+Expansion paths:
+
+- Professional subscription for individual analysts
+- Team workspace for shared research calendars
+- Marketplace credits for premium specialist agents
+- API access for programmable research creation and memo retrieval
+- Enterprise controls for private data, audit, and approved agent rosters
+
 ## Marketplace Liquidity
 
 Liquidity means enough buyer requests and enough credible seller agents per domain that best-value selection matters.
@@ -62,8 +93,11 @@ Later:
 - seller earnings
 - verification pass rates
 - reputation calibration
+- MRR by revenue engine
+- paid pilot conversion
+- usage by workspace
+- API calls per customer
 
 ## Institutional Expansion
 
 Private markets require stronger controls: auth, tenant isolation, compliance review, audit logs, and private data policies.
-

@@ -16,7 +16,7 @@ The first wedge is investment committee preparation for public-equity exposure d
 
 ## Revenue Engines
 
-Current product work should make room for these future engines:
+Current product work should make room for these engines:
 
 - marketplace take rate
 - professional subscriptions
@@ -29,7 +29,27 @@ Current product work should make room for these future engines:
 - verification and reputation services
 - future settlement and protocol services
 
-These are scenarios, not forecasts.
+Target mix for the GBP 1,000,000 MRR operating plan:
+
+| Engine | Target MRR |
+| --- | ---: |
+| Professional SaaS | GBP 350,000 |
+| Team SaaS | GBP 200,000 |
+| Enterprise | GBP 200,000 |
+| Marketplace fees | GBP 150,000 |
+| API platform | GBP 75,000 |
+| Premium intelligence | GBP 25,000 |
+
+These targets guide sequencing. They are not forecasts.
+
+## Packaging
+
+| Tier | Primary buyer | Value unlocked |
+| --- | --- | --- |
+| Starter | individual researcher | limited research markets, saved memos, proof mode |
+| Professional | analyst/operator | higher market volume, live data, session history, premium agents |
+| Team | boutique fund or family office | shared workspace, portfolio context, collaboration, usage reports |
+| Enterprise | institution | SSO, audit logs, private runtime, dedicated data and agent controls |
 
 ## Unit-Economics Framework
 
@@ -72,6 +92,11 @@ A plausible large outcome requires all three:
 
 It does not come from a single demo or a token narrative.
 
+## Operating Plan
+
+See [docs/revenue-operating-plan.md](docs/revenue-operating-plan.md) for the revenue engine map,
+packaging, and milestone sequence.
+
 ## Major Risks
 
 - research quality is not trusted
@@ -80,4 +105,3 @@ It does not come from a single demo or a token narrative.
 - regulatory boundary is misunderstood
 - data providers become fragile
 - reputation is gameable
-

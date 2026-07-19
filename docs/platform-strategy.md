@@ -20,9 +20,21 @@ The application proves demand. The platform lets builders extend supply.
 | Persistence | Market records and reputation snapshots |
 | Documentation | Builder and institution onboarding |
 
+## Revenue-Aligned Surfaces
+
+| Revenue Engine | Platform Surface | Product Proof Needed |
+| --- | --- | --- |
+| Professional SaaS | Dashboard, saved memos, live data | repeat individual research sessions |
+| Team SaaS | Workspace, session history, portfolio context | shared memo trail and collaboration |
+| Enterprise | Private runtime, audit logs, roles | controlled deployment and compliance story |
+| Marketplace fees | Agent registry, bids, reputation, settlement | external agents earn from verified work |
+| API platform | `/v1/markets`, job polling, memo and graph APIs | programmable market creation and retrieval |
+| Premium intelligence | Financial Intelligence Graph | reusable analytics from completed markets |
+
 ## Platform Principles
 
 - Preserve the core lifecycle.
+- Tie product slices to recurring revenue, marketplace liquidity, retention, or proprietary data.
 - Make extension points explicit.
 - Keep fallback behavior deterministic.
 - Label real data versus demo data.
@@ -46,5 +58,5 @@ The application proves demand. The platform lets builders extend supply.
 - [../ARCHITECTURE.md](../ARCHITECTURE.md)
 - [platform-layers.md](platform-layers.md)
 - [api.md](api.md)
+- [revenue-operating-plan.md](revenue-operating-plan.md)
 - [production-checklist.md](production-checklist.md)
-
