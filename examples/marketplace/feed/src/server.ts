@@ -41,6 +41,7 @@ import {
   upsertWorkspaceMembership,
   type MembershipPatch,
 } from './data/workspaceMembershipStore.js'
+import { ensureSessionOrOrganizationPermission, organizationScope } from './data/workspacePermissionPolicy.js'
 import {
   discoverRegisteredAgents,
   getRegisteredAgent,
@@ -242,6 +243,9 @@ app.get('/api/organizations/:id', async (req, res) => {
 })
 
 app.post('/api/organizations/:id/sessions', assignOrganizationSession)
+app.get('/api/organizations/:id/members', listOrganizationMembers)
+app.post('/api/organizations/:id/members', upsertOrganizationMember)
+app.get('/api/organizations/:id/members/audit', listOrganizationMemberAudit)
 
 app.get('/v1/markets/:id', async (req, res) => {
   const market = await getMarket(req.params.id)
@@ -262,6 +266,9 @@ app.get('/v1/organizations/:id', async (req, res) => {
 })
 
 app.post('/v1/organizations/:id/sessions', assignOrganizationSession)
+app.get('/v1/organizations/:id/members', listOrganizationMembers)
+app.post('/v1/organizations/:id/members', upsertOrganizationMember)
+app.get('/v1/organizations/:id/members/audit', listOrganizationMemberAudit)
 
 app.get('/v1/markets/:id/events', async (req, res) => {
   const market = await getMarket(req.params.id)
@@ -456,10 +463,21 @@ async function upsertOrganizationWorkspace(req: Request, res: Response) {
   try {
     const publisherId = verifyWorkspaceWriter(req)
     const input = organizationPatchFromBody(req.body)
+    const existing = await getOrganization(organizationLookupId(input))
+    if (existing && (process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN)) {
+      await requireOrganizationPermission(req, existing.id, 'admin')
+    }
     const organization = await upsertOrganization({
       ...input,
       createdBy: input.createdBy ?? publisherId,
     })
+    if ((process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN) && publisherId) {
+      await upsertWorkspaceMembership(organizationScope(organization.id), {
+        publisherId,
+        role: 'owner',
+        grantedBy: 'system:organization-creator',
+      })
+    }
     res.status(201).json({ ok: true, organization })
   } catch (error) {
     const message = (error as Error).message
@@ -470,10 +488,15 @@ async function upsertOrganizationWorkspace(req: Request, res: Response) {
 async function assignOrganizationSession(req: Request, res: Response) {
   try {
     const publisherId = verifyWorkspaceWriter(req)
+    const organization = await getOrganization(req.params.id)
+    if (!organization) throw new Error(`organization not found: ${req.params.id}`)
+    if (process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN) {
+      await requireOrganizationPermission(req, organization.id, 'admin')
+    }
     const body = req.body && typeof req.body === 'object' ? req.body as { sessionId?: unknown } : {}
     if (typeof body.sessionId !== 'string') throw new Error('sessionId is required')
     const assignment = await assignSessionToOrganization({
-      organizationId: req.params.id,
+      organizationId: organization.id,
       sessionId: body.sessionId,
       assignedBy: publisherId,
     })
@@ -487,6 +510,38 @@ async function assignOrganizationSession(req: Request, res: Response) {
 function organizationPatchFromBody(body: unknown): OrganizationPatch {
   if (!body || typeof body !== 'object') throw new Error('organization body is required')
   return body as OrganizationPatch
+}
+
+function organizationLookupId(input: OrganizationPatch): string {
+  return input.id?.trim() || input.slug?.trim() || input.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+async function listOrganizationMembers(req: Request, res: Response) {
+  const organization = await getOrganization(req.params.id)
+  if (!organization) return res.status(404).json({ error: 'organization not found', organizationId: req.params.id })
+  res.json({ members: await listWorkspaceMemberships(organizationScope(organization.id)) })
+}
+
+async function listOrganizationMemberAudit(req: Request, res: Response) {
+  const organization = await getOrganization(req.params.id)
+  if (!organization) return res.status(404).json({ error: 'organization not found', organizationId: req.params.id })
+  res.json({ audit: await listWorkspaceMembershipAudit(organizationScope(organization.id)) })
+}
+
+async function upsertOrganizationMember(req: Request, res: Response) {
+  try {
+    const organization = await getOrganization(req.params.id)
+    if (!organization) throw new Error(`organization not found: ${req.params.id}`)
+    const publisherId = await requireOrganizationPermission(req, organization.id, 'admin')
+    const membership = await upsertWorkspaceMembership(organizationScope(organization.id), {
+      ...membershipPatchFromBody(req.body),
+      grantedBy: publisherId,
+    })
+    res.status(201).json({ ok: true, membership })
+  } catch (error) {
+    const message = (error as Error).message
+    res.status(authStatus(message)).json({ ok: false, error: message })
+  }
 }
 
 async function updateRegisteredAgent(req: Request, res: Response) {
@@ -582,13 +637,20 @@ function verifyRegistryAuth(req: Request): void {
 async function requireWorkspacePermission(req: Request, sessionId: string, action: 'edit' | 'admin'): Promise<string | undefined> {
   const secret = process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN
   const publisherId = verifySignedRequest(signedRequestFromExpress(req), secret, 'workspace')
-  if (secret) await ensureWorkspacePermission({ sessionId, publisherId, action })
+  if (secret) await ensureSessionOrOrganizationPermission({ sessionId, publisherId, action })
   return publisherId
 }
 
 function verifyWorkspaceWriter(req: Request): string | undefined {
   const secret = process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN
   return verifySignedRequest(signedRequestFromExpress(req), secret, 'workspace')
+}
+
+async function requireOrganizationPermission(req: Request, organizationId: string, action: 'edit' | 'admin'): Promise<string | undefined> {
+  const secret = process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN
+  const publisherId = verifySignedRequest(signedRequestFromExpress(req), secret, 'workspace')
+  if (secret) await ensureWorkspacePermission({ sessionId: organizationScope(organizationId), publisherId, action })
+  return publisherId
 }
 
 function signedRequestFromExpress(req: Request) {

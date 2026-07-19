@@ -27,6 +27,17 @@ describe('workspaceMembershipStore', () => {
     await expect(getWorkspaceMembership('session-1', 'research-lead', dataDir)).resolves.toMatchObject({ role: 'owner' })
   })
 
+  it('can disable first-writer auto-grant for inherited policy checks', async () => {
+    const dataDir = await tempDataDir()
+    await expect(ensureWorkspacePermission({
+      sessionId: 'organization:northstar',
+      publisherId: 'stranger',
+      action: 'edit',
+      autoGrantFirstOwner: false,
+      dataDir,
+    })).rejects.toThrow(/workspace membership required/)
+  })
+
   it('requires editor-or-better for memo edits', async () => {
     const dataDir = await tempDataDir()
     await upsertWorkspaceMembership('session-1', { publisherId: 'lead', role: 'owner' }, dataDir)

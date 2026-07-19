@@ -196,6 +196,9 @@ GET /api/organizations
 POST /api/organizations
 GET /api/organizations/:id
 POST /api/organizations/:id/sessions
+GET /api/organizations/:id/members
+POST /api/organizations/:id/members
+GET /api/organizations/:id/members/audit
 ```
 
 `PATCH /api/workspace/memos/:sessionId` accepts:
@@ -294,8 +297,17 @@ memory surface.
 ```
 
 The same workspace HMAC header model protects organization writes when a workspace/API secret is
-configured. The dashboard can create a pilot/team workspace, assign the selected session, and show how
+configured. Creating a new organization makes the signed creator its first owner. Updating an existing
+organization, assigning sessions, or managing organization members requires `owner`/`admin` on that
+organization. The dashboard can create a pilot/team workspace, assign the selected session, and show how
 many saved sessions belong to each organization.
+
+Organization membership is now an inherited permission scope. When a session is assigned to an
+organization, a publisher with `owner`, `admin`, or `editor` on `organization:<organizationId>` can edit
+memo workspace state for any assigned session. `owner` and `admin` can also manage organization members
+and assign sessions. If the same publisher has an explicit session-level membership, that session role
+takes precedence, so a session-level `viewer` can intentionally narrow access even when the publisher is
+an organization-level editor.
 
 ## Execution Flow And Recovery
 

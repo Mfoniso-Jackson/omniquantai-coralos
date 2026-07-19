@@ -11,6 +11,8 @@ const roles = new Set<WorkspaceRole>(['owner', 'admin', 'editor', 'viewer'])
 const editableRoles = new Set<WorkspaceRole>(['owner', 'admin', 'editor'])
 const adminRoles = new Set<WorkspaceRole>(['owner', 'admin'])
 
+export type WorkspacePermissionAction = 'edit' | 'admin'
+
 function dataDirFromEnv(): string {
   return process.env.OMNIQUANT_DATA_DIR ?? '.omniquant-data'
 }
@@ -87,14 +89,15 @@ export async function upsertWorkspaceMembership(
 export async function ensureWorkspacePermission(input: {
   sessionId: string
   publisherId?: string
-  action: 'edit' | 'admin'
+  action: WorkspacePermissionAction
   dataDir?: string
+  autoGrantFirstOwner?: boolean
 }): Promise<WorkspaceMembershipRecord | undefined> {
   if (!input.publisherId) return undefined
   const dataDir = input.dataDir ?? dataDirFromEnv()
   const members = await listWorkspaceMemberships(input.sessionId, dataDir)
   const activeMembers = members.filter((member) => member.status === 'active')
-  if (activeMembers.length === 0 && process.env.WORKSPACE_AUTO_GRANT_FIRST_OWNER !== '0') {
+  if (activeMembers.length === 0 && input.autoGrantFirstOwner !== false && process.env.WORKSPACE_AUTO_GRANT_FIRST_OWNER !== '0') {
     return upsertWorkspaceMembership(input.sessionId, {
       publisherId: input.publisherId,
       role: 'owner',

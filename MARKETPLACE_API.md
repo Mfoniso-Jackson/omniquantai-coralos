@@ -31,6 +31,9 @@ GET /api/organizations
 POST /api/organizations
 GET /api/organizations/:id
 POST /api/organizations/:id/sessions
+GET /api/organizations/:id/members
+POST /api/organizations/:id/members
+GET /api/organizations/:id/members/audit
 ```
 
 Workspace records store reviewer assignment, analyst notes, review status, export-ready state, and
@@ -48,6 +51,7 @@ Workspace write protection:
 - dashboard workspace panel can invite/update publishers and revoke non-owner members for the selected session
 - membership audit logs record invites, promotions, demotions, revocations, and restores with actor and before/after state, and the dashboard members panel shows the latest entries
 - dashboard workspace panel can create a pilot/team organization and assign the selected session to it
+- organization memberships authorize edits across every assigned session, with explicit session membership taking precedence for tighter per-session control
 - reads remain available for history/proof views
 
 ## Developer Registry APIs
