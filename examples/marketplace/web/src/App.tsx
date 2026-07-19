@@ -30,6 +30,16 @@ const proofReleaseUrl = 'https://github.com/Mfoniso-Jackson/omniquantai-coralos/
 const proofVideoUrl = 'https://github.com/Mfoniso-Jackson/omniquantai-coralos/releases/download/proof-2026-07-16/omniquantai-data-provenance-proof.webm'
 const depositProofUrl = 'https://explorer.solana.com/tx/4YqJfxV4hWaj2VzNaCVfaDwNeU18aVrJg64borLAMfdBxxULPXD4niU234ucWe4XB5Q9F2ya536mfFss7bvshiFX?cluster=devnet'
 const releaseProofUrl = 'https://explorer.solana.com/tx/5R8QLMFdRshz7iKan11ZN4upKG7Dia5mtEAxQWqupn2j1QbBxJudCRgXqPkkTDKDeSm8gMuD1R8zVM3mVSvTBgE7?cluster=devnet'
+const workspaceStorageKey = 'omniquantai.workspace.v1'
+type ReviewStatus = 'Needs Review' | 'Approved' | 'Watchlist' | 'Rejected'
+interface WorkspaceSessionState {
+  reviewStatus: ReviewStatus
+  note: string
+  exportReady: boolean
+  updatedAt?: string
+}
+type WorkspaceStore = Record<string, WorkspaceSessionState>
+const defaultWorkspaceState: WorkspaceSessionState = { reviewStatus: 'Needs Review', note: '', exportReady: false }
 
 export default function App() {
   const [session, setSession] = useState(initialSession)
@@ -228,12 +238,36 @@ function SessionHistoryWorkspace({
   history: SessionHistoryState
   onOpenSession: (sessionId: string, namespace?: string) => void
 }) {
+  const [workspaceStore, setWorkspaceStore] = useState<WorkspaceStore>(() => loadWorkspaceStore())
   const selected = history.selected
   const latestMemo = selected ? latestMemoFor(selected) : undefined
   const latestSettlement = selected ? latestSettlementFor(selected) : undefined
   const latestRequest = selected?.requests.at(-1)
   const completedCount = history.sessions.filter((item) => item.completedAt || item.currentStage === 'released' || item.status === 'settled').length
   const memoCount = selected?.memos.length ?? 0
+  const selectedWorkspace = selected ? workspaceStore[selected.session.sessionId] ?? defaultWorkspaceState : defaultWorkspaceState
+  const reviewedCount = history.sessions.filter((item) => {
+    const state = workspaceStore[item.sessionId]
+    return state?.reviewStatus === 'Approved' || state?.reviewStatus === 'Watchlist'
+  }).length
+  const exportReadyCount = history.sessions.filter((item) => workspaceStore[item.sessionId]?.exportReady).length
+
+  function updateSelectedWorkspace(patch: Partial<WorkspaceSessionState>) {
+    if (!selected) return
+    setWorkspaceStore((current) => {
+      const next = {
+        ...current,
+        [selected.session.sessionId]: {
+          ...(current[selected.session.sessionId] ?? defaultWorkspaceState),
+          ...patch,
+          updatedAt: new Date().toISOString(),
+        },
+      }
+      saveWorkspaceStore(next)
+      return next
+    })
+  }
+
   return (
     <section className="session-workspace" id="workspace" aria-labelledby="workspace-title">
       <div className="section-heading">
@@ -250,8 +284,8 @@ function SessionHistoryWorkspace({
       <div className="workspace-metrics" aria-label="Session history metrics">
         <WorkspaceMetric label="Saved Sessions" value={String(history.sessions.length)} />
         <WorkspaceMetric label="Completed" value={String(completedCount)} />
-        <WorkspaceMetric label="Selected Memos" value={String(memoCount)} />
-        <WorkspaceMetric label="Updated" value={history.updatedAt ? formatDate(history.updatedAt) : 'never'} />
+        <WorkspaceMetric label="Reviewed" value={String(reviewedCount)} />
+        <WorkspaceMetric label="Export Ready" value={String(exportReadyCount)} />
       </div>
       {history.status === 'checking' && history.sessions.length === 0 && <HistorySkeleton />}
       {history.status === 'offline' && (
@@ -303,9 +337,49 @@ function SessionHistoryWorkspace({
                   <div><dt>Recommendation</dt><dd>{latestMemo?.recommendation ?? memoRecommendation(latestMemo) ?? 'pending'}</dd></div>
                   <div><dt>Confidence</dt><dd>{latestMemo?.confidence ?? memoConfidence(latestMemo) ?? 'unknown'}</dd></div>
                 </dl>
+                <div className="review-controls" aria-label="Memo review controls">
+                  <label>
+                    Review Status
+                    <select
+                      value={selectedWorkspace.reviewStatus}
+                      onChange={(event) => updateSelectedWorkspace({ reviewStatus: event.target.value as ReviewStatus })}
+                    >
+                      <option>Needs Review</option>
+                      <option>Approved</option>
+                      <option>Watchlist</option>
+                      <option>Rejected</option>
+                    </select>
+                  </label>
+                  <label className="export-toggle">
+                    <input
+                      type="checkbox"
+                      checked={selectedWorkspace.exportReady}
+                      onChange={(event) => updateSelectedWorkspace({ exportReady: event.target.checked })}
+                    />
+                    Mark export-ready
+                  </label>
+                  <span>{selectedWorkspace.updatedAt ? `Updated ${formatDate(selectedWorkspace.updatedAt)}` : 'No review state saved yet'}</span>
+                </div>
+                <label className="workspace-note">
+                  Analyst Notes
+                  <textarea
+                    value={selectedWorkspace.note}
+                    onChange={(event) => updateSelectedWorkspace({ note: event.target.value })}
+                    placeholder="Capture IC comments, objections, follow-up data requests, or client context."
+                    rows={4}
+                  />
+                </label>
                 <div className="saved-memo-preview">
                   <h5>{memoTitle(latestMemo)}</h5>
                   <p>{memoSummary(latestMemo)}</p>
+                </div>
+                <div className="export-card">
+                  <strong>Export State</strong>
+                  <span>
+                    {selectedWorkspace.exportReady
+                      ? 'Ready for investment committee packet export.'
+                      : 'Add review status and notes before marking this memo export-ready.'}
+                  </span>
                 </div>
                 <div className="workspace-proof-row">
                   {latestSettlement?.depositSignature && (
@@ -386,6 +460,25 @@ function memoConfidence(memo?: SavedMemoRecord): string | undefined {
 
 function explorerTx(sig: string): string {
   return `https://explorer.solana.com/tx/${sig}?cluster=devnet`
+}
+
+function loadWorkspaceStore(): WorkspaceStore {
+  try {
+    const raw = window.localStorage.getItem(workspaceStorageKey)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as WorkspaceStore
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveWorkspaceStore(store: WorkspaceStore): void {
+  try {
+    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(store))
+  } catch {
+    /* Local workspace state is helpful, not mission critical. */
+  }
 }
 
 function formatDate(value: string): string {
