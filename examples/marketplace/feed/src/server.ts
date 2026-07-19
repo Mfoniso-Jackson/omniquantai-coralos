@@ -25,7 +25,13 @@ import { persistMarketplaceData } from './data/persistence.js'
 import { getPersistedStartMarketJob } from './data/jobStore.js'
 import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, getSettlement, listAgents, listMarkets } from './data/history.js'
 import { getMemoWorkspace, listMemoWorkspaces, upsertMemoWorkspace, type WorkspacePatch } from './data/workspaceStore.js'
-import { ensureWorkspacePermission, listWorkspaceMemberships, upsertWorkspaceMembership, type MembershipPatch } from './data/workspaceMembershipStore.js'
+import {
+  ensureWorkspacePermission,
+  listWorkspaceMembershipAudit,
+  listWorkspaceMemberships,
+  upsertWorkspaceMembership,
+  type MembershipPatch,
+} from './data/workspaceMembershipStore.js'
 import {
   discoverRegisteredAgents,
   getRegisteredAgent,
@@ -238,6 +244,7 @@ app.patch('/api/workspace/memos/:sessionId', updateMemoWorkspace)
 app.post('/api/workspace/memos/:sessionId/export', recordMemoExport)
 app.get('/api/workspace/memos/:sessionId/members', listMemoWorkspaceMembers)
 app.post('/api/workspace/memos/:sessionId/members', upsertMemoWorkspaceMember)
+app.get('/api/workspace/memos/:sessionId/members/audit', listMemoWorkspaceMemberAudit)
 
 app.get('/v1/workspace/memos', async (_req, res) => {
   res.json({ workspaces: await listMemoWorkspaces() })
@@ -251,6 +258,7 @@ app.patch('/v1/workspace/memos/:sessionId', updateMemoWorkspace)
 app.post('/v1/workspace/memos/:sessionId/export', recordMemoExport)
 app.get('/v1/workspace/memos/:sessionId/members', listMemoWorkspaceMembers)
 app.post('/v1/workspace/memos/:sessionId/members', upsertMemoWorkspaceMember)
+app.get('/v1/workspace/memos/:sessionId/members/audit', listMemoWorkspaceMemberAudit)
 
 app.get('/v1/markets/:id/stream', marketStreamResponse)
 
@@ -467,6 +475,10 @@ function workspacePatchFromBody(body: unknown): WorkspacePatch {
 
 async function listMemoWorkspaceMembers(req: Request, res: Response) {
   res.json({ members: await listWorkspaceMemberships(req.params.sessionId) })
+}
+
+async function listMemoWorkspaceMemberAudit(req: Request, res: Response) {
+  res.json({ audit: await listWorkspaceMembershipAudit(req.params.sessionId) })
 }
 
 async function upsertMemoWorkspaceMember(req: Request, res: Response) {

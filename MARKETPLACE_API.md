@@ -26,6 +26,7 @@ PATCH /api/workspace/memos/:sessionId
 POST /api/workspace/memos/:sessionId/export
 GET /api/workspace/memos/:sessionId/members
 POST /api/workspace/memos/:sessionId/members
+GET /api/workspace/memos/:sessionId/members/audit
 ```
 
 Workspace records store reviewer assignment, analyst notes, review status, export-ready state, and
@@ -39,6 +40,7 @@ Workspace write protection:
 - roles: `owner`/`admin` can manage members; `owner`/`admin`/`editor` can edit memo workspace state; `viewer` is read-only
 - first signed writer auto-becomes `owner` for a new workspace unless `WORKSPACE_AUTO_GRANT_FIRST_OWNER=0`
 - dashboard workspace panel can invite/update publishers and revoke non-owner members for the selected session
+- membership audit logs record invites, promotions, demotions, revocations, and restores with actor and before/after state
 - reads remain available for history/proof views
 
 ## Developer Registry APIs

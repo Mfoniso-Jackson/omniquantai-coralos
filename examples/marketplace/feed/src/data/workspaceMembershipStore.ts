@@ -1,6 +1,11 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { WorkspaceMembershipRecord, WorkspaceRole } from './models.js'
+import type {
+  WorkspaceMembershipAuditAction,
+  WorkspaceMembershipAuditRecord,
+  WorkspaceMembershipRecord,
+  WorkspaceRole,
+} from './models.js'
 
 const roles = new Set<WorkspaceRole>(['owner', 'admin', 'editor', 'viewer'])
 const editableRoles = new Set<WorkspaceRole>(['owner', 'admin', 'editor'])
@@ -27,6 +32,13 @@ export async function listWorkspaceMemberships(sessionId: string, dataDir = data
   ).sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.publisherId.localeCompare(b.publisherId))
 }
 
+export async function listWorkspaceMembershipAudit(sessionId: string, dataDir = dataDirFromEnv()): Promise<WorkspaceMembershipAuditRecord[]> {
+  const records = await readJsonl<WorkspaceMembershipAuditRecord>(dataDir, 'workspace_membership_audit')
+  return records
+    .filter((record) => record.sessionId === sessionId)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+}
+
 export async function getWorkspaceMembership(
   sessionId: string,
   publisherId: string,
@@ -36,6 +48,15 @@ export async function getWorkspaceMembership(
     .find((record) => record.publisherId === publisherId && record.status === 'active')
 }
 
+async function getLatestWorkspaceMembership(
+  sessionId: string,
+  publisherId: string,
+  dataDir = dataDirFromEnv(),
+): Promise<WorkspaceMembershipRecord | undefined> {
+  return (await listWorkspaceMemberships(sessionId, dataDir))
+    .find((record) => record.publisherId === publisherId)
+}
+
 export async function upsertWorkspaceMembership(
   sessionId: string,
   patch: MembershipPatch,
@@ -43,7 +64,7 @@ export async function upsertWorkspaceMembership(
 ): Promise<WorkspaceMembershipRecord> {
   validateMembershipPatch(patch)
   const now = new Date().toISOString()
-  const current = await getWorkspaceMembership(sessionId, patch.publisherId, dataDir)
+  const current = await getLatestWorkspaceMembership(sessionId, patch.publisherId, dataDir)
   const next: WorkspaceMembershipRecord = {
     id: current?.id ?? `${sessionId}:member:${patch.publisherId}`,
     sessionId,
@@ -58,6 +79,7 @@ export async function upsertWorkspaceMembership(
   if (process.env.OMNIQUANT_PERSIST !== '0') {
     await mkdir(dataDir, { recursive: true })
     await appendFile(join(dataDir, 'workspace_memberships.jsonl'), `${JSON.stringify(next)}\n`, 'utf8')
+    await appendFile(join(dataDir, 'workspace_membership_audit.jsonl'), `${JSON.stringify(auditRecord(sessionId, current, next, now))}\n`, 'utf8')
   }
   return next
 }
@@ -118,4 +140,37 @@ function cleanOptional(value: unknown): string | undefined {
 
 function roleRank(role: WorkspaceRole): number {
   return role === 'owner' ? 0 : role === 'admin' ? 1 : role === 'editor' ? 2 : 3
+}
+
+function auditRecord(
+  sessionId: string,
+  current: WorkspaceMembershipRecord | undefined,
+  next: WorkspaceMembershipRecord,
+  timestamp: string,
+): WorkspaceMembershipAuditRecord {
+  return {
+    id: `${sessionId}:membership-audit:${next.publisherId}:${timestamp}`,
+    sessionId,
+    publisherId: next.publisherId,
+    action: auditAction(current, next),
+    fromRole: current?.role,
+    toRole: next.role,
+    fromStatus: current?.status,
+    toStatus: next.status,
+    actor: next.grantedBy,
+    displayName: next.displayName,
+    timestamp,
+  }
+}
+
+function auditAction(current: WorkspaceMembershipRecord | undefined, next: WorkspaceMembershipRecord): WorkspaceMembershipAuditAction {
+  if (!current) return 'invited'
+  if (current.status === 'revoked' && next.status === 'active') return 'restored'
+  if (next.status === 'revoked' && current.status !== 'revoked') return 'revoked'
+  if (current.role === next.role) return 'role_changed'
+  const currentRank = roleRank(current.role)
+  const nextRank = roleRank(next.role)
+  if (nextRank < currentRank) return 'promoted'
+  if (nextRank > currentRank) return 'demoted'
+  return 'role_changed'
 }

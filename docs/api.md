@@ -191,6 +191,7 @@ PATCH /api/workspace/memos/:sessionId
 POST /api/workspace/memos/:sessionId/export
 GET /api/workspace/memos/:sessionId/members
 POST /api/workspace/memos/:sessionId/members
+GET /api/workspace/memos/:sessionId/members/audit
 ```
 
 `PATCH /api/workspace/memos/:sessionId` accepts:
@@ -262,6 +263,8 @@ The first signed writer for a new workspace is auto-granted `owner` unless
 
 The dashboard Saved Memo Workspace includes a compact members panel for team pilots. Owners/admins can
 invite a publisher, change roles, or revoke non-owner members from the selected session workspace.
+Every membership write appends an immutable audit record with actor, previous role/status, next
+role/status, and action (`invited`, `promoted`, `demoted`, `revoked`, or `restored`).
 
 ## Execution Flow And Recovery
 

@@ -191,6 +191,22 @@ export interface WorkspaceMembershipRecord {
   updatedAt: string
 }
 
+export type WorkspaceMembershipAuditAction = 'invited' | 'promoted' | 'demoted' | 'role_changed' | 'revoked' | 'restored'
+
+export interface WorkspaceMembershipAuditRecord {
+  id: string
+  sessionId: string
+  publisherId: string
+  action: WorkspaceMembershipAuditAction
+  fromRole?: WorkspaceRole
+  toRole?: WorkspaceRole
+  fromStatus?: 'active' | 'revoked'
+  toStatus: 'active' | 'revoked'
+  actor?: string
+  displayName?: string
+  timestamp: string
+}
+
 export interface AgentProfileRecord {
   id: string
   agentId: string

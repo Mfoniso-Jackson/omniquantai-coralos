@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   ensureWorkspacePermission,
   getWorkspaceMembership,
+  listWorkspaceMembershipAudit,
   listWorkspaceMemberships,
   upsertWorkspaceMembership,
 } from './workspaceMembershipStore.js'
@@ -43,6 +44,29 @@ describe('workspaceMembershipStore', () => {
     const members = await listWorkspaceMemberships('session-1', dataDir)
     expect(members).toHaveLength(1)
     expect(members[0]).toMatchObject({ publisherId: 'analyst', role: 'editor', grantedBy: 'lead' })
+  })
+
+  it('records immutable audit history for membership changes', async () => {
+    const dataDir = await tempDataDir()
+    await upsertWorkspaceMembership('session-1', { publisherId: 'analyst', role: 'viewer', grantedBy: 'lead' }, dataDir)
+    await upsertWorkspaceMembership('session-1', { publisherId: 'analyst', role: 'editor', grantedBy: 'lead' }, dataDir)
+    await upsertWorkspaceMembership('session-1', { publisherId: 'analyst', role: 'viewer', grantedBy: 'lead' }, dataDir)
+    await upsertWorkspaceMembership('session-1', { publisherId: 'analyst', role: 'viewer', status: 'revoked', grantedBy: 'lead' }, dataDir)
+    await upsertWorkspaceMembership('session-1', { publisherId: 'analyst', role: 'viewer', status: 'active', grantedBy: 'lead' }, dataDir)
+
+    const audit = await listWorkspaceMembershipAudit('session-1', dataDir)
+    expect(audit.map((record) => record.action).sort()).toEqual([
+      'demoted',
+      'invited',
+      'promoted',
+      'restored',
+      'revoked',
+    ])
+    expect(audit.find((record) => record.action === 'promoted')).toMatchObject({
+      fromRole: 'viewer',
+      toRole: 'editor',
+      actor: 'lead',
+    })
   })
 })
 
