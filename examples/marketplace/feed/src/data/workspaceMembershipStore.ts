@@ -6,7 +6,7 @@ import type {
   WorkspaceMembershipRecord,
   WorkspaceRole,
 } from './models.js'
-import { mirrorCollectionRecord } from './supabasePersistence.js'
+import { mirrorCollectionRecord, readCollectionRecord } from './supabasePersistence.js'
 
 const roles = new Set<WorkspaceRole>(['owner', 'admin', 'editor', 'viewer'])
 const editableRoles = new Set<WorkspaceRole>(['owner', 'admin', 'editor'])
@@ -27,7 +27,7 @@ export interface MembershipPatch {
 }
 
 export async function listWorkspaceMemberships(sessionId: string, dataDir = dataDirFromEnv()): Promise<WorkspaceMembershipRecord[]> {
-  const records = await readJsonl<WorkspaceMembershipRecord>(dataDir, 'workspace_memberships')
+  const records = await readRecords<WorkspaceMembershipRecord>(dataDir, 'workspace_memberships', { column: 'workspace_scope', value: sessionId })
   return latestBy(
     records.filter((record) => record.sessionId === sessionId),
     (record) => `${record.sessionId}:${record.publisherId}`,
@@ -36,7 +36,7 @@ export async function listWorkspaceMemberships(sessionId: string, dataDir = data
 }
 
 export async function listWorkspaceMembershipAudit(sessionId: string, dataDir = dataDirFromEnv()): Promise<WorkspaceMembershipAuditRecord[]> {
-  const records = await readJsonl<WorkspaceMembershipAuditRecord>(dataDir, 'workspace_membership_audit')
+  const records = await readRecords<WorkspaceMembershipAuditRecord>(dataDir, 'workspace_membership_audit', { column: 'workspace_scope', value: sessionId })
   return records
     .filter((record) => record.sessionId === sessionId)
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
@@ -129,6 +129,16 @@ async function readJsonl<T>(dataDir: string, collection: string): Promise<T[]> {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
   }
+}
+
+async function readRecords<T>(dataDir: string, collection: string, filter: { column: string; value: string }): Promise<T[]> {
+  try {
+    const records = await readCollectionRecord<T>(collection, filter.column, filter.value)
+    if (records) return records
+  } catch (error) {
+    console.error(`[feed] supabase read failed collection=${collection}: ${(error as Error).message}; falling back to JSONL`)
+  }
+  return readJsonl<T>(dataDir, collection)
 }
 
 function latestBy<T>(items: T[], keyFn: (item: T) => string, timeFn: (item: T) => string | undefined): T[] {

@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { OrganizationSessionRecord, OrganizationWorkspaceRecord } from './models.js'
-import { mirrorCollectionRecord } from './supabasePersistence.js'
+import { mirrorCollectionRecord, readCollectionRecord, readCollectionRecords } from './supabasePersistence.js'
 
 function dataDirFromEnv(): string {
   return process.env.OMNIQUANT_DATA_DIR ?? '.omniquant-data'
@@ -16,7 +16,7 @@ export interface OrganizationPatch {
 }
 
 export async function listOrganizations(dataDir = dataDirFromEnv()): Promise<OrganizationWorkspaceRecord[]> {
-  const records = await readJsonl<OrganizationWorkspaceRecord>(dataDir, 'organization_workspaces')
+  const records = await readRecords<OrganizationWorkspaceRecord>(dataDir, 'organization_workspaces')
   return latestBy(records, (record) => record.id, (record) => record.updatedAt)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
@@ -75,7 +75,7 @@ export async function assignSessionToOrganization(input: {
 export async function listOrganizationSessions(organizationId: string, dataDir = dataDirFromEnv()): Promise<OrganizationSessionRecord[]> {
   const organization = await getOrganization(organizationId, dataDir)
   if (!organization) return []
-  const records = await readJsonl<OrganizationSessionRecord>(dataDir, 'organization_sessions')
+  const records = await readRecords<OrganizationSessionRecord>(dataDir, 'organization_sessions', { column: 'organization_id', value: organization.id })
   return latestBy(
     records.filter((record) => record.organizationId === organization.id),
     (record) => record.sessionId,
@@ -84,7 +84,7 @@ export async function listOrganizationSessions(organizationId: string, dataDir =
 }
 
 export async function listOrganizationAssignments(dataDir = dataDirFromEnv()): Promise<OrganizationSessionRecord[]> {
-  const records = await readJsonl<OrganizationSessionRecord>(dataDir, 'organization_sessions')
+  const records = await readRecords<OrganizationSessionRecord>(dataDir, 'organization_sessions')
   return latestBy(records, (record) => record.sessionId, (record) => record.updatedAt)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
@@ -108,6 +108,18 @@ async function readJsonl<T>(dataDir: string, collection: string): Promise<T[]> {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
   }
+}
+
+async function readRecords<T>(dataDir: string, collection: string, filter?: { column: string; value: string }): Promise<T[]> {
+  try {
+    const records = filter
+      ? await readCollectionRecord<T>(collection, filter.column, filter.value)
+      : await readCollectionRecords<T>(collection)
+    if (records) return records
+  } catch (error) {
+    console.error(`[feed] supabase read failed collection=${collection}: ${(error as Error).message}; falling back to JSONL`)
+  }
+  return readJsonl<T>(dataDir, collection)
 }
 
 function latestBy<T>(items: T[], keyFn: (item: T) => string, timeFn: (item: T) => string | undefined): T[] {

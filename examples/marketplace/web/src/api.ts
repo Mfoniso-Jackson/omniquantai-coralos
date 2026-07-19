@@ -722,7 +722,16 @@ export interface StartMarketOptions {
 export async function startMarket(options: StartMarketOptions = {}): Promise<{ session: string; namespace?: string }> {
   try {
     if (LIVE_API_MODE) return startMarketViaJob(options)
-    const r = await fetch(`${FEED_URL}/api/start`, { method: 'POST' })
+    const path = '/api/start'
+    const requestBody = JSON.stringify({
+      organizationId: options.organizationId,
+    })
+    const signedHeaders = await signedWorkspaceHeaders('POST', path, requestBody)
+    const r = await fetch(`${FEED_URL}/api/start`, {
+      method: 'POST',
+      headers: { ...signedHeaders, 'content-type': 'application/json' },
+      body: requestBody,
+    })
     const body = (await r.json().catch(() => ({}))) as { session?: string; namespace?: string; error?: string; log?: string }
     if (!r.ok || !body.session) {
       const detail = [body.error ?? `start failed (${r.status})`, body.log].filter(Boolean).join(': ')
@@ -757,18 +766,22 @@ interface MarketJobResponse {
 
 async function startMarketViaJob(options: StartMarketOptions): Promise<{ session: string; namespace?: string }> {
   const idempotencyKey = `dashboard-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const path = '/v1/markets'
+  const requestBody = JSON.stringify({
+    namespace: 'omniquant',
+    request: 'Should our fund increase exposure to Nvidia over the next 3-6 months?',
+    asset: 'NVDA',
+    organizationId: options.organizationId,
+  })
+  const signedHeaders = await signedWorkspaceHeaders('POST', path, requestBody)
   const r = await fetch(`${FEED_URL}/v1/markets`, {
     method: 'POST',
     headers: {
+      ...signedHeaders,
       'content-type': 'application/json',
       'Idempotency-Key': idempotencyKey,
     },
-    body: JSON.stringify({
-      namespace: 'omniquant',
-      request: 'Should our fund increase exposure to Nvidia over the next 3-6 months?',
-      asset: 'NVDA',
-      organizationId: options.organizationId,
-    }),
+    body: requestBody,
   })
   const body = (await r.json().catch(() => ({}))) as MarketJobResponse
   if (!r.ok || !body.jobId) throw new Error(body.message ?? body.error ?? `market job enqueue failed (${r.status})`)

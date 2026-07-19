@@ -1,4 +1,5 @@
 import { launchMarketSession } from './marketLauncher.js'
+import { assignSessionToOrganization } from './data/organizationStore.js'
 import {
   deadLetterStartMarketJob,
   requeueStartMarketJob,
@@ -47,6 +48,13 @@ async function runJob(job: StartMarketJob): Promise<void> {
       timeoutMs: LAUNCH_TIMEOUT_MS,
       env: { ...process.env, CORAL_NAMESPACE: job.namespace || NS },
     })
+    if (job.organizationId) {
+      await assignSessionToOrganization({
+        organizationId: job.organizationId,
+        sessionId: result.session,
+        assignedBy: job.assignedBy ?? 'system:start-market-worker',
+      })
+    }
     await setJob({
       ...running,
       status: 'completed',

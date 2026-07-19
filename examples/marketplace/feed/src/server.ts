@@ -21,6 +21,7 @@ import { spawn } from 'node:child_process'
 import { foldRounds } from './foldRounds.js'
 import { collectMessages } from './coralState.js'
 import type { RawMessage, Round } from './foldRounds.js'
+import type { MemoReviewStatus, SettlementRecord } from './data/models.js'
 import { persistMarketplaceData } from './data/persistence.js'
 import { getPersistedStartMarketJob } from './data/jobStore.js'
 import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, getSettlement, listAgents, listMarkets } from './data/history.js'
@@ -242,6 +243,7 @@ app.get('/api/organizations/:id', async (req, res) => {
   res.json({ organization, sessions: await listOrganizationSessions(req.params.id) })
 })
 
+app.get('/api/organizations/:id/dashboard', organizationDashboard)
 app.post('/api/organizations/:id/sessions', assignOrganizationSession)
 app.get('/api/organizations/:id/members', listOrganizationMembers)
 app.post('/api/organizations/:id/members', upsertOrganizationMember)
@@ -265,6 +267,7 @@ app.get('/v1/organizations/:id', async (req, res) => {
   res.json({ organization, sessions: await listOrganizationSessions(req.params.id) })
 })
 
+app.get('/v1/organizations/:id/dashboard', organizationDashboard)
 app.post('/v1/organizations/:id/sessions', assignOrganizationSession)
 app.get('/v1/organizations/:id/members', listOrganizationMembers)
 app.post('/v1/organizations/:id/members', upsertOrganizationMember)
@@ -396,6 +399,9 @@ app.get('/api/graph/session/:id', async (req, res) => {
 /** Operator trigger: launch a market session synchronously for local/Codespaces demo mode. */
 async function startSession(_req: Request, res: Response) {
   try {
+    const body = _req.body && typeof _req.body === 'object' ? _req.body as { organizationId?: unknown } : {}
+    const organizationId = typeof body.organizationId === 'string' && body.organizationId.trim() ? body.organizationId.trim() : undefined
+    const publisherId = organizationId ? await authorizeMarketOrganization(_req, organizationId) : undefined
     const result = await launchMarketSession({
       namespace: NS,
       timeoutMs: Math.max(60_000, START_READY_RETRIES * START_READY_RETRY_MS + 10_000),
@@ -405,6 +411,13 @@ async function startSession(_req: Request, res: Response) {
         console.error(`[feed] launched market session ${session} namespace=${namespace}`)
       },
     })
+    if (organizationId) {
+      await assignSessionToOrganization({
+        organizationId,
+        sessionId: result.session,
+        assignedBy: publisherId ?? 'system:start-market-api',
+      })
+    }
     res.status(200).json({ session: result.session, namespace: result.namespace })
     void waitForWant(result.session, result.namespace)
       .catch(async (error) => {
@@ -430,11 +443,15 @@ async function enqueueMarketSession(req: Request, res: Response) {
   }
   try {
     const namespace = typeof req.body?.namespace === 'string' ? req.body.namespace : NS
+    const organizationId = typeof req.body?.organizationId === 'string' && req.body.organizationId.trim() ? req.body.organizationId.trim() : undefined
+    const publisherId = organizationId ? await authorizeMarketOrganization(req, organizationId) : undefined
     const idempotencyKey = idempotencyKeyFromRequest(req)
     const { job, existing } = await enqueueStartMarketJob({
       namespace,
       request: req.body && typeof req.body === 'object' ? req.body as Record<string, unknown> : {},
       idempotencyKey,
+      organizationId,
+      assignedBy: publisherId,
     })
     res.status(202).json({
       jobId: job.id,
@@ -445,11 +462,21 @@ async function enqueueMarketSession(req: Request, res: Response) {
       session: job.session,
       attempts: job.attempts,
       maxAttempts: job.maxAttempts,
+      organizationId: job.organizationId,
       idempotent: existing,
     })
   } catch (error) {
     res.status(502).json({ error: `market enqueue failed: ${(error as Error).message}` })
   }
+}
+
+async function authorizeMarketOrganization(req: Request, organizationId: string): Promise<string | undefined> {
+  const organization = await getOrganization(organizationId)
+  if (!organization) throw new Error(`organization not found: ${organizationId}`)
+  if (process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN) {
+    return requireOrganizationPermission(req, organization.id, 'admin')
+  }
+  return verifyWorkspaceWriter(req)
 }
 
 function idempotencyKeyFromRequest(req: Request): string | undefined {
@@ -526,6 +553,86 @@ async function listOrganizationMemberAudit(req: Request, res: Response) {
   const organization = await getOrganization(req.params.id)
   if (!organization) return res.status(404).json({ error: 'organization not found', organizationId: req.params.id })
   res.json({ audit: await listWorkspaceMembershipAudit(organizationScope(organization.id)) })
+}
+
+async function organizationDashboard(req: Request, res: Response) {
+  const organization = await getOrganization(req.params.id)
+  if (!organization) return res.status(404).json({ error: 'organization not found', organizationId: req.params.id })
+  const [assignments, allWorkspaces, members, audit] = await Promise.all([
+    listOrganizationSessions(organization.id),
+    listMemoWorkspaces(),
+    listWorkspaceMemberships(organizationScope(organization.id)),
+    listWorkspaceMembershipAudit(organizationScope(organization.id)),
+  ])
+  const sessionIds = new Set(assignments.map((assignment) => assignment.sessionId))
+  const workspaces = allWorkspaces.filter((workspace) => sessionIds.has(workspace.sessionId))
+  const markets = (await Promise.all(assignments.map((assignment) => getMarket(assignment.sessionId))))
+    .filter((market): market is NonNullable<Awaited<ReturnType<typeof getMarket>>> => Boolean(market))
+    .sort((a, b) => b.session.updatedAt.localeCompare(a.session.updatedAt))
+  const statusCounts = memoStatusCounts(workspaces)
+  const reviewers = [...new Set(workspaces.map((workspace) => workspace.reviewer).filter((reviewer): reviewer is string => Boolean(reviewer)))]
+    .sort((a, b) => a.localeCompare(b))
+  const exportReadyMemos = workspaces
+    .filter((workspace) => workspace.exportReady)
+    .map((workspace) => ({
+      sessionId: workspace.sessionId,
+      memoId: workspace.memoId,
+      reviewStatus: workspace.reviewStatus,
+      reviewer: workspace.reviewer,
+      updatedAt: workspace.updatedAt,
+      exportCount: workspace.exportHistory.length,
+    }))
+  const settlementProof = markets.map((market) => {
+    const settlement = latestSettlement(market.settlements)
+    return {
+      sessionId: market.session.sessionId,
+      status: settlement?.status ?? market.session.settlementStatus ?? 'not_started',
+      reference: settlement?.reference,
+      depositSignature: settlement?.depositSignature,
+      releaseSignature: settlement?.releaseSignature,
+      depositExplorerUrl: settlement?.depositSignature ? solanaExplorerTx(settlement.depositSignature) : undefined,
+      releaseExplorerUrl: settlement?.releaseSignature ? solanaExplorerTx(settlement.releaseSignature) : undefined,
+      timestamp: settlement?.timestamp ?? market.session.updatedAt,
+    }
+  })
+  res.json({
+    organization,
+    summary: {
+      sessions: markets.length,
+      memos: workspaces.length,
+      exportReady: exportReadyMemos.length,
+      members: members.filter((member) => member.status === 'active').length,
+      settlementProof: settlementProof.filter((proof) => proof.depositSignature || proof.releaseSignature).length,
+    },
+    sessions: markets.map((market) => market.session),
+    assignments,
+    memoStatusCounts: statusCounts,
+    reviewers,
+    exportReadyMemos,
+    settlementProof,
+    members,
+    audit,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+function memoStatusCounts(workspaces: { reviewStatus: MemoReviewStatus }[]): Record<MemoReviewStatus, number> {
+  const counts: Record<MemoReviewStatus, number> = {
+    'Needs Review': 0,
+    Approved: 0,
+    Watchlist: 0,
+    Rejected: 0,
+  }
+  for (const workspace of workspaces) counts[workspace.reviewStatus] += 1
+  return counts
+}
+
+function latestSettlement(settlements: SettlementRecord[]): SettlementRecord | undefined {
+  return [...settlements].sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0]
+}
+
+function solanaExplorerTx(signature: string): string {
+  return `https://explorer.solana.com/tx/${encodeURIComponent(signature)}?cluster=devnet`
 }
 
 async function upsertOrganizationMember(req: Request, res: Response) {

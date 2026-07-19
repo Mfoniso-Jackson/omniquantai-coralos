@@ -15,26 +15,27 @@ import type {
 } from './models.js'
 import { getMemoWorkspace } from './workspaceStore.js'
 import { getOrganization, getSessionOrganization } from './organizationStore.js'
+import { readCollectionRecord, readCollectionRecords } from './supabasePersistence.js'
 
 export function dataDirFromEnv(): string {
   return process.env.OMNIQUANT_DATA_DIR ?? '.omniquant-data'
 }
 
 export async function listMarkets(dataDir = dataDirFromEnv()): Promise<MarketSessionRecord[]> {
-  const sessions = await readJsonl<MarketSessionRecord>(dataDir, 'market_sessions')
+  const sessions = await readRecords<MarketSessionRecord>(dataDir, 'market_sessions')
   return latestBy(sessions, (session) => session.sessionId, (session) => session.updatedAt)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 export async function getMarket(sessionId: string, dataDir = dataDirFromEnv()) {
   const [sessions, requests, bids, winners, memos, settlements, events, workspace, organizationAssignment] = await Promise.all([
-    readJsonl<MarketSessionRecord>(dataDir, 'market_sessions'),
-    readJsonl<ResearchRequestRecord>(dataDir, 'research_requests'),
-    readJsonl<AgentBidRecord>(dataDir, 'agent_bids'),
+    readRecords<MarketSessionRecord>(dataDir, 'market_sessions', { column: 'session_id', value: sessionId }),
+    readRecords<ResearchRequestRecord>(dataDir, 'research_requests', { column: 'session_id', value: sessionId }),
+    readRecords<AgentBidRecord>(dataDir, 'agent_bids', { column: 'session_id', value: sessionId }),
     readJsonl<WinnerRecord>(dataDir, 'winners'),
-    readJsonl<InvestmentMemoRecord>(dataDir, 'investment_memos'),
-    readJsonl<SettlementRecord>(dataDir, 'settlements'),
-    readJsonl<MarketEventRecord>(dataDir, 'market_events'),
+    readRecords<InvestmentMemoRecord>(dataDir, 'investment_memos', { column: 'session_id', value: sessionId }),
+    readRecords<SettlementRecord>(dataDir, 'settlements', { column: 'session_id', value: sessionId }),
+    readRecords<MarketEventRecord>(dataDir, 'market_events', { column: 'session_id', value: sessionId }),
     getMemoWorkspace(sessionId, dataDir),
     getSessionOrganization(sessionId, dataDir),
   ])
@@ -85,12 +86,12 @@ export async function getAgent(agentId: string, dataDir = dataDirFromEnv()) {
 }
 
 export async function getMemo(memoId: string, dataDir = dataDirFromEnv()): Promise<InvestmentMemoRecord | undefined> {
-  const memos = await readJsonl<InvestmentMemoRecord>(dataDir, 'investment_memos')
+  const memos = await readRecords<InvestmentMemoRecord>(dataDir, 'investment_memos')
   return memos.find((memo) => memo.id === memoId || memo.memoId === memoId)
 }
 
 export async function getSettlement(settlementId: string, dataDir = dataDirFromEnv()): Promise<SettlementRecord | undefined> {
-  const settlements = await readJsonl<SettlementRecord>(dataDir, 'settlements')
+  const settlements = await readRecords<SettlementRecord>(dataDir, 'settlements')
   return settlements.find((settlement) => settlement.id === settlementId || settlement.sessionId === settlementId || settlement.reference === settlementId)
 }
 
@@ -119,6 +120,18 @@ async function readJsonl<T>(dataDir: string, collection: string): Promise<T[]> {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
   }
+}
+
+async function readRecords<T>(dataDir: string, collection: string, filter?: { column: string; value: string }): Promise<T[]> {
+  try {
+    const records = filter
+      ? await readCollectionRecord<T>(collection, filter.column, filter.value)
+      : await readCollectionRecords<T>(collection)
+    if (records) return records as T[]
+  } catch (error) {
+    console.error(`[feed] supabase read failed collection=${collection}: ${(error as Error).message}; falling back to JSONL`)
+  }
+  return readJsonl<T>(dataDir, collection)
 }
 
 function latestBy<T>(items: T[], keyFn: (item: T) => string, timeFn: (item: T) => string | undefined): T[] {

@@ -59,8 +59,10 @@ Response:
 The endpoint returns after CoralOS creates the session. The dashboard then polls the feed while the buyer publishes `WANT` and sellers respond.
 
 The dashboard Start Market form is workspace-first. A user selects an existing pilot/team workspace or
-creates a new one before launching. After the session is created, the dashboard automatically calls
-`POST /api/organizations/:id/sessions`, so the new memo lands in that customer/team context.
+creates a new one before launching. `POST /api/start` and `POST /v1/markets` accept `organizationId`;
+the API/worker assigns the created session to that organization as soon as a real session ID exists.
+The dashboard still refreshes organization state after launch, but the assignment no longer depends on
+the browser staying open.
 
 ## Session Snapshot
 
@@ -199,6 +201,7 @@ GET /api/workspace/memos/:sessionId/members/audit
 GET /api/organizations
 POST /api/organizations
 GET /api/organizations/:id
+GET /api/organizations/:id/dashboard
 POST /api/organizations/:id/sessions
 GET /api/organizations/:id/members
 POST /api/organizations/:id/members
@@ -320,6 +323,32 @@ organization access audit events without calling the API manually.
 The same panel includes a saved Pilot Workspace view with all assigned sessions, memo review status
 counts, reviewers, export-ready memo counts, settlement-proof readiness, and organization access
 activity.
+
+`GET /api/organizations/:id/dashboard` returns the same pilot workspace projection from the backend:
+assigned sessions, memo status counts, reviewers, export-ready memos, settlement proof rows, members,
+and access audit activity. Use this endpoint for paid-pilot dashboards instead of recomputing the whole
+organization workspace in the browser.
+
+## Persistence Reads
+
+When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured, core read APIs prefer Supabase and
+fall back to JSONL if Supabase is unavailable:
+
+```http
+GET /api/markets
+GET /api/markets/:id
+GET /api/workspace/memos
+GET /api/workspace/memos/:sessionId
+GET /api/workspace/memos/:sessionId/members
+GET /api/workspace/memos/:sessionId/members/audit
+GET /api/organizations
+GET /api/organizations/:id
+GET /api/organizations/:id/dashboard
+GET /api/organizations/:id/members
+GET /api/organizations/:id/members/audit
+```
+
+Run `docs/supabase_migration.sql` in Supabase before enabling those credentials.
 
 ## Execution Flow And Recovery
 

@@ -40,7 +40,8 @@ flowchart TD
 - Redis queue and async worker are documented but not yet wired.
 - Supabase mirroring is implemented behind `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for market
   records, memo workspaces, memberships/audit, organizations, and organization-session assignments.
-  JSONL remains the local fallback and read APIs still read from the file projection.
+  Read APIs prefer Supabase when credentials are configured and fall back to JSONL when Supabase is
+  unavailable.
 - CoralOS requires Docker and should not run on Vercel.
 - Arbiter settlement mode has a known `NotArbiter` posture issue; direct devnet escrow is the reliable proof lane.
 - Object storage for memo/proof artifacts is not wired.
@@ -89,7 +90,9 @@ Current:
 
 - local proof runs write JSONL under `OMNIQUANT_DATA_DIR`
 - when Supabase server credentials are configured, the API mirrors supported records to Supabase REST
+- core read APIs prefer Supabase when credentials are configured and fall back to JSONL on failure
 - Supabase mirror failures are logged and do not break local demo reliability unless `SUPABASE_STRICT=1`
+- the SQL schema lives in `docs/supabase_migration.sql`
 
 Supported mirrored collections:
 
@@ -105,7 +108,6 @@ Supported mirrored collections:
 
 Next:
 
-- move read APIs from JSONL to Supabase when `DATABASE_URL` or Supabase credentials are configured
 - add settlement reconciliation jobs in the worker
 - store large memo/proof artifacts in object storage and persist their object URIs
 

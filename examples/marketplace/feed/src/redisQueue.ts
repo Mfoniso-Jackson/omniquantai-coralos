@@ -14,6 +14,8 @@ export interface StartMarketJob {
   attempts: number
   maxAttempts: number
   idempotencyKey?: string
+  organizationId?: string
+  assignedBy?: string
   retryAt?: string
   deadLetteredAt?: string
   session?: string
@@ -34,6 +36,8 @@ export async function enqueueStartMarketJob(input: {
   namespace: string
   request: Record<string, unknown>
   idempotencyKey?: string
+  organizationId?: string
+  assignedBy?: string
 }): Promise<{ job: StartMarketJob; existing: boolean }> {
   if (input.idempotencyKey) {
     const existingId = await getJobIdForIdempotencyKey(input.idempotencyKey)
@@ -54,6 +58,8 @@ export async function enqueueStartMarketJob(input: {
     attempts: 0,
     maxAttempts: Number.isFinite(DEFAULT_MAX_ATTEMPTS) && DEFAULT_MAX_ATTEMPTS > 0 ? DEFAULT_MAX_ATTEMPTS : 3,
     idempotencyKey: input.idempotencyKey,
+    organizationId: input.organizationId,
+    assignedBy: input.assignedBy,
   }
   if (input.idempotencyKey) await setIdempotencyKey(input.idempotencyKey, job.id)
   await setJob(job)

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mirrorCollectionRecord, targetFor } from './supabasePersistence.js'
+import { mirrorCollectionRecord, readCollectionRecord, readCollectionRecords, targetFor } from './supabasePersistence.js'
 import type {
   AgentBidRecord,
   MarketSessionRecord,
@@ -169,6 +169,71 @@ describe('supabasePersistence', () => {
         publisher_id: 'analyst',
         role: 'editor',
       },
+    })
+  })
+
+  it('reads Supabase market rows back into API model records', async () => {
+    process.env.SUPABASE_URL = 'https://example.supabase.co'
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role'
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify([{
+      session_id: 'session-1',
+      namespace: 'omniquant',
+      status: 'settled',
+      current_stage: 'PAYMENT_RELEASED',
+      winning_agent_id: 'portfolio-risk',
+      settlement_status: 'RELEASED',
+      data_source: 'Live data',
+      created_at: '2026-07-18T00:00:00.000Z',
+      completed_at: '2026-07-18T00:01:00.000Z',
+      updated_at: '2026-07-18T00:01:00.000Z',
+    }]), { status: 200 }))
+
+    const records = await readCollectionRecords<MarketSessionRecord>('market_sessions')
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/rest/v1/market_sessions?select=*')
+    expect(records).toEqual([{
+      id: 'session-1',
+      sessionId: 'session-1',
+      namespace: 'omniquant',
+      status: 'settled',
+      currentStage: 'PAYMENT_RELEASED',
+      winningAgentId: 'portfolio-risk',
+      settlementStatus: 'RELEASED',
+      dataSource: 'Live data',
+      createdAt: '2026-07-18T00:00:00.000Z',
+      completedAt: '2026-07-18T00:01:00.000Z',
+      updatedAt: '2026-07-18T00:01:00.000Z',
+    }])
+  })
+
+  it('adds Supabase filters for scoped workspace reads', async () => {
+    process.env.SUPABASE_URL = 'https://example.supabase.co'
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role'
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify([{
+      membership_id: 'organization:northstar:member:analyst',
+      workspace_scope: 'organization:northstar',
+      publisher_id: 'analyst',
+      role: 'editor',
+      status: 'active',
+      granted_by: 'lead',
+      granted_at: '2026-07-18T00:00:00.000Z',
+      updated_at: '2026-07-18T00:00:00.000Z',
+    }]), { status: 200 }))
+
+    const records = await readCollectionRecord<WorkspaceMembershipRecord>(
+      'workspace_memberships',
+      'workspace_scope',
+      'organization:northstar',
+    )
+
+    const url = String(fetchMock.mock.calls[0]?.[0])
+    expect(url).toContain('/rest/v1/workspace_memberships?')
+    expect(url).toContain('workspace_scope=eq.organization%3Anorthstar')
+    expect(records?.[0]).toMatchObject({
+      sessionId: 'organization:northstar',
+      publisherId: 'analyst',
+      role: 'editor',
+      status: 'active',
     })
   })
 })

@@ -76,7 +76,6 @@ export default function App() {
         organizationId = organization?.id
       }
       const started = await startMarket({ organizationId })
-      if (organizationId) await sessionHistory.assignSessionToOrganization(organizationId, started.session)
       setSession(started.session)
       setNamespace(started.namespace ?? '')
       const url = new URL(window.location.href)
@@ -85,6 +84,7 @@ export default function App() {
       url.searchParams.set('presentation', '1')
       window.history.replaceState({}, '', url)
       setPresentationMode(true)
+      sessionHistory.refresh()
     } catch (e) {
       setStartErr(isUiError(e) ? e : friendlyError(e, 'start'))
     } finally {

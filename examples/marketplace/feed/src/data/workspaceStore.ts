@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { MemoReviewStatus, MemoWorkspaceRecord } from './models.js'
-import { mirrorCollectionRecord } from './supabasePersistence.js'
+import { mirrorCollectionRecord, readCollectionRecord, readCollectionRecords } from './supabasePersistence.js'
 
 const statuses = new Set<MemoReviewStatus>(['Needs Review', 'Approved', 'Watchlist', 'Rejected'])
 
@@ -21,13 +21,14 @@ export interface WorkspacePatch {
 }
 
 export async function listMemoWorkspaces(dataDir = dataDirFromEnv()): Promise<MemoWorkspaceRecord[]> {
-  const records = await readJsonl<MemoWorkspaceRecord>(dataDir, 'memo_workspace')
+  const records = await readRecords<MemoWorkspaceRecord>(dataDir, 'memo_workspace')
   return latestBy(records, (record) => record.sessionId, (record) => record.updatedAt)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 export async function getMemoWorkspace(sessionId: string, dataDir = dataDirFromEnv()): Promise<MemoWorkspaceRecord | undefined> {
-  return (await listMemoWorkspaces(dataDir)).find((record) => record.sessionId === sessionId)
+  const records = await readRecords<MemoWorkspaceRecord>(dataDir, 'memo_workspace', { column: 'session_id', value: sessionId })
+  return latestBy(records, (record) => record.sessionId, (record) => record.updatedAt)[0]
 }
 
 export async function upsertMemoWorkspace(
@@ -84,6 +85,18 @@ async function readJsonl<T>(dataDir: string, collection: string): Promise<T[]> {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
   }
+}
+
+async function readRecords<T>(dataDir: string, collection: string, filter?: { column: string; value: string }): Promise<T[]> {
+  try {
+    const records = filter
+      ? await readCollectionRecord<T>(collection, filter.column, filter.value)
+      : await readCollectionRecords<T>(collection)
+    if (records) return records
+  } catch (error) {
+    console.error(`[feed] supabase read failed collection=${collection}: ${(error as Error).message}; falling back to JSONL`)
+  }
+  return readJsonl<T>(dataDir, collection)
 }
 
 function latestBy<T>(items: T[], keyFn: (item: T) => string, timeFn: (item: T) => string | undefined): T[] {
