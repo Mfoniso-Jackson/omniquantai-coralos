@@ -9,4 +9,4 @@ COPY examples/marketplace examples/marketplace
 COPY coral-agents coral-agents
 COPY packages packages
 
-CMD ["node", "-e", "console.log('omniquant-worker boundary ready; wire BullMQ start_market consumer before production traffic')"]
+CMD ["npm", "run", "worker", "--prefix", "examples/marketplace/feed"]

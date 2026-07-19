@@ -17,10 +17,8 @@
 import express from 'express'
 import type { Request, Response } from 'express'
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
 import { foldRounds } from './foldRounds.js'
 import { collectMessages } from './coralState.js'
 import type { RawMessage, Round } from './foldRounds.js'
@@ -36,8 +34,8 @@ import {
   type RegistryStatus,
 } from './data/registryStore.js'
 import { deriveMarketStatus, type MarketStatus } from './marketStatus.js'
-
-const MARKET_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..') // examples/marketplace
+import { launchMarketSession, launcherCommand } from './marketLauncher.js'
+import { enqueueStartMarketJob, getJob, redisAvailable } from './redisQueue.js'
 
 const BASE = process.env.CORAL_SERVER_URL ?? 'http://localhost:5555'
 const TOKEN = process.env.CORAL_TOKEN ?? 'dev'
@@ -187,7 +185,13 @@ app.get('/api/ready', readinessResponse)
 
 app.post('/api/sessions/start', startSession)
 app.post('/api/start', startSession)
-app.post('/v1/markets', startSession)
+app.post('/v1/markets', enqueueMarketSession)
+app.get('/v1/market-jobs/:id', async (req, res) => {
+  if (!redisAvailable()) return res.status(503).json({ error: 'Redis queue is not configured', queue: 'not_configured' })
+  const job = await getJob(req.params.id)
+  if (!job) return res.status(404).json({ error: 'market job not found', jobId: req.params.id })
+  res.json({ job })
+})
 
 app.get('/api/markets', async (_req, res) => {
   res.json({ markets: await listMarkets() })
@@ -304,60 +308,57 @@ app.get('/api/graph/session/:id', async (req, res) => {
   res.json(await getSessionGraph(req.params.id))
 })
 
-/** Operator trigger: launch a market session (runs the marketplace launcher) and return its id. */
-function startSession(_req: Request, res: Response) {
-  const launcher = launcherCommand()
-  const child = spawn(launcher.cmd, launcher.args, { cwd: MARKET_DIR, shell: false, env: process.env })
-  let buf = ''
-  let done = false
-  let matched = false
-  const reply = (code: number, body: unknown) => { if (!done) { done = true; res.status(code).json(body) } }
-  const onData = (d: Buffer) => {
-    buf += d.toString()
-    const parsed = parseLauncherSession(buf)
-    if (parsed && !matched) {
-      matched = true
-      const { session, namespace } = parsed
-      sessionNamespaces.set(session, namespace)
-      sessionStartedAt.set(session, Date.now())
-      console.error(`[feed] launched market session ${session} namespace=${namespace}`)
-      reply(200, { session, namespace })
-      void waitForWant(session, namespace)
-        .catch(async (error) => {
-          console.error(`[feed] session=${session} namespace=${namespace} buyer did not publish WANT: ${(error as Error).message}`)
-          console.error(await runtimeDiagnostics())
-        })
-    }
-  }
-  child.stdout.on('data', onData)
-  child.stderr.on('data', onData)
-  child.on('error', (error) => {
-    reply(500, { error: `launcher failed to start: ${(error as Error).message}`, log: buf.slice(-4000) })
-  })
-  child.on('exit', (c) => {
-    if (matched) return
-    reply(500, {
-      error: `launcher exited ${c} without a session`,
-      command: `${launcher.cmd} ${launcher.args.join(' ')}`,
-      log: buf.slice(-4000),
+/** Operator trigger: launch a market session synchronously for local/Codespaces demo mode. */
+async function startSession(_req: Request, res: Response) {
+  try {
+    const result = await launchMarketSession({
+      namespace: NS,
+      timeoutMs: Math.max(60_000, START_READY_RETRIES * START_READY_RETRY_MS + 10_000),
+      onSession: ({ session, namespace }) => {
+        sessionNamespaces.set(session, namespace)
+        sessionStartedAt.set(session, Date.now())
+        console.error(`[feed] launched market session ${session} namespace=${namespace}`)
+      },
     })
-  })
-  setTimeout(() => reply(504, { error: 'launcher timed out', log: buf.slice(-800) }), Math.max(60_000, START_READY_RETRIES * START_READY_RETRY_MS + 10_000))
+    res.status(200).json({ session: result.session, namespace: result.namespace })
+    void waitForWant(result.session, result.namespace)
+      .catch(async (error) => {
+        console.error(`[feed] session=${result.session} namespace=${result.namespace} buyer did not publish WANT: ${(error as Error).message}`)
+        console.error(await runtimeDiagnostics())
+      })
+  } catch (error) {
+    const launcher = launcherCommand()
+    res.status((error as Error).message.includes('timed out') ? 504 : 500).json({
+      error: (error as Error).message,
+      command: `${launcher.cmd} ${launcher.args.join(' ')}`,
+    })
+  }
 }
 
-function launcherCommand(): { cmd: string; args: string[] } {
-  const localTsx = join(MARKET_DIR, 'node_modules', '.bin', process.platform === 'win32' ? 'tsx.cmd' : 'tsx')
-  if (existsSync(localTsx)) return { cmd: localTsx, args: ['start.ts'] }
-  return { cmd: 'npx', args: ['tsx', 'start.ts'] }
-}
-
-function parseLauncherSession(text: string): { session: string; namespace: string } | null {
-  const primary = text.match(/(?:OmniQuantAI\s+)?market session (\S+)(?:\s+namespace\s+([A-Za-z0-9_.-]+))?/i)
-  if (primary) return { session: primary[1], namespace: primary[2] ?? NS }
-  const session = text.match(/session id:\s*(\S+)/i)?.[1]
-  if (!session) return null
-  const namespace = text.match(/namespace:\s*([A-Za-z0-9_.-]+)/i)?.[1] ?? NS
-  return { session, namespace }
+async function enqueueMarketSession(req: Request, res: Response) {
+  if (!redisAvailable()) {
+    return res.status(503).json({
+      error: 'Redis queue is not configured',
+      message: 'POST /v1/markets is asynchronous and requires REDIS_URL. Use /api/start for local demo mode.',
+      queue: 'not_configured',
+    })
+  }
+  try {
+    const namespace = typeof req.body?.namespace === 'string' ? req.body.namespace : NS
+    const job = await enqueueStartMarketJob({
+      namespace,
+      request: req.body && typeof req.body === 'object' ? req.body as Record<string, unknown> : {},
+    })
+    res.status(202).json({
+      jobId: job.id,
+      status: job.status,
+      namespace: job.namespace,
+      queuedAt: job.createdAt,
+      statusUrl: `/v1/market-jobs/${job.id}`,
+    })
+  } catch (error) {
+    res.status(502).json({ error: `market enqueue failed: ${(error as Error).message}` })
+  }
 }
 
 async function updateRegisteredAgent(req: Request, res: Response) {

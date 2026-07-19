@@ -67,16 +67,31 @@ Service name:
 omniquant-worker
 ```
 
-The worker boundary exists, but BullMQ consumption is the next implementation slice.
+The worker consumes Redis-backed `start_market` jobs created by `POST /v1/markets`. Keep
+`POST /api/start` available for local/Codespaces demo mode only.
 
-Required future variables:
+Required variables:
 
 ```ini
 REDIS_URL=
+CORAL_SERVER_URL=
+CORAL_TOKEN=
+CORAL_NAMESPACE=omniquant
+```
+
+Future persistence/bridge variables:
+
+```ini
 DATABASE_URL=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 CORAL_BRIDGE_URL=
+```
+
+Run command:
+
+```sh
+npm run worker --prefix examples/marketplace/feed
 ```
 
 ## 4. CoralOS Bridge

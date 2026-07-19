@@ -6,7 +6,8 @@ Move long-running market work out of the public API.
 
 ## Queue
 
-Target: Redis with BullMQ or equivalent.
+Current: Redis-backed queue using a small internal RESP client, so no new runtime dependency is required.
+Future: BullMQ or equivalent once delayed jobs, retries, and dead-letter inspection need richer tooling.
 
 Primary queue:
 
@@ -24,15 +25,17 @@ omniquant:dead-letter
 
 ```json
 {
+  "id": "uuid",
   "type": "start_market",
-  "sessionId": "uuid",
+  "status": "queued",
   "namespace": "omniquant",
   "request": {
     "service": "omniquant",
     "argument": "nvda-3-6m-exposure",
     "budgetSol": 0.03
   },
-  "correlationId": "uuid"
+  "createdAt": "2026-07-18T00:00:00.000Z",
+  "updatedAt": "2026-07-18T00:00:00.000Z"
 }
 ```
 
@@ -48,8 +51,32 @@ omniquant:dead-letter
 
 ## Reliability Requirements
 
-- jobs are idempotent by `sessionId`
+- queued market creation should become idempotent by `Idempotency-Key` before production traffic
+- `POST /v1/markets` does not block on CoralOS startup
 - failed provider calls fall back deterministically
 - settlement monitoring reconciles by reference/signature
 - worker shutdown drains in-flight jobs
 - repeated failures enter the dead-letter queue with diagnostics
+
+## Current Commands
+
+API:
+
+```sh
+npm run start --prefix examples/marketplace/feed
+```
+
+Worker:
+
+```sh
+REDIS_URL=redis://... npm run worker --prefix examples/marketplace/feed
+```
+
+Local demo compatibility:
+
+```text
+POST /api/start
+```
+
+The compatibility route remains synchronous for Codespaces/demo recordings. Production callers should use
+`POST /v1/markets`.

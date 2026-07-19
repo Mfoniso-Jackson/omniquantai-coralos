@@ -27,6 +27,7 @@ Current versioned endpoints:
 GET  /health
 GET  /ready
 POST /v1/markets
+GET  /v1/market-jobs/:id
 GET  /v1/markets
 GET  /v1/markets/:id
 GET  /v1/markets/:id/events
@@ -37,4 +38,5 @@ GET  /v1/memos/:id
 GET  /v1/settlements/:id
 ```
 
-The API remains stateless. Long-running market execution should move to `apps/worker` through Redis.
+The API remains stateless. `POST /v1/markets` now returns an asynchronous Redis job when `REDIS_URL`
+is configured. Local demo launch remains on `POST /api/start`.

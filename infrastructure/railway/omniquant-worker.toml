@@ -3,6 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "infrastructure/docker/worker.Dockerfile"
 
 [deploy]
+startCommand = "npm run worker --prefix examples/marketplace/feed"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
 
