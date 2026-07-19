@@ -18,7 +18,7 @@ omniquant:start_market
 Dead-letter queue:
 
 ```text
-omniquant:dead-letter
+omniquant:start_market:dead-letter
 ```
 
 ## Job Shape
@@ -29,6 +29,9 @@ omniquant:dead-letter
   "type": "start_market",
   "status": "queued",
   "namespace": "omniquant",
+  "attempts": 0,
+  "maxAttempts": 3,
+  "idempotencyKey": "request-uuid",
   "request": {
     "service": "omniquant",
     "argument": "nvda-3-6m-exposure",
@@ -51,8 +54,11 @@ omniquant:dead-letter
 
 ## Reliability Requirements
 
-- queued market creation should become idempotent by `Idempotency-Key` before production traffic
+- queued market creation is idempotent by `Idempotency-Key`
+- `POST /v1/markets` returns the same job for repeated `Idempotency-Key` values
 - `POST /v1/markets` does not block on CoralOS startup
+- failed `start_market` jobs retry with backoff before entering the dead-letter queue
+- job state transitions are appended to `market_jobs.jsonl`
 - failed provider calls fall back deterministically
 - settlement monitoring reconciles by reference/signature
 - worker shutdown drains in-flight jobs

@@ -5,6 +5,7 @@ const FEED_URL = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_FEED_
 const REGISTRY_ADMIN_TOKEN = import.meta.env.VITE_REGISTRY_ADMIN_TOKEN ?? ''
 const REGISTRY_PUBLISHER_ID = import.meta.env.VITE_REGISTRY_PUBLISHER_ID ?? 'dashboard-admin'
 export const API_BASE_URL = FEED_URL || 'same-origin /api proxy'
+export const LIVE_API_MODE = Boolean(FEED_URL)
 export const REGISTRY_ADMIN_ENABLED = Boolean(REGISTRY_ADMIN_TOKEN)
 const HEALTH_TIMEOUT_MS = 2500
 
@@ -134,6 +135,7 @@ export async function setRegistryAgentStatus(agentId: string, status: AgentRegis
 /** Ask the feed server to launch a market session; returns its id. (Fund wallets first.) */
 export async function startMarket(): Promise<{ session: string; namespace?: string }> {
   try {
+    if (LIVE_API_MODE) return startMarketViaJob()
     const r = await fetch(`${FEED_URL}/api/start`, { method: 'POST' })
     const body = (await r.json().catch(() => ({}))) as { session?: string; namespace?: string; error?: string; log?: string }
     if (!r.ok || !body.session) {
@@ -144,6 +146,68 @@ export async function startMarket(): Promise<{ session: string; namespace?: stri
   } catch (error) {
     throw friendlyError(error, 'start')
   }
+}
+
+interface MarketJobResponse {
+  jobId?: string
+  status?: 'queued' | 'running' | 'completed' | 'failed' | 'dead_lettered'
+  namespace?: string
+  statusUrl?: string
+  session?: string
+  attempts?: number
+  maxAttempts?: number
+  error?: string
+  message?: string
+  job?: {
+    id: string
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'dead_lettered'
+    namespace?: string
+    session?: string
+    attempts?: number
+    maxAttempts?: number
+    error?: string
+  }
+}
+
+async function startMarketViaJob(): Promise<{ session: string; namespace?: string }> {
+  const idempotencyKey = `dashboard-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const r = await fetch(`${FEED_URL}/v1/markets`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify({
+      namespace: 'omniquant',
+      request: 'Should our fund increase exposure to Nvidia over the next 3-6 months?',
+      asset: 'NVDA',
+    }),
+  })
+  const body = (await r.json().catch(() => ({}))) as MarketJobResponse
+  if (!r.ok || !body.jobId) throw new Error(body.message ?? body.error ?? `market job enqueue failed (${r.status})`)
+  return pollMarketJob(body.jobId, body.statusUrl ?? `/v1/market-jobs/${body.jobId}`)
+}
+
+async function pollMarketJob(jobId: string, statusUrl: string): Promise<{ session: string; namespace?: string }> {
+  const deadline = Date.now() + 90_000
+  let last: MarketJobResponse | undefined
+  while (Date.now() < deadline) {
+    const r = await fetch(`${FEED_URL}${statusUrl}`)
+    const body = (await r.json().catch(() => ({}))) as MarketJobResponse
+    if (!r.ok) throw new Error(body.error ?? `market job ${jobId} status failed (${r.status})`)
+    last = body
+    const job = body.job
+    if (job?.status === 'completed' && job.session) return { session: job.session, namespace: job.namespace }
+    if (job?.status === 'failed' || job?.status === 'dead_lettered') {
+      throw new Error(`market job ${job.status}: ${job.error ?? 'launcher failed'}`)
+    }
+    await sleep(1000)
+  }
+  throw new Error(`market job ${jobId} timed out: ${last?.job?.status ?? 'unknown'}`)
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
 export interface FeedState {

@@ -77,6 +77,12 @@ REDIS_URL=
 CORAL_SERVER_URL=
 CORAL_TOKEN=
 CORAL_NAMESPACE=omniquant
+OMNIQUANT_PERSIST=1
+OMNIQUANT_DATA_DIR=.omniquant-data
+START_MARKET_QUEUE=omniquant:start_market
+START_MARKET_DEAD_LETTER_QUEUE=omniquant:start_market:dead-letter
+START_MARKET_MAX_ATTEMPTS=3
+START_MARKET_RETRY_BACKOFF_MS=5000
 ```
 
 Future persistence/bridge variables:

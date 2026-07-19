@@ -24,8 +24,8 @@ Future write endpoints should accept:
 Idempotency-Key: <uuid>
 ```
 
-`POST /v1/markets` should eventually create one market per idempotency key and return the existing
-market if the request is replayed.
+`POST /v1/markets` accepts an idempotency key and returns the existing market job when the request is
+replayed.
 
 ## Health
 
@@ -52,6 +52,12 @@ POST /v1/markets
 
 Production behavior: enqueue a Redis-backed `start_market` job and return `202 Accepted`.
 
+Recommended headers:
+
+```text
+Idempotency-Key: <uuid>
+```
+
 Example response:
 
 ```json
@@ -60,7 +66,10 @@ Example response:
   "status": "queued",
   "namespace": "omniquant",
   "queuedAt": "2026-07-18T00:00:00.000Z",
-  "statusUrl": "/v1/market-jobs/uuid"
+  "statusUrl": "/v1/market-jobs/uuid",
+  "attempts": 0,
+  "maxAttempts": 3,
+  "idempotent": false
 }
 ```
 
@@ -81,8 +90,9 @@ This route still launches synchronously so the current dashboard/Codespaces flow
 GET /v1/market-jobs/:id
 ```
 
-Returns the queued/running/completed/failed job payload. Completed jobs include the CoralOS session ID
-once the worker observes it.
+Returns the queued/running/completed/failed/dead_lettered job payload. Completed jobs include the
+CoralOS session ID once the worker observes it. Job state is also appended to JSONL persistence under
+`OMNIQUANT_DATA_DIR`, so session mappings survive Redis payload eviction during early testnet runs.
 
 ## Realtime
 

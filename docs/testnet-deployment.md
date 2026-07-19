@@ -34,6 +34,8 @@ For a public web preview, deploy the frontend separately only if the API/feed is
 - frontend: `examples/marketplace/web`
 - API/feed: `examples/marketplace/feed`
 - set `VITE_API_BASE_URL` to the public API origin when not using same-origin proxy
+- in live API mode the dashboard calls `POST /v1/markets`, polls `/v1/market-jobs/:id`, then follows
+  the returned session through `/api/feed`
 
 If the host cannot run Docker/CoralOS, label the preview as fixture or read-only. Do not present fixture mode as live settlement.
 

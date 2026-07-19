@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { jobKey, redisAvailable } from './redisQueue.js'
+import { idempotencyKey, jobKey, redisAvailable } from './redisQueue.js'
 
 describe('redisQueue configuration helpers', () => {
   const originalRedisUrl = process.env.REDIS_URL
@@ -22,5 +22,9 @@ describe('redisQueue configuration helpers', () => {
 
   it('uses the default job key prefix', () => {
     expect(jobKey('job-123')).toBe('omniquant:market-job:job-123')
+  })
+
+  it('uses the default idempotency key prefix', () => {
+    expect(idempotencyKey('request-123')).toBe('omniquant:market-idempotency:request-123')
   })
 })

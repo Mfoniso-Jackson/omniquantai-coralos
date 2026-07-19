@@ -23,6 +23,7 @@ import { foldRounds } from './foldRounds.js'
 import { collectMessages } from './coralState.js'
 import type { RawMessage, Round } from './foldRounds.js'
 import { persistMarketplaceData } from './data/persistence.js'
+import { getPersistedStartMarketJob } from './data/jobStore.js'
 import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, getSettlement, listAgents, listMarkets } from './data/history.js'
 import {
   discoverRegisteredAgents,
@@ -187,8 +188,9 @@ app.post('/api/sessions/start', startSession)
 app.post('/api/start', startSession)
 app.post('/v1/markets', enqueueMarketSession)
 app.get('/v1/market-jobs/:id', async (req, res) => {
-  if (!redisAvailable()) return res.status(503).json({ error: 'Redis queue is not configured', queue: 'not_configured' })
-  const job = await getJob(req.params.id)
+  const job = redisAvailable()
+    ? await getJob(req.params.id)
+    : await getPersistedStartMarketJob(req.params.id)
   if (!job) return res.status(404).json({ error: 'market job not found', jobId: req.params.id })
   res.json({ job })
 })
@@ -345,9 +347,11 @@ async function enqueueMarketSession(req: Request, res: Response) {
   }
   try {
     const namespace = typeof req.body?.namespace === 'string' ? req.body.namespace : NS
-    const job = await enqueueStartMarketJob({
+    const idempotencyKey = idempotencyKeyFromRequest(req)
+    const { job, existing } = await enqueueStartMarketJob({
       namespace,
       request: req.body && typeof req.body === 'object' ? req.body as Record<string, unknown> : {},
+      idempotencyKey,
     })
     res.status(202).json({
       jobId: job.id,
@@ -355,10 +359,21 @@ async function enqueueMarketSession(req: Request, res: Response) {
       namespace: job.namespace,
       queuedAt: job.createdAt,
       statusUrl: `/v1/market-jobs/${job.id}`,
+      session: job.session,
+      attempts: job.attempts,
+      maxAttempts: job.maxAttempts,
+      idempotent: existing,
     })
   } catch (error) {
     res.status(502).json({ error: `market enqueue failed: ${(error as Error).message}` })
   }
+}
+
+function idempotencyKeyFromRequest(req: Request): string | undefined {
+  const header = req.header('Idempotency-Key')?.trim()
+  if (header) return header
+  const bodyKey = (req.body as { idempotencyKey?: unknown } | undefined)?.idempotencyKey
+  return typeof bodyKey === 'string' && bodyKey.trim() ? bodyKey.trim() : undefined
 }
 
 async function updateRegisteredAgent(req: Request, res: Response) {

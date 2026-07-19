@@ -1,27 +1,47 @@
 import { randomUUID } from 'node:crypto'
 import net from 'node:net'
 import tls from 'node:tls'
+import { persistStartMarketJob } from './data/jobStore.js'
 
 export interface StartMarketJob {
   id: string
   type: 'start_market'
-  status: 'queued' | 'running' | 'completed' | 'failed'
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'dead_lettered'
   namespace: string
   request: Record<string, unknown>
   createdAt: string
   updatedAt: string
+  attempts: number
+  maxAttempts: number
+  idempotencyKey?: string
+  retryAt?: string
+  deadLetteredAt?: string
   session?: string
   error?: string
 }
 
 const QUEUE = process.env.START_MARKET_QUEUE ?? 'omniquant:start_market'
+const DEAD_LETTER_QUEUE = process.env.START_MARKET_DEAD_LETTER_QUEUE ?? 'omniquant:start_market:dead-letter'
 const JOB_PREFIX = process.env.START_MARKET_JOB_PREFIX ?? 'omniquant:market-job'
+const IDEMPOTENCY_PREFIX = process.env.START_MARKET_IDEMPOTENCY_PREFIX ?? 'omniquant:market-idempotency'
+const DEFAULT_MAX_ATTEMPTS = Number(process.env.START_MARKET_MAX_ATTEMPTS ?? process.env.JOB_ATTEMPTS ?? 3)
 
 export function redisAvailable(): boolean {
   return Boolean(process.env.REDIS_URL)
 }
 
-export async function enqueueStartMarketJob(input: { namespace: string; request: Record<string, unknown> }): Promise<StartMarketJob> {
+export async function enqueueStartMarketJob(input: {
+  namespace: string
+  request: Record<string, unknown>
+  idempotencyKey?: string
+}): Promise<{ job: StartMarketJob; existing: boolean }> {
+  if (input.idempotencyKey) {
+    const existingId = await getJobIdForIdempotencyKey(input.idempotencyKey)
+    if (existingId) {
+      const existing = await getJob(existingId)
+      if (existing) return { job: existing, existing: true }
+    }
+  }
   const now = new Date().toISOString()
   const job: StartMarketJob = {
     id: randomUUID(),
@@ -31,16 +51,36 @@ export async function enqueueStartMarketJob(input: { namespace: string; request:
     request: input.request,
     createdAt: now,
     updatedAt: now,
+    attempts: 0,
+    maxAttempts: Number.isFinite(DEFAULT_MAX_ATTEMPTS) && DEFAULT_MAX_ATTEMPTS > 0 ? DEFAULT_MAX_ATTEMPTS : 3,
+    idempotencyKey: input.idempotencyKey,
   }
+  if (input.idempotencyKey) await setIdempotencyKey(input.idempotencyKey, job.id)
   await setJob(job)
-  await redisCommand(['LPUSH', QUEUE, JSON.stringify(job)])
-  return job
+  await pushJob(QUEUE, job)
+  return { job, existing: false }
 }
 
 export async function reserveStartMarketJob(timeoutSeconds = 5): Promise<StartMarketJob | undefined> {
   const result = await redisCommand(['BRPOP', QUEUE, String(timeoutSeconds)], { timeoutMs: (timeoutSeconds + 5) * 1000 })
   if (!Array.isArray(result) || typeof result[1] !== 'string') return undefined
   return JSON.parse(result[1]) as StartMarketJob
+}
+
+export async function requeueStartMarketJob(job: StartMarketJob): Promise<void> {
+  await setJob(job)
+  await pushJob(QUEUE, job)
+}
+
+export async function deadLetterStartMarketJob(job: StartMarketJob): Promise<void> {
+  const dead = {
+    ...job,
+    status: 'dead_lettered' as const,
+    deadLetteredAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  await setJob(dead)
+  await pushJob(DEAD_LETTER_QUEUE, dead)
 }
 
 export async function setJob(job: StartMarketJob): Promise<void> {
@@ -54,6 +94,7 @@ export async function setJob(job: StartMarketJob): Promise<void> {
     'updatedAt',
     job.updatedAt,
   ])
+  await persistStartMarketJob(job)
 }
 
 export async function getJob(id: string): Promise<StartMarketJob | undefined> {
@@ -63,6 +104,23 @@ export async function getJob(id: string): Promise<StartMarketJob | undefined> {
 
 export function jobKey(id: string): string {
   return `${JOB_PREFIX}:${id}`
+}
+
+export function idempotencyKey(key: string): string {
+  return `${IDEMPOTENCY_PREFIX}:${key}`
+}
+
+async function getJobIdForIdempotencyKey(key: string): Promise<string | undefined> {
+  const result = await redisCommand(['GET', idempotencyKey(key)])
+  return typeof result === 'string' ? result : undefined
+}
+
+async function setIdempotencyKey(key: string, jobId: string): Promise<void> {
+  await redisCommand(['SET', idempotencyKey(key), jobId])
+}
+
+async function pushJob(queue: string, job: StartMarketJob): Promise<void> {
+  await redisCommand(['LPUSH', queue, JSON.stringify(job)])
 }
 
 export async function redisCommand(args: string[], options: { timeoutMs?: number } = {}): Promise<unknown> {
