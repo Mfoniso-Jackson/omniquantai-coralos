@@ -27,10 +27,16 @@ POST /api/workspace/memos/:sessionId/export
 GET /api/workspace/memos/:sessionId/members
 POST /api/workspace/memos/:sessionId/members
 GET /api/workspace/memos/:sessionId/members/audit
+GET /api/organizations
+POST /api/organizations
+GET /api/organizations/:id
+POST /api/organizations/:id/sessions
 ```
 
 Workspace records store reviewer assignment, analyst notes, review status, export-ready state, and
 export history for completed memos while preserving the original market transcript.
+Organization records group multiple market sessions under a pilot/team so saved memo state can become
+account-level memory instead of one isolated workspace per session.
 
 Workspace write protection:
 
@@ -40,7 +46,8 @@ Workspace write protection:
 - roles: `owner`/`admin` can manage members; `owner`/`admin`/`editor` can edit memo workspace state; `viewer` is read-only
 - first signed writer auto-becomes `owner` for a new workspace unless `WORKSPACE_AUTO_GRANT_FIRST_OWNER=0`
 - dashboard workspace panel can invite/update publishers and revoke non-owner members for the selected session
-- membership audit logs record invites, promotions, demotions, revocations, and restores with actor and before/after state
+- membership audit logs record invites, promotions, demotions, revocations, and restores with actor and before/after state, and the dashboard members panel shows the latest entries
+- dashboard workspace panel can create a pilot/team organization and assign the selected session to it
 - reads remain available for history/proof views
 
 ## Developer Registry APIs

@@ -26,6 +26,15 @@ import { getPersistedStartMarketJob } from './data/jobStore.js'
 import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, getSettlement, listAgents, listMarkets } from './data/history.js'
 import { getMemoWorkspace, listMemoWorkspaces, upsertMemoWorkspace, type WorkspacePatch } from './data/workspaceStore.js'
 import {
+  assignSessionToOrganization,
+  getOrganization,
+  listOrganizationAssignments,
+  listOrganizationSessions,
+  listOrganizations,
+  upsertOrganization,
+  type OrganizationPatch,
+} from './data/organizationStore.js'
+import {
   ensureWorkspacePermission,
   listWorkspaceMembershipAudit,
   listWorkspaceMemberships,
@@ -220,11 +229,39 @@ app.get('/api/markets/:id', async (req, res) => {
   return res.json(market)
 })
 
+app.get('/api/organizations', async (_req, res) => {
+  res.json({ organizations: await listOrganizations(), assignments: await listOrganizationAssignments() })
+})
+
+app.post('/api/organizations', upsertOrganizationWorkspace)
+
+app.get('/api/organizations/:id', async (req, res) => {
+  const organization = await getOrganization(req.params.id)
+  if (!organization) return res.status(404).json({ error: 'organization not found', organizationId: req.params.id })
+  res.json({ organization, sessions: await listOrganizationSessions(req.params.id) })
+})
+
+app.post('/api/organizations/:id/sessions', assignOrganizationSession)
+
 app.get('/v1/markets/:id', async (req, res) => {
   const market = await getMarket(req.params.id)
   if (!market) return res.status(404).json({ error: 'market not found', sessionId: req.params.id })
   return res.json(market)
 })
+
+app.get('/v1/organizations', async (_req, res) => {
+  res.json({ organizations: await listOrganizations(), assignments: await listOrganizationAssignments() })
+})
+
+app.post('/v1/organizations', upsertOrganizationWorkspace)
+
+app.get('/v1/organizations/:id', async (req, res) => {
+  const organization = await getOrganization(req.params.id)
+  if (!organization) return res.status(404).json({ error: 'organization not found', organizationId: req.params.id })
+  res.json({ organization, sessions: await listOrganizationSessions(req.params.id) })
+})
+
+app.post('/v1/organizations/:id/sessions', assignOrganizationSession)
 
 app.get('/v1/markets/:id/events', async (req, res) => {
   const market = await getMarket(req.params.id)
@@ -415,6 +452,43 @@ function idempotencyKeyFromRequest(req: Request): string | undefined {
   return typeof bodyKey === 'string' && bodyKey.trim() ? bodyKey.trim() : undefined
 }
 
+async function upsertOrganizationWorkspace(req: Request, res: Response) {
+  try {
+    const publisherId = verifyWorkspaceWriter(req)
+    const input = organizationPatchFromBody(req.body)
+    const organization = await upsertOrganization({
+      ...input,
+      createdBy: input.createdBy ?? publisherId,
+    })
+    res.status(201).json({ ok: true, organization })
+  } catch (error) {
+    const message = (error as Error).message
+    res.status(authStatus(message)).json({ ok: false, error: message })
+  }
+}
+
+async function assignOrganizationSession(req: Request, res: Response) {
+  try {
+    const publisherId = verifyWorkspaceWriter(req)
+    const body = req.body && typeof req.body === 'object' ? req.body as { sessionId?: unknown } : {}
+    if (typeof body.sessionId !== 'string') throw new Error('sessionId is required')
+    const assignment = await assignSessionToOrganization({
+      organizationId: req.params.id,
+      sessionId: body.sessionId,
+      assignedBy: publisherId,
+    })
+    res.status(201).json({ ok: true, assignment })
+  } catch (error) {
+    const message = (error as Error).message
+    res.status(authStatus(message)).json({ ok: false, error: message })
+  }
+}
+
+function organizationPatchFromBody(body: unknown): OrganizationPatch {
+  if (!body || typeof body !== 'object') throw new Error('organization body is required')
+  return body as OrganizationPatch
+}
+
 async function updateRegisteredAgent(req: Request, res: Response) {
   try {
     verifyRegistryAuth(req)
@@ -510,6 +584,11 @@ async function requireWorkspacePermission(req: Request, sessionId: string, actio
   const publisherId = verifySignedRequest(signedRequestFromExpress(req), secret, 'workspace')
   if (secret) await ensureWorkspacePermission({ sessionId, publisherId, action })
   return publisherId
+}
+
+function verifyWorkspaceWriter(req: Request): string | undefined {
+  const secret = process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN
+  return verifySignedRequest(signedRequestFromExpress(req), secret, 'workspace')
 }
 
 function signedRequestFromExpress(req: Request) {

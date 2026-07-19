@@ -207,6 +207,25 @@ export interface WorkspaceMembershipAuditRecord {
   timestamp: string
 }
 
+export interface OrganizationWorkspaceRecord {
+  id: string
+  name: string
+  slug: string
+  status: 'active' | 'archived'
+  createdBy?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OrganizationSessionRecord {
+  id: string
+  organizationId: string
+  sessionId: string
+  assignedBy?: string
+  assignedAt: string
+  updatedAt: string
+}
+
 export interface AgentProfileRecord {
   id: string
   agentId: string

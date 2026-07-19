@@ -250,6 +250,14 @@ function SessionHistoryWorkspace({
   const [memberPublisherId, setMemberPublisherId] = useState('')
   const [memberDisplayName, setMemberDisplayName] = useState('')
   const [memberRole, setMemberRole] = useState<WorkspaceRole>('editor')
+  const [organizationName, setOrganizationName] = useState('')
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState('')
+  const currentOrganization = selected?.organization
+    ?? history.organizations.find((item) => item.id === selected?.organizationAssignment?.organizationId)
+    ?? history.organizations.find((item) => item.id === history.organizationAssignments.find((assignment) => assignment.sessionId === selected?.session.sessionId)?.organizationId)
+  const currentOrganizationSessionCount = currentOrganization
+    ? history.organizationAssignments.filter((assignment) => assignment.organizationId === currentOrganization.id).length
+    : 0
 
   function submitMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -265,6 +273,25 @@ function SessionHistoryWorkspace({
       setMemberDisplayName('')
       setMemberRole('editor')
     })
+  }
+
+  async function submitOrganization(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const name = organizationName.trim()
+    if (!name) return
+    const organization = await history.createOrganization({ name })
+    if (organization && selected?.session.sessionId) {
+      await history.assignSessionToOrganization(organization.id, selected.session.sessionId)
+      setSelectedOrganizationId(organization.id)
+    }
+    setOrganizationName('')
+  }
+
+  function assignExistingOrganization(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const organizationId = selectedOrganizationId || currentOrganization?.id
+    if (!organizationId || !selected?.session.sessionId) return
+    void history.assignSessionToOrganization(organizationId, selected.session.sessionId)
   }
 
   return (
@@ -379,6 +406,88 @@ function SessionHistoryWorkspace({
                     <button onClick={() => history.refresh()}>Retry Load</button>
                   </div>
                 )}
+                <div className="organization-panel">
+                  <div className="organization-panel-head">
+                    <div>
+                      <strong>Pilot / Team Workspace</strong>
+                      <span>
+                        {currentOrganization
+                          ? `${currentOrganization.name} owns ${currentOrganizationSessionCount} saved session(s)`
+                          : 'Assign this session to a pilot or team so research history compounds across markets.'}
+                      </span>
+                    </div>
+                    {history.organizationSaving && <em>Saving...</em>}
+                  </div>
+                  <form className="organization-form" onSubmit={submitOrganization} aria-busy={history.organizationSaving}>
+                    <label htmlFor="organization-name">
+                      New Pilot / Team
+                      <input
+                        id="organization-name"
+                        type="text"
+                        value={organizationName}
+                        onChange={(event) => setOrganizationName(event.target.value)}
+                        placeholder="Northstar Capital Pilot"
+                        autoComplete="organization"
+                        disabled={history.organizationSaving}
+                      />
+                    </label>
+                    <button type="submit" disabled={history.organizationSaving || !organizationName.trim()}>
+                      Create + Assign
+                    </button>
+                  </form>
+                  <form className="organization-form" onSubmit={assignExistingOrganization} aria-busy={history.organizationSaving}>
+                    <label htmlFor="organization-select">
+                      Existing Workspace
+                      <select
+                        id="organization-select"
+                        value={selectedOrganizationId || currentOrganization?.id || ''}
+                        onChange={(event) => setSelectedOrganizationId(event.target.value)}
+                        disabled={history.organizationSaving || history.organizations.length === 0}
+                      >
+                        <option value="">Select workspace</option>
+                        {history.organizations.map((organization) => (
+                          <option key={organization.id} value={organization.id}>
+                            {organization.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={history.organizationSaving || (!selectedOrganizationId && !currentOrganization?.id)}
+                    >
+                      Assign Session
+                    </button>
+                  </form>
+                  {history.organizationError && (
+                    <div className="workspace-state workspace-error">
+                      <strong>{history.organizationError.title}</strong>
+                      <span>{history.organizationError.what}</span>
+                      <button onClick={() => history.refresh()}>Retry Load</button>
+                    </div>
+                  )}
+                  <div className="organization-list" aria-label="Pilot and team workspaces">
+                    {history.organizations.length > 0 ? history.organizations.slice(0, 4).map((organization) => {
+                      const assignedCount = history.organizationAssignments.filter((assignment) => assignment.organizationId === organization.id).length
+                      return (
+                        <button
+                          key={organization.id}
+                          type="button"
+                          className={organization.id === currentOrganization?.id ? 'organization-row organization-row-active' : 'organization-row'}
+                          onClick={() => setSelectedOrganizationId(organization.id)}
+                        >
+                          <strong>{organization.name}</strong>
+                          <span>{assignedCount} session(s) · {organization.status} · updated {formatDate(organization.updatedAt)}</span>
+                        </button>
+                      )
+                    }) : (
+                      <div className="member-empty">
+                        <strong>No pilot workspaces yet</strong>
+                        <span>Create one when a design partner or internal team starts using saved memos.</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <label className="workspace-note">
                   Analyst Notes
                   <textarea
@@ -520,6 +629,34 @@ function SessionHistoryWorkspace({
                       </div>
                     )}
                   </div>
+                  <div className="member-audit" aria-label="Workspace membership audit log">
+                    <div className="member-audit-head">
+                      <strong>Access Audit</strong>
+                      <span>{history.workspaceMemberAudit.length} trace event(s)</span>
+                    </div>
+                    {history.membersLoading && history.workspaceMemberAudit.length === 0 && <HistorySkeleton compact />}
+                    {!history.membersLoading && history.workspaceMemberAudit.length > 0 ? (
+                      <ol>
+                        {history.workspaceMemberAudit.slice(0, 6).map((event) => (
+                          <li key={event.id}>
+                            <span>{auditActionLabel(event.action)}</span>
+                            <strong>{event.displayName || event.publisherId}</strong>
+                            <em>
+                              {auditTransition(event)}
+                              {event.actor ? ` · by ${event.actor}` : ''}
+                              {' · '}
+                              {formatDate(event.timestamp)}
+                            </em>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : !history.membersLoading && (
+                      <div className="member-empty">
+                        <strong>No access changes recorded yet</strong>
+                        <span>Invites, promotions, demotions, and revocations will appear here.</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="workspace-proof-row">
                   {latestSettlement?.depositSignature && (
@@ -600,6 +737,21 @@ function memoConfidence(memo?: SavedMemoRecord): string | undefined {
 
 function explorerTx(sig: string): string {
   return `https://explorer.solana.com/tx/${sig}?cluster=devnet`
+}
+
+function auditActionLabel(action: string): string {
+  return action.replace(/_/g, ' ')
+}
+
+function auditTransition(event: {
+  fromRole?: WorkspaceRole
+  toRole?: WorkspaceRole
+  fromStatus?: 'active' | 'revoked'
+  toStatus: 'active' | 'revoked'
+}): string {
+  const role = event.fromRole && event.fromRole !== event.toRole ? `${event.fromRole} -> ${event.toRole}` : event.toRole ?? 'member'
+  const status = event.fromStatus && event.fromStatus !== event.toStatus ? `, ${event.fromStatus} -> ${event.toStatus}` : ''
+  return `${role}${status}`
 }
 
 function formatDate(value: string): string {

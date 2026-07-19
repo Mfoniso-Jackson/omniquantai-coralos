@@ -107,6 +107,31 @@ export interface MemoWorkspacePatch {
   actor?: string
 }
 
+export interface OrganizationWorkspaceRecord {
+  id: string
+  name: string
+  slug: string
+  status: 'active' | 'archived'
+  createdBy?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OrganizationSessionRecord {
+  id: string
+  organizationId: string
+  sessionId: string
+  assignedBy?: string
+  assignedAt: string
+  updatedAt: string
+}
+
+export interface OrganizationPatch {
+  name: string
+  slug?: string
+  status?: 'active' | 'archived'
+}
+
 export type WorkspaceRole = 'owner' | 'admin' | 'editor' | 'viewer'
 
 export interface WorkspaceMembershipRecord {
@@ -119,6 +144,22 @@ export interface WorkspaceMembershipRecord {
   grantedBy?: string
   grantedAt: string
   updatedAt: string
+}
+
+export type WorkspaceMembershipAuditAction = 'invited' | 'promoted' | 'demoted' | 'role_changed' | 'revoked' | 'restored'
+
+export interface WorkspaceMembershipAuditRecord {
+  id: string
+  sessionId: string
+  publisherId: string
+  action: WorkspaceMembershipAuditAction
+  fromRole?: WorkspaceRole
+  toRole?: WorkspaceRole
+  fromStatus?: 'active' | 'revoked'
+  toStatus: 'active' | 'revoked'
+  actor?: string
+  displayName?: string
+  timestamp: string
 }
 
 export interface WorkspaceMemberPatch {
@@ -155,12 +196,16 @@ export interface SavedMarketDetail {
   settlements: SavedSettlementRecord[]
   timeline: { id: string; sessionId: string; round: number; type: string; timestamp: string; payload: unknown }[]
   workspace?: MemoWorkspaceRecord
+  organization?: OrganizationWorkspaceRecord
+  organizationAssignment?: OrganizationSessionRecord
 }
 
 export interface SessionHistoryState {
   status: 'checking' | 'online' | 'offline'
   sessions: MarketSessionSummary[]
   workspaces: MemoWorkspaceRecord[]
+  organizations: OrganizationWorkspaceRecord[]
+  organizationAssignments: OrganizationSessionRecord[]
   selectedSessionId?: string
   selected?: SavedMarketDetail
   loadingDetail: boolean
@@ -169,14 +214,19 @@ export interface SessionHistoryState {
   workspaceSaving: boolean
   workspaceError?: UiError
   workspaceMembers: WorkspaceMembershipRecord[]
+  workspaceMemberAudit: WorkspaceMembershipAuditRecord[]
   membersLoading: boolean
   membersSaving: boolean
   membersError?: UiError
+  organizationSaving: boolean
+  organizationError?: UiError
   selectSession: (sessionId: string) => void
   refresh: () => void
   updateWorkspace: (patch: MemoWorkspacePatch) => Promise<void>
   recordExport: (patch?: MemoWorkspacePatch) => Promise<void>
   upsertMember: (patch: WorkspaceMemberPatch) => Promise<void>
+  createOrganization: (patch: OrganizationPatch) => Promise<OrganizationWorkspaceRecord | undefined>
+  assignSessionToOrganization: (organizationId: string, sessionId?: string) => Promise<void>
 }
 
 export function useApiHealth(intervalMs = 15000): ApiHealthState {
@@ -270,6 +320,8 @@ export function useAgentRegistry(apiHealth: ApiHealthState, intervalMs = 15000):
 export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000): SessionHistoryState {
   const [sessions, setSessions] = useState<MarketSessionSummary[]>([])
   const [workspaces, setWorkspaces] = useState<MemoWorkspaceRecord[]>([])
+  const [organizations, setOrganizations] = useState<OrganizationWorkspaceRecord[]>([])
+  const [organizationAssignments, setOrganizationAssignments] = useState<OrganizationSessionRecord[]>([])
   const [selectedSessionId, setSelectedSessionId] = useState<string>()
   const [selected, setSelected] = useState<SavedMarketDetail>()
   const [status, setStatus] = useState<SessionHistoryState['status']>(apiHealth.status === 'online' ? 'checking' : 'offline')
@@ -278,9 +330,12 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
   const [workspaceSaving, setWorkspaceSaving] = useState(false)
   const [workspaceError, setWorkspaceError] = useState<UiError>()
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMembershipRecord[]>([])
+  const [workspaceMemberAudit, setWorkspaceMemberAudit] = useState<WorkspaceMembershipAuditRecord[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [membersSaving, setMembersSaving] = useState(false)
   const [membersError, setMembersError] = useState<UiError>()
+  const [organizationSaving, setOrganizationSaving] = useState(false)
+  const [organizationError, setOrganizationError] = useState<UiError>()
   const [updatedAt, setUpdatedAt] = useState<string>()
   const [refreshNonce, setRefreshNonce] = useState(0)
 
@@ -290,28 +345,41 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
       setStatus('offline')
       setSessions([])
       setWorkspaces([])
+      setOrganizations([])
+      setOrganizationAssignments([])
       setSelected(undefined)
       setWorkspaceMembers([])
+      setWorkspaceMemberAudit([])
       setError(undefined)
       return
     }
     const load = async () => {
       setStatus((current) => current === 'online' ? current : 'checking')
       try {
-        const [marketsRes, workspaceRes] = await Promise.all([
+        const [marketsRes, workspaceRes, organizationRes] = await Promise.all([
           fetch(`${FEED_URL}/api/markets`),
           fetch(`${FEED_URL}/api/workspace/memos`),
+          fetch(`${FEED_URL}/api/organizations`),
         ])
         const marketsBody = (await marketsRes.json().catch(() => ({}))) as { markets?: MarketSessionSummary[]; error?: string }
         const workspaceBody = (await workspaceRes.json().catch(() => ({}))) as { workspaces?: MemoWorkspaceRecord[]; error?: string }
+        const organizationBody = (await organizationRes.json().catch(() => ({}))) as {
+          organizations?: OrganizationWorkspaceRecord[]
+          assignments?: OrganizationSessionRecord[]
+          error?: string
+        }
         if (!marketsRes.ok) throw new Error(marketsBody.error ?? `session history ${marketsRes.status}`)
         if (!workspaceRes.ok) throw new Error(workspaceBody.error ?? `workspace history ${workspaceRes.status}`)
+        if (!organizationRes.ok) throw new Error(organizationBody.error ?? `organization history ${organizationRes.status}`)
         const nextSessions = marketsBody.markets ?? []
         if (!stopped) {
           setSessions(nextSessions)
           setWorkspaces(workspaceBody.workspaces ?? [])
+          setOrganizations(organizationBody.organizations ?? [])
+          setOrganizationAssignments(organizationBody.assignments ?? [])
           setStatus('online')
           setError(undefined)
+          setOrganizationError(undefined)
           setUpdatedAt(new Date().toISOString())
           setSelectedSessionId((current) => current ?? nextSessions[0]?.sessionId)
         }
@@ -319,6 +387,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
         if (!stopped) {
           setStatus('offline')
           setError(friendlyHistoryError(loadError))
+          setOrganizationError(friendlyOrganizationError(loadError))
           setUpdatedAt(new Date().toISOString())
         }
       }
@@ -333,6 +402,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     if (apiHealth.status !== 'online' || !selectedSessionId) {
       setSelected(undefined)
       setWorkspaceMembers([])
+      setWorkspaceMemberAudit([])
       setLoadingDetail(false)
       setMembersLoading(false)
       return
@@ -341,20 +411,25 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
       setLoadingDetail(true)
       setMembersLoading(true)
       try {
-        const [marketRes, membersRes] = await Promise.all([
+        const [marketRes, membersRes, auditRes] = await Promise.all([
           fetch(`${FEED_URL}/api/markets/${encodeURIComponent(selectedSessionId)}`),
           fetch(`${FEED_URL}/api/workspace/memos/${encodeURIComponent(selectedSessionId)}/members`),
+          fetch(`${FEED_URL}/api/workspace/memos/${encodeURIComponent(selectedSessionId)}/members/audit`),
         ])
         const body = (await marketRes.json().catch(() => ({}))) as SavedMarketDetail & { error?: string }
         const membersBody = (await membersRes.json().catch(() => ({}))) as { members?: WorkspaceMembershipRecord[]; error?: string }
+        const auditBody = (await auditRes.json().catch(() => ({}))) as { audit?: WorkspaceMembershipAuditRecord[]; error?: string }
         if (!marketRes.ok) throw new Error(body.error ?? `saved market ${marketRes.status}`)
         if (!membersRes.ok) throw new Error(membersBody.error ?? `workspace members ${membersRes.status}`)
+        if (!auditRes.ok) throw new Error(auditBody.error ?? `workspace member audit ${auditRes.status}`)
         if (!stopped) {
           setSelected(body)
           setWorkspaceMembers(membersBody.members ?? [])
+          setWorkspaceMemberAudit(auditBody.audit ?? [])
           setError(undefined)
           setWorkspaceError(undefined)
           setMembersError(undefined)
+          setOrganizationError(undefined)
           setUpdatedAt(new Date().toISOString())
         }
       } catch (detailError) {
@@ -362,6 +437,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
           setSelected(undefined)
           setError(friendlyHistoryError(detailError))
           setMembersError(friendlyMembersError(detailError))
+          setOrganizationError(friendlyOrganizationError(detailError))
           setUpdatedAt(new Date().toISOString())
         }
       } finally {
@@ -426,6 +502,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
       })
       setMembersError(undefined)
       setUpdatedAt(new Date().toISOString())
+      void refreshMemberAudit(selectedSessionId)
     } catch (memberError) {
       setMembersError(friendlyMembersError(memberError))
     } finally {
@@ -433,10 +510,77 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     }
   }
 
+  const createOrganization = async (patch: OrganizationPatch): Promise<OrganizationWorkspaceRecord | undefined> => {
+    if (apiHealth.status !== 'online') return undefined
+    setOrganizationSaving(true)
+    setOrganizationError(undefined)
+    try {
+      const path = '/api/organizations'
+      const requestBody = JSON.stringify(patch)
+      const signedHeaders = await signedWorkspaceHeaders('POST', path, requestBody)
+      const res = await fetch(`${FEED_URL}${path}`, {
+        method: 'POST',
+        headers: { ...signedHeaders, 'content-type': 'application/json' },
+        body: requestBody,
+      })
+      const responseBody = (await res.json().catch(() => ({}))) as { organization?: OrganizationWorkspaceRecord; error?: string }
+      if (!res.ok || !responseBody.organization) throw new Error(responseBody.error ?? `organization save ${res.status}`)
+      setOrganizations((current) => {
+        const rest = current.filter((organization) => organization.id !== responseBody.organization?.id)
+        return [responseBody.organization!, ...rest].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      })
+      setOrganizationError(undefined)
+      setUpdatedAt(new Date().toISOString())
+      return responseBody.organization
+    } catch (orgError) {
+      setOrganizationError(friendlyOrganizationError(orgError))
+      return undefined
+    } finally {
+      setOrganizationSaving(false)
+    }
+  }
+
+  const assignOrganization = async (organizationId: string, sessionId = selectedSessionId): Promise<void> => {
+    if (apiHealth.status !== 'online' || !sessionId || !organizationId) return
+    setOrganizationSaving(true)
+    setOrganizationError(undefined)
+    try {
+      const path = `/api/organizations/${encodeURIComponent(organizationId)}/sessions`
+      const requestBody = JSON.stringify({ sessionId })
+      const signedHeaders = await signedWorkspaceHeaders('POST', path, requestBody)
+      const res = await fetch(`${FEED_URL}${path}`, {
+        method: 'POST',
+        headers: { ...signedHeaders, 'content-type': 'application/json' },
+        body: requestBody,
+      })
+      const responseBody = (await res.json().catch(() => ({}))) as { assignment?: OrganizationSessionRecord; error?: string }
+      if (!res.ok || !responseBody.assignment) throw new Error(responseBody.error ?? `organization assignment ${res.status}`)
+      const savedAssignment = responseBody.assignment
+      setOrganizationAssignments((current) => {
+        const rest = current.filter((assignment) => assignment.sessionId !== savedAssignment.sessionId)
+        return [savedAssignment, ...rest].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      })
+      setSelected((current) => {
+        if (!current || current.session.sessionId !== savedAssignment.sessionId) return current
+        const organization = organizations.find((item) => item.id === savedAssignment.organizationId)
+        return { ...current, organizationAssignment: savedAssignment, organization: organization ?? current.organization }
+      })
+      setOrganizationError(undefined)
+      setUpdatedAt(new Date().toISOString())
+      setRefreshNonce((value) => value + 1)
+    } catch (orgError) {
+      setOrganizationError(friendlyOrganizationError(orgError))
+    } finally {
+      setOrganizationSaving(false)
+    }
+  }
+
   return {
     status,
     sessions,
     workspaces,
+    organizations,
+    organizationAssignments,
     selectedSessionId,
     selected,
     loadingDetail,
@@ -445,14 +589,30 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     workspaceSaving,
     workspaceError,
     workspaceMembers,
+    workspaceMemberAudit,
     membersLoading,
     membersSaving,
     membersError,
+    organizationSaving,
+    organizationError,
     selectSession: setSelectedSessionId,
     refresh: () => setRefreshNonce((value) => value + 1),
     updateWorkspace: (patch) => saveWorkspace(patch),
     recordExport: (patch = {}) => saveWorkspace(patch, true),
     upsertMember: (patch) => saveMember(patch),
+    createOrganization,
+    assignSessionToOrganization: assignOrganization,
+  }
+
+  async function refreshMemberAudit(sessionId: string): Promise<void> {
+    try {
+      const res = await fetch(`${FEED_URL}/api/workspace/memos/${encodeURIComponent(sessionId)}/members/audit`)
+      const body = (await res.json().catch(() => ({}))) as { audit?: WorkspaceMembershipAuditRecord[]; error?: string }
+      if (!res.ok) throw new Error(body.error ?? `workspace member audit ${res.status}`)
+      setWorkspaceMemberAudit(body.audit ?? [])
+    } catch (auditError) {
+      setMembersError(friendlyMembersError(auditError))
+    }
   }
 }
 
@@ -754,6 +914,40 @@ function friendlyMembersError(error: unknown): UiError {
     what: message,
     likelyCause: 'The workspace membership endpoint rejected the request.',
     suggestedFix: 'Check the publisher ID and role, then retry.',
+  }
+}
+
+function friendlyOrganizationError(error: unknown): UiError {
+  const message = (error as Error).message || 'Organization workspace request failed'
+  if (/auth|signature/i.test(message)) {
+    return {
+      title: 'Organization update not authorized',
+      what: 'The API rejected the pilot/team workspace change because it was not signed with a valid workspace token.',
+      likelyCause: 'The dashboard is missing VITE_WORKSPACE_API_TOKEN or the token does not match the server secret.',
+      suggestedFix: 'Configure the workspace token, then retry the organization update.',
+    }
+  }
+  if (/not found/i.test(message)) {
+    return {
+      title: 'Organization not found',
+      what: 'The selected pilot/team workspace could not be found by the API.',
+      likelyCause: message,
+      suggestedFix: 'Refresh organization history, then assign the session again.',
+    }
+  }
+  if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(message)) {
+    return {
+      title: 'Organizations unavailable',
+      what: 'The dashboard could not reach the pilot/team workspace API.',
+      likelyCause: 'The marketplace API is offline or the browser lost connection.',
+      suggestedFix: 'Confirm the API is online, then retry.',
+    }
+  }
+  return {
+    title: 'Organization workspace change failed',
+    what: message,
+    likelyCause: 'The organization endpoint rejected the request.',
+    suggestedFix: 'Check the organization name and selected session, then retry.',
   }
 }
 

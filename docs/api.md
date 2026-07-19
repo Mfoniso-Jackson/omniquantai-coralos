@@ -192,6 +192,10 @@ POST /api/workspace/memos/:sessionId/export
 GET /api/workspace/memos/:sessionId/members
 POST /api/workspace/memos/:sessionId/members
 GET /api/workspace/memos/:sessionId/members/audit
+GET /api/organizations
+POST /api/organizations
+GET /api/organizations/:id
+POST /api/organizations/:id/sessions
 ```
 
 `PATCH /api/workspace/memos/:sessionId` accepts:
@@ -265,6 +269,33 @@ The dashboard Saved Memo Workspace includes a compact members panel for team pil
 invite a publisher, change roles, or revoke non-owner members from the selected session workspace.
 Every membership write appends an immutable audit record with actor, previous role/status, next
 role/status, and action (`invited`, `promoted`, `demoted`, `revoked`, or `restored`).
+The dashboard surfaces the latest audit entries directly in the members panel.
+
+Organization-level workspaces group many saved market sessions under one pilot/team. This prevents
+each completed market from behaving like an isolated workspace and gives paid pilots a shared research
+memory surface.
+
+`POST /api/organizations` accepts:
+
+```json
+{
+  "name": "Northstar Capital Pilot",
+  "slug": "northstar-capital",
+  "status": "active"
+}
+```
+
+`POST /api/organizations/:id/sessions` assigns an existing market session to that pilot/team:
+
+```json
+{
+  "sessionId": "394f18fe-842e-4243-8b84-8a1365b4a31c"
+}
+```
+
+The same workspace HMAC header model protects organization writes when a workspace/API secret is
+configured. The dashboard can create a pilot/team workspace, assign the selected session, and show how
+many saved sessions belong to each organization.
 
 ## Execution Flow And Recovery
 
