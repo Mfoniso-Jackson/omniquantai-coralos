@@ -173,6 +173,9 @@ Implementation:
 - Set `OMNIQUANT_DATA_DIR=/path/to/dir` to override.
 - Set `OMNIQUANT_PERSIST=0` to disable persistence.
 - Persistence is append-only and deduped per server process.
+- When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured, writes are mirrored to Supabase
+  for market records plus pilot-critical workspace records: memo workspaces, workspace memberships,
+  membership audit, organizations, and organization-session assignments.
 
 ## Deferred
 

@@ -218,6 +218,10 @@ export interface SessionHistoryState {
   membersLoading: boolean
   membersSaving: boolean
   membersError?: UiError
+  organizationMembers: WorkspaceMembershipRecord[]
+  organizationMemberAudit: WorkspaceMembershipAuditRecord[]
+  organizationMembersLoading: boolean
+  organizationMembersSaving: boolean
   organizationSaving: boolean
   organizationError?: UiError
   selectSession: (sessionId: string) => void
@@ -227,6 +231,7 @@ export interface SessionHistoryState {
   upsertMember: (patch: WorkspaceMemberPatch) => Promise<void>
   createOrganization: (patch: OrganizationPatch) => Promise<OrganizationWorkspaceRecord | undefined>
   assignSessionToOrganization: (organizationId: string, sessionId?: string) => Promise<void>
+  upsertOrganizationMember: (patch: WorkspaceMemberPatch, organizationId?: string) => Promise<void>
 }
 
 export function useApiHealth(intervalMs = 15000): ApiHealthState {
@@ -334,6 +339,10 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
   const [membersLoading, setMembersLoading] = useState(false)
   const [membersSaving, setMembersSaving] = useState(false)
   const [membersError, setMembersError] = useState<UiError>()
+  const [organizationMembers, setOrganizationMembers] = useState<WorkspaceMembershipRecord[]>([])
+  const [organizationMemberAudit, setOrganizationMemberAudit] = useState<WorkspaceMembershipAuditRecord[]>([])
+  const [organizationMembersLoading, setOrganizationMembersLoading] = useState(false)
+  const [organizationMembersSaving, setOrganizationMembersSaving] = useState(false)
   const [organizationSaving, setOrganizationSaving] = useState(false)
   const [organizationError, setOrganizationError] = useState<UiError>()
   const [updatedAt, setUpdatedAt] = useState<string>()
@@ -350,6 +359,8 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
       setSelected(undefined)
       setWorkspaceMembers([])
       setWorkspaceMemberAudit([])
+      setOrganizationMembers([])
+      setOrganizationMemberAudit([])
       setError(undefined)
       return
     }
@@ -403,13 +414,17 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
       setSelected(undefined)
       setWorkspaceMembers([])
       setWorkspaceMemberAudit([])
+      setOrganizationMembers([])
+      setOrganizationMemberAudit([])
       setLoadingDetail(false)
       setMembersLoading(false)
+      setOrganizationMembersLoading(false)
       return
     }
     const loadDetail = async () => {
       setLoadingDetail(true)
       setMembersLoading(true)
+      setOrganizationMembersLoading(true)
       try {
         const [marketRes, membersRes, auditRes] = await Promise.all([
           fetch(`${FEED_URL}/api/markets/${encodeURIComponent(selectedSessionId)}`),
@@ -422,10 +437,16 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
         if (!marketRes.ok) throw new Error(body.error ?? `saved market ${marketRes.status}`)
         if (!membersRes.ok) throw new Error(membersBody.error ?? `workspace members ${membersRes.status}`)
         if (!auditRes.ok) throw new Error(auditBody.error ?? `workspace member audit ${auditRes.status}`)
+        const organizationId = body.organization?.id ?? body.organizationAssignment?.organizationId
+        const [organizationMembersBody, organizationAuditBody] = organizationId
+          ? await loadOrganizationAccess(organizationId)
+          : [{ members: [] }, { audit: [] }]
         if (!stopped) {
           setSelected(body)
           setWorkspaceMembers(membersBody.members ?? [])
           setWorkspaceMemberAudit(auditBody.audit ?? [])
+          setOrganizationMembers(organizationMembersBody.members ?? [])
+          setOrganizationMemberAudit(organizationAuditBody.audit ?? [])
           setError(undefined)
           setWorkspaceError(undefined)
           setMembersError(undefined)
@@ -437,6 +458,8 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
           setSelected(undefined)
           setError(friendlyHistoryError(detailError))
           setMembersError(friendlyMembersError(detailError))
+          setOrganizationMembers([])
+          setOrganizationMemberAudit([])
           setOrganizationError(friendlyOrganizationError(detailError))
           setUpdatedAt(new Date().toISOString())
         }
@@ -444,6 +467,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
         if (!stopped) {
           setLoadingDetail(false)
           setMembersLoading(false)
+          setOrganizationMembersLoading(false)
         }
       }
     }
@@ -566,12 +590,43 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
         return { ...current, organizationAssignment: savedAssignment, organization: organization ?? current.organization }
       })
       setOrganizationError(undefined)
+      await refreshOrganizationAccess(savedAssignment.organizationId)
       setUpdatedAt(new Date().toISOString())
       setRefreshNonce((value) => value + 1)
     } catch (orgError) {
       setOrganizationError(friendlyOrganizationError(orgError))
     } finally {
       setOrganizationSaving(false)
+    }
+  }
+
+  const saveOrganizationMember = async (patch: WorkspaceMemberPatch, organizationId = selected?.organization?.id ?? selected?.organizationAssignment?.organizationId) => {
+    if (apiHealth.status !== 'online' || !organizationId) return
+    setOrganizationMembersSaving(true)
+    setOrganizationError(undefined)
+    try {
+      const path = `/api/organizations/${encodeURIComponent(organizationId)}/members`
+      const requestBody = JSON.stringify(patch)
+      const signedHeaders = await signedWorkspaceHeaders('POST', path, requestBody)
+      const res = await fetch(`${FEED_URL}${path}`, {
+        method: 'POST',
+        headers: { ...signedHeaders, 'content-type': 'application/json' },
+        body: requestBody,
+      })
+      const responseBody = (await res.json().catch(() => ({}))) as { membership?: WorkspaceMembershipRecord; error?: string }
+      if (!res.ok || !responseBody.membership) throw new Error(responseBody.error ?? `organization member save ${res.status}`)
+      const savedMembership = responseBody.membership
+      setOrganizationMembers((current) => {
+        const rest = current.filter((member) => member.publisherId !== savedMembership.publisherId)
+        return [...rest, savedMembership].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.publisherId.localeCompare(b.publisherId))
+      })
+      await refreshOrganizationAccess(organizationId)
+      setOrganizationError(undefined)
+      setUpdatedAt(new Date().toISOString())
+    } catch (memberError) {
+      setOrganizationError(friendlyOrganizationError(memberError))
+    } finally {
+      setOrganizationMembersSaving(false)
     }
   }
 
@@ -593,6 +648,10 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     membersLoading,
     membersSaving,
     membersError,
+    organizationMembers,
+    organizationMemberAudit,
+    organizationMembersLoading,
+    organizationMembersSaving,
     organizationSaving,
     organizationError,
     selectSession: setSelectedSessionId,
@@ -602,6 +661,32 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     upsertMember: (patch) => saveMember(patch),
     createOrganization,
     assignSessionToOrganization: assignOrganization,
+    upsertOrganizationMember: (patch, organizationId) => saveOrganizationMember(patch, organizationId),
+  }
+
+  async function loadOrganizationAccess(organizationId: string): Promise<[
+    { members?: WorkspaceMembershipRecord[]; error?: string },
+    { audit?: WorkspaceMembershipAuditRecord[]; error?: string },
+  ]> {
+    const [membersRes, auditRes] = await Promise.all([
+      fetch(`${FEED_URL}/api/organizations/${encodeURIComponent(organizationId)}/members`),
+      fetch(`${FEED_URL}/api/organizations/${encodeURIComponent(organizationId)}/members/audit`),
+    ])
+    const membersBody = (await membersRes.json().catch(() => ({}))) as { members?: WorkspaceMembershipRecord[]; error?: string }
+    const auditBody = (await auditRes.json().catch(() => ({}))) as { audit?: WorkspaceMembershipAuditRecord[]; error?: string }
+    if (!membersRes.ok) throw new Error(membersBody.error ?? `organization members ${membersRes.status}`)
+    if (!auditRes.ok) throw new Error(auditBody.error ?? `organization member audit ${auditRes.status}`)
+    return [membersBody, auditBody]
+  }
+
+  async function refreshOrganizationAccess(organizationId: string): Promise<void> {
+    try {
+      const [membersBody, auditBody] = await loadOrganizationAccess(organizationId)
+      setOrganizationMembers(membersBody.members ?? [])
+      setOrganizationMemberAudit(auditBody.audit ?? [])
+    } catch (orgError) {
+      setOrganizationError(friendlyOrganizationError(orgError))
+    }
   }
 
   async function refreshMemberAudit(sessionId: string): Promise<void> {
@@ -629,10 +714,14 @@ export async function setRegistryAgentStatus(agentId: string, status: AgentRegis
   if (!res.ok) throw new Error(`status update failed: ${res.status} ${await res.text()}`)
 }
 
+export interface StartMarketOptions {
+  organizationId?: string
+}
+
 /** Ask the feed server to launch a market session; returns its id. (Fund wallets first.) */
-export async function startMarket(): Promise<{ session: string; namespace?: string }> {
+export async function startMarket(options: StartMarketOptions = {}): Promise<{ session: string; namespace?: string }> {
   try {
-    if (LIVE_API_MODE) return startMarketViaJob()
+    if (LIVE_API_MODE) return startMarketViaJob(options)
     const r = await fetch(`${FEED_URL}/api/start`, { method: 'POST' })
     const body = (await r.json().catch(() => ({}))) as { session?: string; namespace?: string; error?: string; log?: string }
     if (!r.ok || !body.session) {
@@ -666,7 +755,7 @@ interface MarketJobResponse {
   }
 }
 
-async function startMarketViaJob(): Promise<{ session: string; namespace?: string }> {
+async function startMarketViaJob(options: StartMarketOptions): Promise<{ session: string; namespace?: string }> {
   const idempotencyKey = `dashboard-${Date.now()}-${Math.random().toString(16).slice(2)}`
   const r = await fetch(`${FEED_URL}/v1/markets`, {
     method: 'POST',
@@ -678,6 +767,7 @@ async function startMarketViaJob(): Promise<{ session: string; namespace?: strin
       namespace: 'omniquant',
       request: 'Should our fund increase exposure to Nvidia over the next 3-6 months?',
       asset: 'NVDA',
+      organizationId: options.organizationId,
     }),
   })
   const body = (await r.json().catch(() => ({}))) as MarketJobResponse

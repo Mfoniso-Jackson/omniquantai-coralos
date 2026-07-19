@@ -56,6 +56,14 @@ Goal: make `omniquantai.com` function as the public face of the Financial Intell
   session into that shared workspace.
 - Added organization-scoped membership policy so pilot/team roles can authorize edits across all
   assigned sessions while explicit session-level roles can narrow access.
+- Added dashboard organization member administration for inviting, promoting, demoting, revoking, and
+  auditing pilot/team members from the Pilot / Team Workspace panel.
+- Added workspace-first Start Market selection so a new session is automatically assigned to the
+  selected pilot/team workspace after launch.
+- Added a saved Pilot Workspace dashboard view with assigned sessions, memo status counts, reviewers,
+  export-ready memos, settlement-proof readiness, and access activity.
+- Extended Supabase mirroring for pilot-critical records: memo workspaces, memberships/audit,
+  organizations, and organization-session assignments.
 - Preserved the existing Start Market, reconnect, presentation, diagnostics, market, memo, and settlement flows.
 
 ## Remaining Work
@@ -63,5 +71,5 @@ Goal: make `omniquantai.com` function as the public face of the Financial Intell
 - Add true `/market`, `/research`, `/developers`, `/architecture`, `/docs`, `/roadmap`, `/blog`, and `/about` routes when hosting supports SPA fallback reliably.
 - Add a dedicated docs index page fed by repo documentation.
 - Add memo export to PDF.
-- Add durable account identity, organization membership UI, and fuller audit-log filtering/search.
+- Add durable account identity, Supabase-backed read APIs, and fuller audit-log filtering/search.
 - Add public API uptime/status once `api.omniquantai.com` is deployed.

@@ -1,6 +1,7 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { MemoReviewStatus, MemoWorkspaceRecord } from './models.js'
+import { mirrorCollectionRecord } from './supabasePersistence.js'
 
 const statuses = new Set<MemoReviewStatus>(['Needs Review', 'Approved', 'Watchlist', 'Rejected'])
 
@@ -61,6 +62,7 @@ export async function upsertMemoWorkspace(
   if (process.env.OMNIQUANT_PERSIST !== '0') {
     await mkdir(dataDir, { recursive: true })
     await appendFile(join(dataDir, 'memo_workspace.jsonl'), `${JSON.stringify(next)}\n`, 'utf8')
+    await mirrorCollectionRecord('memo_workspace', next)
   }
   return next
 }

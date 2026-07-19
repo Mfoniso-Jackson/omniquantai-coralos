@@ -6,6 +6,7 @@ import type {
   WorkspaceMembershipRecord,
   WorkspaceRole,
 } from './models.js'
+import { mirrorCollectionRecord } from './supabasePersistence.js'
 
 const roles = new Set<WorkspaceRole>(['owner', 'admin', 'editor', 'viewer'])
 const editableRoles = new Set<WorkspaceRole>(['owner', 'admin', 'editor'])
@@ -79,9 +80,12 @@ export async function upsertWorkspaceMembership(
     updatedAt: now,
   }
   if (process.env.OMNIQUANT_PERSIST !== '0') {
+    const audit = auditRecord(sessionId, current, next, now)
     await mkdir(dataDir, { recursive: true })
     await appendFile(join(dataDir, 'workspace_memberships.jsonl'), `${JSON.stringify(next)}\n`, 'utf8')
-    await appendFile(join(dataDir, 'workspace_membership_audit.jsonl'), `${JSON.stringify(auditRecord(sessionId, current, next, now))}\n`, 'utf8')
+    await appendFile(join(dataDir, 'workspace_membership_audit.jsonl'), `${JSON.stringify(audit)}\n`, 'utf8')
+    await mirrorCollectionRecord('workspace_memberships', next)
+    await mirrorCollectionRecord('workspace_membership_audit', audit)
   }
   return next
 }

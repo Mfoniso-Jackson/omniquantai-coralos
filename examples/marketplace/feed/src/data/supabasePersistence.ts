@@ -6,8 +6,13 @@ import type {
   InvestmentMemoRecord,
   MarketEventRecord,
   MarketSessionRecord,
+  MemoWorkspaceRecord,
+  OrganizationSessionRecord,
+  OrganizationWorkspaceRecord,
   ResearchRequestRecord,
   SettlementRecord,
+  WorkspaceMembershipAuditRecord,
+  WorkspaceMembershipRecord,
 } from './models.js'
 
 type CollectionRecord =
@@ -20,6 +25,11 @@ type CollectionRecord =
   | AgentReputationRecord
   | GraphNodeRecord
   | GraphEdgeRecord
+  | MemoWorkspaceRecord
+  | WorkspaceMembershipRecord
+  | WorkspaceMembershipAuditRecord
+  | OrganizationWorkspaceRecord
+  | OrganizationSessionRecord
 
 interface SupabaseTarget {
   table: string
@@ -203,6 +213,94 @@ export function targetFor(collection: string, record: CollectionRecord): Supabas
           created_at: (record as GraphEdgeRecord).timestamp,
         },
       }
+    case 'memo_workspace': {
+      const workspace = record as MemoWorkspaceRecord
+      return {
+        table: 'memo_workspaces',
+        onConflict: 'session_id',
+        row: {
+          workspace_id: workspace.id,
+          session_id: workspace.sessionId,
+          memo_id: workspace.memoId,
+          review_status: workspace.reviewStatus,
+          note: workspace.note,
+          reviewer: workspace.reviewer,
+          export_ready: workspace.exportReady,
+          export_history: workspace.exportHistory,
+          created_at: workspace.createdAt,
+          updated_at: workspace.updatedAt,
+        },
+      }
+    }
+    case 'workspace_memberships': {
+      const membership = record as WorkspaceMembershipRecord
+      return {
+        table: 'workspace_memberships',
+        onConflict: 'membership_id',
+        row: {
+          membership_id: membership.id,
+          workspace_scope: membership.sessionId,
+          publisher_id: membership.publisherId,
+          role: membership.role,
+          display_name: membership.displayName,
+          status: membership.status,
+          granted_by: membership.grantedBy,
+          granted_at: membership.grantedAt,
+          updated_at: membership.updatedAt,
+        },
+      }
+    }
+    case 'workspace_membership_audit': {
+      const audit = record as WorkspaceMembershipAuditRecord
+      return {
+        table: 'workspace_membership_audit',
+        onConflict: 'audit_id',
+        row: {
+          audit_id: audit.id,
+          workspace_scope: audit.sessionId,
+          publisher_id: audit.publisherId,
+          action: audit.action,
+          from_role: audit.fromRole,
+          to_role: audit.toRole,
+          from_status: audit.fromStatus,
+          to_status: audit.toStatus,
+          actor: audit.actor,
+          display_name: audit.displayName,
+          created_at: audit.timestamp,
+        },
+      }
+    }
+    case 'organization_workspaces': {
+      const organization = record as OrganizationWorkspaceRecord
+      return {
+        table: 'organization_workspaces',
+        onConflict: 'organization_id',
+        row: {
+          organization_id: organization.id,
+          name: organization.name,
+          slug: organization.slug,
+          status: organization.status,
+          created_by: organization.createdBy,
+          created_at: organization.createdAt,
+          updated_at: organization.updatedAt,
+        },
+      }
+    }
+    case 'organization_sessions': {
+      const assignment = record as OrganizationSessionRecord
+      return {
+        table: 'organization_sessions',
+        onConflict: 'session_id',
+        row: {
+          assignment_id: assignment.id,
+          organization_id: assignment.organizationId,
+          session_id: assignment.sessionId,
+          assigned_by: assignment.assignedBy,
+          assigned_at: assignment.assignedAt,
+          updated_at: assignment.updatedAt,
+        },
+      }
+    }
     default:
       return undefined
   }

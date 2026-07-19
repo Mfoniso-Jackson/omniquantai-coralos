@@ -38,8 +38,9 @@ flowchart TD
 - API and CoralOS launching are still coupled in the feed server.
 - Long-running market startup can block an API request.
 - Redis queue and async worker are documented but not yet wired.
-- Supabase mirroring is implemented behind `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, but JSONL
-  remains the local fallback and read APIs still read from the file projection.
+- Supabase mirroring is implemented behind `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for market
+  records, memo workspaces, memberships/audit, organizations, and organization-session assignments.
+  JSONL remains the local fallback and read APIs still read from the file projection.
 - CoralOS requires Docker and should not run on Vercel.
 - Arbiter settlement mode has a known `NotArbiter` posture issue; direct devnet escrow is the reliable proof lane.
 - Object storage for memo/proof artifacts is not wired.

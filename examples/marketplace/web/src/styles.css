@@ -393,6 +393,24 @@ body {
 .empty-market h2 { margin: 8px 0 10px; font-size: clamp(30px, 5vw, 58px); line-height: 1.02; }
 .empty-market p { color: var(--dim); line-height: 1.55; max-width: 760px; margin: 0; }
 .empty-actions { display: flex; gap: 10px; margin-top: 18px; }
+.launch-workspace-form {
+  border: 1px solid rgba(83,209,140,.28); border-radius: 8px; padding: 12px;
+  background: rgba(5, 7, 11, .58); display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(0, 1fr) auto;
+  gap: 10px; align-items: end;
+}
+.launch-workspace-form label {
+  display: grid; gap: 6px; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+}
+.launch-workspace-form input, .launch-workspace-form select {
+  min-height: 40px; width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px;
+  background: rgba(5, 7, 11, .78); color: var(--txt); font: inherit; font-size: 13px; letter-spacing: 0; text-transform: none;
+}
+.launch-workspace-form span { color: var(--dim); font-size: 12px; line-height: 1.35; }
+.launch-workspace-form .primary-action { min-height: 40px; white-space: nowrap; }
+.launch-workspace-form input:focus-visible, .launch-workspace-form select:focus-visible {
+  outline: 2px solid var(--link); outline-offset: 2px;
+}
 .primary-action {
   color: #04130a; background: linear-gradient(135deg, var(--won), #9df7c4);
   border: 0; border-radius: 8px; padding: 12px 16px; font: inherit; font-weight: 850;
@@ -635,6 +653,40 @@ body {
 .organization-row-active { border-color: rgba(83,209,140,.72); background: rgba(27, 84, 55, .18); }
 .organization-row strong { color: var(--txt); font-size: 13px; overflow-wrap: anywhere; }
 .organization-row span { color: var(--dim); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.pilot-dashboard {
+  border: 1px solid rgba(103,168,255,.24); border-radius: 8px; padding: 11px;
+  background: rgba(10, 16, 26, .4); display: grid; gap: 10px;
+}
+.pilot-dashboard-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.pilot-dashboard-head div { display: grid; gap: 3px; }
+.pilot-dashboard-head strong { color: var(--link); font-size: 13px; }
+.pilot-dashboard-head span, .pilot-dashboard-head em { color: var(--dim); font-style: normal; font-size: 12px; line-height: 1.35; }
+.pilot-metrics, .pilot-status-grid {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px;
+}
+.pilot-status-grid div {
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px; background: rgba(5,7,11,.3);
+}
+.pilot-status-grid span { display: block; color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.pilot-status-grid strong { display: block; color: var(--txt); font-size: 14px; margin-top: 4px; }
+.pilot-session-list { display: grid; gap: 7px; }
+.pilot-session-row {
+  min-height: 56px; width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px;
+  background: rgba(5,7,11,.32); color: var(--txt); display: grid; gap: 3px; text-align: left; cursor: pointer;
+}
+.pilot-session-row:hover { border-color: rgba(103,168,255,.52); }
+.pilot-session-row-active { border-color: rgba(103,168,255,.72); background: rgba(103,168,255,.12); }
+.pilot-session-row strong { font-size: 13px; color: var(--txt); overflow-wrap: anywhere; }
+.pilot-session-row span, .pilot-reviewers span { color: var(--dim); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.pilot-reviewers {
+  border: 1px dashed var(--line); border-radius: 8px; padding: 9px; display: grid; gap: 3px;
+  background: rgba(5,7,11,.2);
+}
+.pilot-reviewers strong { color: var(--txt); font-size: 13px; }
+.organization-access {
+  border: 1px solid rgba(83,209,140,.22); border-radius: 8px; padding: 10px;
+  background: rgba(5, 7, 11, .28); display: grid; gap: 10px;
+}
 .members-panel {
   border: 1px solid rgba(103, 168, 255, .26); border-radius: 8px; padding: 12px;
   background: rgba(5, 7, 11, .34); display: grid; gap: 11px;
@@ -659,6 +711,10 @@ body {
   background: rgba(103,168,255,.1); color: var(--txt); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
 }
 .member-form button:disabled, .member-row button:disabled { opacity: .5; cursor: default; }
+.organization-form button:focus-visible, .organization-row:focus-visible, .member-form button:focus-visible,
+.member-row button:focus-visible, .member-row select:focus-visible {
+  outline: 2px solid var(--link); outline-offset: 2px;
+}
 .member-list { display: grid; gap: 7px; }
 .member-row {
   display: grid; grid-template-columns: minmax(0, 1fr) 128px auto; gap: 9px; align-items: center;
@@ -922,7 +978,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
   .intel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .settlement-timeline { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .launch-progress, .settlement-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .market-preview-grid, .portal-grid, .agent-profile-grid, .registry-grid, .workspace-metrics, .memo-facts, .review-controls, .organization-form, .member-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .launch-workspace-form, .market-preview-grid, .portal-grid, .agent-profile-grid, .registry-grid, .workspace-metrics, .memo-facts, .review-controls, .organization-form, .pilot-metrics, .pilot-status-grid, .member-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workspace-grid { grid-template-columns: 1fr; }
   .member-row { grid-template-columns: minmax(0, 1fr) 120px auto; }
   .member-audit li { grid-template-columns: 88px minmax(0, 1fr); }
@@ -945,7 +1001,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
   .public-copy { min-height: 520px; }
   .empty-actions { flex-direction: column; align-items: stretch; }
   .secondary-action, .primary-action { text-align: center; }
-  .market-preview-grid, .portal-grid, .agent-profile-grid, .registry-grid, .registry-metrics, .workspace-metrics, .memo-facts, .review-controls, .organization-form, .member-form, .member-row { grid-template-columns: 1fr; }
+  .launch-workspace-form, .market-preview-grid, .portal-grid, .agent-profile-grid, .registry-grid, .registry-metrics, .workspace-metrics, .memo-facts, .review-controls, .organization-form, .pilot-metrics, .pilot-status-grid, .member-form, .member-row { grid-template-columns: 1fr; }
   .member-audit li { grid-template-columns: 1fr; }
   .member-audit li em { grid-column: auto; }
   .memo-workbench-head { flex-direction: column; }

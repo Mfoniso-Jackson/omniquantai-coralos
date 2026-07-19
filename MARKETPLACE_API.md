@@ -40,6 +40,8 @@ Workspace records store reviewer assignment, analyst notes, review status, expor
 export history for completed memos while preserving the original market transcript.
 Organization records group multiple market sessions under a pilot/team so saved memo state can become
 account-level memory instead of one isolated workspace per session.
+Start Market can now create or select a pilot/team first, then assign the launched session to that
+organization once the session ID is available.
 
 Workspace write protection:
 
@@ -52,6 +54,9 @@ Workspace write protection:
 - membership audit logs record invites, promotions, demotions, revocations, and restores with actor and before/after state, and the dashboard members panel shows the latest entries
 - dashboard workspace panel can create a pilot/team organization and assign the selected session to it
 - organization memberships authorize edits across every assigned session, with explicit session membership taking precedence for tighter per-session control
+- dashboard pilot/team panel can invite, promote, demote, revoke, and audit organization members without manual API calls
+- dashboard pilot workspace view summarizes assigned sessions, memo review states, reviewers, export-ready memos, settlement proof readiness, and access activity
+- Supabase mirroring now covers memo workspaces, workspace memberships/audit, organizations, and organization-session assignments when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured
 - reads remain available for history/proof views
 
 ## Developer Registry APIs

@@ -40,6 +40,10 @@ const defaultWorkspaceState: Pick<MemoWorkspaceRecord, 'reviewStatus' | 'note' |
   exportHistory: [],
 }
 type WorkspaceViewState = Pick<MemoWorkspaceRecord, 'reviewStatus' | 'note' | 'exportReady' | 'exportHistory'> & Partial<MemoWorkspaceRecord>
+interface StartMarketInput {
+  organizationId?: string
+  organizationName?: string
+}
 
 export default function App() {
   const [session, setSession] = useState(initialSession)
@@ -62,11 +66,17 @@ export default function App() {
     window.history.replaceState({}, '', url)
   }
 
-  async function onStart() {
+  async function onStart(input: StartMarketInput = {}) {
     setStarting(true)
     setStartErr(undefined)
     try {
-      const started = await startMarket()
+      let organizationId = input.organizationId
+      if (!organizationId && input.organizationName?.trim()) {
+        const organization = await sessionHistory.createOrganization({ name: input.organizationName.trim() })
+        organizationId = organization?.id
+      }
+      const started = await startMarket({ organizationId })
+      if (organizationId) await sessionHistory.assignSessionToOrganization(organizationId, started.session)
       setSession(started.session)
       setNamespace(started.namespace ?? '')
       const url = new URL(window.location.href)
@@ -143,8 +153,8 @@ export default function App() {
       <ModeBanner apiHealth={apiHealth} />
 
       {(starting || session) && <LaunchProgress starting={starting} session={session} rounds={rounds} connected={connected} diagnostics={diagnostics} />}
-      {startErr && <ErrorCard error={startErr} onRetry={onStart} testId="start-err" />}
-      {error && <ErrorCard error={error} onRetry={session ? undefined : onStart} testId="feed-err" />}
+      {startErr && <ErrorCard error={startErr} onRetry={() => onStart()} testId="start-err" />}
+      {error && <ErrorCard error={error} onRetry={session ? undefined : () => onStart()} testId="feed-err" />}
       <DebugPanel session={session} connected={connected} error={error ?? startErr} diagnostics={diagnostics} rounds={rounds} updatedAt={updatedAt} polling={polling} apiUrl={apiUrl} />
 
       <main>
@@ -189,14 +199,14 @@ function StartMarketPanel({
   apiHealth: ApiHealthState
   registry: RegistryState
   history: SessionHistoryState
-  onStart: () => void
+  onStart: (input?: StartMarketInput) => void
   onSession: (session: string) => void
   onOpenSavedSession: (sessionId: string, namespace?: string) => void
 }) {
   const [draft, setDraft] = useState(session)
   return (
     <section className="empty-market">
-      <PublicHero starting={starting} apiHealth={apiHealth} onStart={onStart} />
+      <PublicHero starting={starting} apiHealth={apiHealth} history={history} onStart={onStart} />
       <ProofModePanel apiHealth={apiHealth} />
       <SessionHistoryWorkspace history={history} onOpenSession={onOpenSavedSession} />
       <details className="reconnect-panel">
@@ -252,12 +262,25 @@ function SessionHistoryWorkspace({
   const [memberRole, setMemberRole] = useState<WorkspaceRole>('editor')
   const [organizationName, setOrganizationName] = useState('')
   const [selectedOrganizationId, setSelectedOrganizationId] = useState('')
+  const [organizationMemberPublisherId, setOrganizationMemberPublisherId] = useState('')
+  const [organizationMemberDisplayName, setOrganizationMemberDisplayName] = useState('')
+  const [organizationMemberRole, setOrganizationMemberRole] = useState<WorkspaceRole>('editor')
   const currentOrganization = selected?.organization
     ?? history.organizations.find((item) => item.id === selected?.organizationAssignment?.organizationId)
     ?? history.organizations.find((item) => item.id === history.organizationAssignments.find((assignment) => assignment.sessionId === selected?.session.sessionId)?.organizationId)
   const currentOrganizationSessionCount = currentOrganization
     ? history.organizationAssignments.filter((assignment) => assignment.organizationId === currentOrganization.id).length
     : 0
+  const organizationSessionIds = currentOrganization
+    ? new Set(history.organizationAssignments.filter((assignment) => assignment.organizationId === currentOrganization.id).map((assignment) => assignment.sessionId))
+    : new Set<string>()
+  const organizationSessions = history.sessions.filter((item) => organizationSessionIds.has(item.sessionId))
+  const organizationWorkspaces = history.workspaces.filter((workspace) => organizationSessionIds.has(workspace.sessionId))
+  const organizationStatusCounts = (['Needs Review', 'Approved', 'Watchlist', 'Rejected'] as ReviewStatus[])
+    .map((status) => ({ status, count: organizationWorkspaces.filter((workspace) => workspace.reviewStatus === status).length }))
+  const organizationReviewers = [...new Set(organizationWorkspaces.map((workspace) => workspace.reviewer).filter((reviewer): reviewer is string => Boolean(reviewer)))]
+  const organizationExportReady = organizationWorkspaces.filter((workspace) => workspace.exportReady).length
+  const organizationProofCount = organizationSessions.filter((item) => /released|settled|payment_released/i.test(`${item.currentStage}:${item.status}:${item.settlementStatus ?? ''}`)).length
 
   function submitMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -292,6 +315,22 @@ function SessionHistoryWorkspace({
     const organizationId = selectedOrganizationId || currentOrganization?.id
     if (!organizationId || !selected?.session.sessionId) return
     void history.assignSessionToOrganization(organizationId, selected.session.sessionId)
+  }
+
+  function submitOrganizationMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const publisherId = organizationMemberPublisherId.trim()
+    if (!publisherId || !currentOrganization) return
+    void history.upsertOrganizationMember({
+      publisherId,
+      role: organizationMemberRole,
+      displayName: organizationMemberDisplayName.trim() || undefined,
+      status: 'active',
+    }, currentOrganization.id).then(() => {
+      setOrganizationMemberPublisherId('')
+      setOrganizationMemberDisplayName('')
+      setOrganizationMemberRole('editor')
+    })
   }
 
   return (
@@ -487,6 +526,185 @@ function SessionHistoryWorkspace({
                       </div>
                     )}
                   </div>
+                  {currentOrganization && (
+                    <div className="pilot-dashboard" aria-label="Pilot workspace dashboard">
+                      <div className="pilot-dashboard-head">
+                        <div>
+                          <strong>Saved Pilot Workspace</strong>
+                          <span>{currentOrganization.name} · {organizationSessions.length} saved session(s)</span>
+                        </div>
+                        <em>{organizationExportReady} export-ready memo(s)</em>
+                      </div>
+                      <div className="pilot-metrics" aria-label="Pilot workspace metrics">
+                        <WorkspaceMetric label="Sessions" value={String(organizationSessions.length)} />
+                        <WorkspaceMetric label="Proof Ready" value={String(organizationProofCount)} />
+                        <WorkspaceMetric label="Reviewers" value={String(organizationReviewers.length)} />
+                        <WorkspaceMetric label="Access Events" value={String(history.organizationMemberAudit.length)} />
+                      </div>
+                      <div className="pilot-status-grid" aria-label="Memo review status counts">
+                        {organizationStatusCounts.map((item) => (
+                          <div key={item.status}>
+                            <span>{item.status}</span>
+                            <strong>{item.count}</strong>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="pilot-session-list" aria-label="Organization sessions">
+                        {organizationSessions.length > 0 ? organizationSessions.slice(0, 5).map((item) => {
+                          const workspace = history.workspaces.find((record) => record.sessionId === item.sessionId)
+                          return (
+                            <button
+                              key={item.sessionId}
+                              type="button"
+                              onClick={() => history.selectSession(item.sessionId)}
+                              className={item.sessionId === history.selectedSessionId ? 'pilot-session-row pilot-session-row-active' : 'pilot-session-row'}
+                            >
+                              <strong>{shortId(item.sessionId)} · {stageLabel(item)}</strong>
+                              <span>
+                                {workspace?.reviewStatus ?? 'Needs Review'}
+                                {workspace?.reviewer ? ` · ${workspace.reviewer}` : ' · unassigned'}
+                                {item.settlementStatus ? ` · ${item.settlementStatus}` : ''}
+                              </span>
+                            </button>
+                          )
+                        }) : (
+                          <div className="member-empty">
+                            <strong>No sessions assigned yet</strong>
+                            <span>Start a market from this pilot workspace to build customer-level research memory.</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="pilot-reviewers" aria-label="Pilot workspace reviewers">
+                        <strong>Reviewers</strong>
+                        <span>{organizationReviewers.length > 0 ? organizationReviewers.join(', ') : 'No reviewers assigned yet'}</span>
+                      </div>
+                    </div>
+                  )}
+                  {currentOrganization && (
+                    <div className="organization-access" aria-label="Organization member administration">
+                      <div className="members-panel-head">
+                        <div>
+                          <strong>Organization Members</strong>
+                          <span>{history.organizationMembers.length} inherited role record(s) for {currentOrganization.name}</span>
+                        </div>
+                        {history.organizationMembersLoading && <em>Loading members...</em>}
+                      </div>
+                      <form className="member-form" onSubmit={submitOrganizationMember} aria-busy={history.organizationMembersSaving}>
+                        <label htmlFor="organization-member-publisher">
+                          Publisher ID
+                          <input
+                            id="organization-member-publisher"
+                            type="text"
+                            value={organizationMemberPublisherId}
+                            onChange={(event) => setOrganizationMemberPublisherId(event.target.value)}
+                            placeholder="research-lead"
+                            autoComplete="username"
+                            spellCheck={false}
+                            disabled={history.organizationMembersSaving}
+                            required
+                          />
+                        </label>
+                        <label htmlFor="organization-member-name">
+                          Display Name
+                          <input
+                            id="organization-member-name"
+                            type="text"
+                            value={organizationMemberDisplayName}
+                            onChange={(event) => setOrganizationMemberDisplayName(event.target.value)}
+                            placeholder="Research Lead"
+                            autoComplete="name"
+                            disabled={history.organizationMembersSaving}
+                          />
+                        </label>
+                        <label htmlFor="organization-member-role">
+                          Role
+                          <select
+                            id="organization-member-role"
+                            value={organizationMemberRole}
+                            onChange={(event) => setOrganizationMemberRole(event.target.value as WorkspaceRole)}
+                            disabled={history.organizationMembersSaving}
+                          >
+                            <option value="admin">Admin</option>
+                            <option value="editor">Editor</option>
+                            <option value="viewer">Viewer</option>
+                          </select>
+                        </label>
+                        <button type="submit" disabled={history.organizationMembersSaving || !organizationMemberPublisherId.trim()}>
+                          {history.organizationMembersSaving ? 'Saving...' : 'Invite / Update'}
+                        </button>
+                      </form>
+                      <div className="member-list" aria-label="Organization members">
+                        {history.organizationMembers.length > 0 ? history.organizationMembers.map((member) => (
+                          <div className={member.status === 'revoked' ? 'member-row member-row-revoked' : 'member-row'} key={member.id}>
+                            <div>
+                              <strong>{member.displayName || member.publisherId}</strong>
+                              <span>{member.publisherId} · {member.status} · updated {formatDate(member.updatedAt)}</span>
+                            </div>
+                            <select
+                              aria-label={`Organization role for ${member.publisherId}`}
+                              value={member.role}
+                              onChange={(event) => void history.upsertOrganizationMember({
+                                publisherId: member.publisherId,
+                                displayName: member.displayName,
+                                role: event.target.value as WorkspaceRole,
+                                status: 'active',
+                              }, currentOrganization.id)}
+                              disabled={history.organizationMembersSaving || member.status === 'revoked'}
+                            >
+                              <option value="owner">Owner</option>
+                              <option value="admin">Admin</option>
+                              <option value="editor">Editor</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                            <button
+                              onClick={() => void history.upsertOrganizationMember({
+                                publisherId: member.publisherId,
+                                displayName: member.displayName,
+                                role: member.role,
+                                status: 'revoked',
+                              }, currentOrganization.id)}
+                              disabled={history.organizationMembersSaving || member.role === 'owner' || member.status === 'revoked'}
+                            >
+                              Revoke
+                            </button>
+                          </div>
+                        )) : (
+                          <div className="member-empty">
+                            <strong>No organization members loaded yet</strong>
+                            <span>The signed organization creator starts as owner, then can invite team members.</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="member-audit" aria-label="Organization membership audit log">
+                        <div className="member-audit-head">
+                          <strong>Organization Access Audit</strong>
+                          <span>{history.organizationMemberAudit.length} trace event(s)</span>
+                        </div>
+                        {history.organizationMembersLoading && history.organizationMemberAudit.length === 0 && <HistorySkeleton compact />}
+                        {!history.organizationMembersLoading && history.organizationMemberAudit.length > 0 ? (
+                          <ol>
+                            {history.organizationMemberAudit.slice(0, 6).map((event) => (
+                              <li key={event.id}>
+                                <span>{auditActionLabel(event.action)}</span>
+                                <strong>{event.displayName || event.publisherId}</strong>
+                                <em>
+                                  {auditTransition(event)}
+                                  {event.actor ? ` · by ${event.actor}` : ''}
+                                  {' · '}
+                                  {formatDate(event.timestamp)}
+                                </em>
+                              </li>
+                            ))}
+                          </ol>
+                        ) : !history.organizationMembersLoading && (
+                          <div className="member-empty">
+                            <strong>No organization access changes recorded yet</strong>
+                            <span>Organization invites, promotions, demotions, and revocations will appear here.</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <label className="workspace-note">
                   Analyst Notes
@@ -784,8 +1002,21 @@ function ModeBanner({ apiHealth }: { apiHealth: ApiHealthState }) {
   )
 }
 
-function PublicHero({ starting, apiHealth, onStart }: { starting: boolean; apiHealth: ApiHealthState; onStart: () => void }) {
+function PublicHero({
+  starting,
+  apiHealth,
+  history,
+  onStart,
+}: {
+  starting: boolean
+  apiHealth: ApiHealthState
+  history: SessionHistoryState
+  onStart: (input?: StartMarketInput) => void
+}) {
   const apiOnline = apiHealth.status === 'online'
+  const [launchOrganizationId, setLaunchOrganizationId] = useState('')
+  const [launchOrganizationName, setLaunchOrganizationName] = useState('')
+  const hasWorkspaceChoice = Boolean(launchOrganizationId || launchOrganizationName.trim())
   return (
     <section className="public-hero" aria-labelledby="public-hero-title">
       <div className="public-copy">
@@ -796,19 +1027,61 @@ function PublicHero({ starting, apiHealth, onStart }: { starting: boolean; apiHe
           Autonomous financial-intelligence agents compete to produce investment research and earn
           through programmable settlement.
         </p>
+        <form className="launch-workspace-form" onSubmit={(event) => {
+          event.preventDefault()
+          onStart({ organizationId: launchOrganizationId || undefined, organizationName: launchOrganizationName.trim() || undefined })
+        }}>
+          <label htmlFor="launch-organization-select">
+            Pilot / Team Workspace
+            <select
+              id="launch-organization-select"
+              value={launchOrganizationId}
+              onChange={(event) => {
+                setLaunchOrganizationId(event.target.value)
+                if (event.target.value) setLaunchOrganizationName('')
+              }}
+              disabled={starting || !apiOnline || history.organizations.length === 0}
+            >
+              <option value="">Create or select workspace</option>
+              {history.organizations.map((organization) => (
+                <option key={organization.id} value={organization.id}>{organization.name}</option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor="launch-organization-name">
+            New Workspace
+            <input
+              id="launch-organization-name"
+              type="text"
+              value={launchOrganizationName}
+              onChange={(event) => {
+                setLaunchOrganizationName(event.target.value)
+                if (event.target.value.trim()) setLaunchOrganizationId('')
+              }}
+              placeholder="Northstar Capital Pilot"
+              autoComplete="organization"
+              disabled={starting || !apiOnline}
+            />
+          </label>
+          <span>
+            {apiOnline
+              ? 'Choose or create a pilot workspace before launch. The new session will be assigned automatically.'
+              : 'Live organization launch needs a reachable API runtime.'}
+          </span>
+          <button
+            className="primary-action"
+            type="submit"
+            disabled={starting || !apiOnline || !hasWorkspaceChoice}
+            data-testid="start"
+            title={apiOnline ? 'Start a live market session for this workspace' : 'Live market requires a reachable Codespaces or Docker API runtime'}
+          >
+            {starting ? 'Starting Market...' : apiOnline ? 'Start Live Market' : 'Live Market Offline'}
+          </button>
+        </form>
         <div className="empty-actions">
           <a className="primary-action proof-action" href={proofVideoUrl} target="_blank" rel="noreferrer">
             Watch Proof Run
           </a>
-          <button
-            className="primary-action"
-            onClick={onStart}
-            disabled={starting || !apiOnline}
-            data-testid="start"
-            title={apiOnline ? 'Start a live market session' : 'Live market requires a reachable Codespaces or Docker API runtime'}
-          >
-            {starting ? 'Starting Market...' : apiOnline ? 'Start Live Market' : 'Live Market Offline'}
-          </button>
           <a className="secondary-action" href="#architecture">Explore Architecture</a>
           <a className="secondary-action" href="#developers">Build an Agent</a>
           <a className="secondary-action" href="https://github.com/Mfoniso-Jackson/omniquantai-coralos" target="_blank" rel="noreferrer">View Repository</a>

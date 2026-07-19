@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mirrorCollectionRecord, targetFor } from './supabasePersistence.js'
-import type { AgentBidRecord, MarketSessionRecord, SettlementRecord } from './models.js'
+import type {
+  AgentBidRecord,
+  MarketSessionRecord,
+  MemoWorkspaceRecord,
+  OrganizationSessionRecord,
+  OrganizationWorkspaceRecord,
+  SettlementRecord,
+  WorkspaceMembershipRecord,
+} from './models.js'
 
 describe('supabasePersistence', () => {
   afterEach(() => {
@@ -81,6 +89,85 @@ describe('supabasePersistence', () => {
         settlement_id: settlement.id,
         release_signature: 'abc123',
         explorer_url: 'https://explorer.solana.com/tx/abc123?cluster=devnet',
+      },
+    })
+  })
+
+  it('maps memo workspace review state to pilot-ready persistence', () => {
+    const workspace: MemoWorkspaceRecord = {
+      id: 'session-1:workspace',
+      sessionId: 'session-1',
+      memoId: 'session-1:memo:1',
+      reviewStatus: 'Approved',
+      note: 'Ready for IC.',
+      reviewer: 'Research Lead',
+      exportReady: true,
+      exportHistory: [{ id: 'export-1', timestamp: '2026-07-18T00:02:00.000Z', actor: 'Research Lead' }],
+      createdAt: '2026-07-18T00:01:00.000Z',
+      updatedAt: '2026-07-18T00:02:00.000Z',
+    }
+
+    expect(targetFor('memo_workspace', workspace)).toMatchObject({
+      table: 'memo_workspaces',
+      onConflict: 'session_id',
+      row: {
+        session_id: 'session-1',
+        review_status: 'Approved',
+        export_ready: true,
+      },
+    })
+  })
+
+  it('maps organization workspaces and assignments', () => {
+    const organization: OrganizationWorkspaceRecord = {
+      id: 'northstar',
+      name: 'Northstar Capital',
+      slug: 'northstar',
+      status: 'active',
+      createdBy: 'lead',
+      createdAt: '2026-07-18T00:00:00.000Z',
+      updatedAt: '2026-07-18T00:00:00.000Z',
+    }
+    const assignment: OrganizationSessionRecord = {
+      id: 'northstar:session:session-1',
+      organizationId: 'northstar',
+      sessionId: 'session-1',
+      assignedBy: 'lead',
+      assignedAt: '2026-07-18T00:00:10.000Z',
+      updatedAt: '2026-07-18T00:00:10.000Z',
+    }
+
+    expect(targetFor('organization_workspaces', organization)).toMatchObject({
+      table: 'organization_workspaces',
+      onConflict: 'organization_id',
+      row: { organization_id: 'northstar', name: 'Northstar Capital' },
+    })
+    expect(targetFor('organization_sessions', assignment)).toMatchObject({
+      table: 'organization_sessions',
+      onConflict: 'session_id',
+      row: { organization_id: 'northstar', session_id: 'session-1' },
+    })
+  })
+
+  it('maps workspace memberships to scoped access rows', () => {
+    const membership: WorkspaceMembershipRecord = {
+      id: 'organization:northstar:member:analyst',
+      sessionId: 'organization:northstar',
+      publisherId: 'analyst',
+      role: 'editor',
+      status: 'active',
+      grantedBy: 'lead',
+      grantedAt: '2026-07-18T00:00:00.000Z',
+      updatedAt: '2026-07-18T00:00:00.000Z',
+    }
+
+    expect(targetFor('workspace_memberships', membership)).toMatchObject({
+      table: 'workspace_memberships',
+      onConflict: 'membership_id',
+      row: {
+        workspace_scope: 'organization:northstar',
+        publisher_id: 'analyst',
+        role: 'editor',
       },
     })
   })

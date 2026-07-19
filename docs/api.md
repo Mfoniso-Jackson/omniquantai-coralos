@@ -58,6 +58,10 @@ Response:
 
 The endpoint returns after CoralOS creates the session. The dashboard then polls the feed while the buyer publishes `WANT` and sellers respond.
 
+The dashboard Start Market form is workspace-first. A user selects an existing pilot/team workspace or
+creates a new one before launching. After the session is created, the dashboard automatically calls
+`POST /api/organizations/:id/sessions`, so the new memo lands in that customer/team context.
+
 ## Session Snapshot
 
 ```http
@@ -308,6 +312,14 @@ memo workspace state for any assigned session. `owner` and `admin` can also mana
 and assign sessions. If the same publisher has an explicit session-level membership, that session role
 takes precedence, so a session-level `viewer` can intentionally narrow access even when the publisher is
 an organization-level editor.
+
+The dashboard Pilot / Team Workspace panel now exposes organization member administration directly:
+invite or update publishers, promote/demote roles, revoke non-owner members, and review the latest
+organization access audit events without calling the API manually.
+
+The same panel includes a saved Pilot Workspace view with all assigned sessions, memo review status
+counts, reviewers, export-ready memo counts, settlement-proof readiness, and organization access
+activity.
 
 ## Execution Flow And Recovery
 

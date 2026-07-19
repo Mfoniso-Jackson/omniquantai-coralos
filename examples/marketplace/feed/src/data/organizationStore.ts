@@ -1,6 +1,7 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { OrganizationSessionRecord, OrganizationWorkspaceRecord } from './models.js'
+import { mirrorCollectionRecord } from './supabasePersistence.js'
 
 function dataDirFromEnv(): string {
   return process.env.OMNIQUANT_DATA_DIR ?? '.omniquant-data'
@@ -96,6 +97,7 @@ async function writeRecord(dataDir: string, collection: string, value: unknown):
   if (process.env.OMNIQUANT_PERSIST === '0') return
   await mkdir(dataDir, { recursive: true })
   await appendFile(join(dataDir, `${collection}.jsonl`), `${JSON.stringify(value)}\n`, 'utf8')
+  await mirrorCollectionRecord(collection, value)
 }
 
 async function readJsonl<T>(dataDir: string, collection: string): Promise<T[]> {
