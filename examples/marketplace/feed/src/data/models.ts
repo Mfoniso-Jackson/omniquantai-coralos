@@ -177,6 +177,20 @@ export interface MemoWorkspaceRecord {
   updatedAt: string
 }
 
+export type WorkspaceRole = 'owner' | 'admin' | 'editor' | 'viewer'
+
+export interface WorkspaceMembershipRecord {
+  id: string
+  sessionId: string
+  publisherId: string
+  role: WorkspaceRole
+  displayName?: string
+  status: 'active' | 'revoked'
+  grantedBy?: string
+  grantedAt: string
+  updatedAt: string
+}
+
 export interface AgentProfileRecord {
   id: string
   agentId: string

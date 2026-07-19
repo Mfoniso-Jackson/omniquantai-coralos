@@ -44,6 +44,8 @@ Goal: make `omniquantai.com` function as the public face of the Financial Intell
   export history so saved memos can move through a lightweight investment committee workflow.
 - Added signed workspace write support so shared API deployments can protect memo review/export state
   while preserving unsigned local demo mode.
+- Added workspace membership roles so signed publishers must be `owner`, `admin`, or `editor` before
+  editing memo workspace state.
 - Preserved the existing Start Market, reconnect, presentation, diagnostics, market, memo, and settlement flows.
 
 ## Remaining Work
@@ -51,5 +53,5 @@ Goal: make `omniquantai.com` function as the public face of the Financial Intell
 - Add true `/market`, `/research`, `/developers`, `/architecture`, `/docs`, `/roadmap`, `/blog`, and `/about` routes when hosting supports SPA fallback reliably.
 - Add a dedicated docs index page fed by repo documentation.
 - Add memo export to PDF.
-- Add authenticated user accounts and role-based workspace permissions around the saved memo workspace API.
+- Add user-facing team management UI and durable account identity around the workspace membership API.
 - Add public API uptime/status once `api.omniquantai.com` is deployed.

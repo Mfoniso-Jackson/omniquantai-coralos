@@ -189,6 +189,8 @@ GET /api/workspace/memos
 GET /api/workspace/memos/:sessionId
 PATCH /api/workspace/memos/:sessionId
 POST /api/workspace/memos/:sessionId/export
+GET /api/workspace/memos/:sessionId/members
+POST /api/workspace/memos/:sessionId/members
 ```
 
 `PATCH /api/workspace/memos/:sessionId` accepts:
@@ -231,6 +233,31 @@ workspace writes use the same HMAC headers as registry admin writes:
 x-oq-publisher
 x-oq-timestamp
 x-oq-signature
+```
+
+When a workspace secret is configured, write authorization has two layers:
+
+1. HMAC signature identifies the publisher.
+2. Workspace membership decides whether that publisher can edit.
+
+Roles:
+
+```text
+owner  - edit memos, record exports, manage members
+admin  - edit memos, record exports, manage members
+editor - edit memos and record exports
+viewer - read only
+```
+
+The first signed writer for a new workspace is auto-granted `owner` unless
+`WORKSPACE_AUTO_GRANT_FIRST_OWNER=0` is set. Add or update members with:
+
+```json
+{
+  "publisherId": "research-lead",
+  "role": "editor",
+  "displayName": "Research Lead"
+}
 ```
 
 ## Execution Flow And Recovery

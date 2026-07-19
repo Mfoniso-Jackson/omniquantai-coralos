@@ -7,8 +7,8 @@ export interface SignedRequestLike {
   rawBody?: string
 }
 
-export function verifySignedRequest(req: SignedRequestLike, secret: string | undefined, scope: string): void {
-  if (!secret) return
+export function verifySignedRequest(req: SignedRequestLike, secret: string | undefined, scope: string): string | undefined {
+  if (!secret) return undefined
   const publisher = req.header('x-oq-publisher')
   const timestamp = req.header('x-oq-timestamp')
   const signature = req.header('x-oq-signature')
@@ -23,6 +23,7 @@ export function verifySignedRequest(req: SignedRequestLike, secret: string | und
     body: req.rawBody ?? '',
   })
   if (!safeEqualHex(signature, expected)) throw new Error(`${scope} signature verification failed`)
+  return publisher
 }
 
 export function signPayload(input: { secret: string; method: string; path: string; timestamp: string; body: string }): string {

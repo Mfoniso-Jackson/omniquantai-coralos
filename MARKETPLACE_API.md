@@ -24,6 +24,8 @@ GET /api/workspace/memos
 GET /api/workspace/memos/:sessionId
 PATCH /api/workspace/memos/:sessionId
 POST /api/workspace/memos/:sessionId/export
+GET /api/workspace/memos/:sessionId/members
+POST /api/workspace/memos/:sessionId/members
 ```
 
 Workspace records store reviewer assignment, analyst notes, review status, export-ready state, and
@@ -34,6 +36,8 @@ Workspace write protection:
 - local/demo mode: unsigned writes are allowed when no secret is configured
 - shared testnet/production: set `WORKSPACE_AUTH_SECRET` or `MARKETPLACE_API_TOKEN` on the feed API
 - dashboard builds: set `VITE_WORKSPACE_API_TOKEN` and optionally `VITE_WORKSPACE_PUBLISHER_ID`
+- roles: `owner`/`admin` can manage members; `owner`/`admin`/`editor` can edit memo workspace state; `viewer` is read-only
+- first signed writer auto-becomes `owner` for a new workspace unless `WORKSPACE_AUTO_GRANT_FIRST_OWNER=0`
 - reads remain available for history/proof views
 
 ## Developer Registry APIs

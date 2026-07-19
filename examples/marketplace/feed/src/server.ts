@@ -25,6 +25,7 @@ import { persistMarketplaceData } from './data/persistence.js'
 import { getPersistedStartMarketJob } from './data/jobStore.js'
 import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, getSettlement, listAgents, listMarkets } from './data/history.js'
 import { getMemoWorkspace, listMemoWorkspaces, upsertMemoWorkspace, type WorkspacePatch } from './data/workspaceStore.js'
+import { ensureWorkspacePermission, listWorkspaceMemberships, upsertWorkspaceMembership, type MembershipPatch } from './data/workspaceMembershipStore.js'
 import {
   discoverRegisteredAgents,
   getRegisteredAgent,
@@ -235,6 +236,8 @@ app.get('/api/workspace/memos/:sessionId', async (req, res) => {
 
 app.patch('/api/workspace/memos/:sessionId', updateMemoWorkspace)
 app.post('/api/workspace/memos/:sessionId/export', recordMemoExport)
+app.get('/api/workspace/memos/:sessionId/members', listMemoWorkspaceMembers)
+app.post('/api/workspace/memos/:sessionId/members', upsertMemoWorkspaceMember)
 
 app.get('/v1/workspace/memos', async (_req, res) => {
   res.json({ workspaces: await listMemoWorkspaces() })
@@ -246,6 +249,8 @@ app.get('/v1/workspace/memos/:sessionId', async (req, res) => {
 
 app.patch('/v1/workspace/memos/:sessionId', updateMemoWorkspace)
 app.post('/v1/workspace/memos/:sessionId/export', recordMemoExport)
+app.get('/v1/workspace/memos/:sessionId/members', listMemoWorkspaceMembers)
+app.post('/v1/workspace/memos/:sessionId/members', upsertMemoWorkspaceMember)
 
 app.get('/v1/markets/:id/stream', marketStreamResponse)
 
@@ -428,8 +433,11 @@ async function updateRegisteredAgentStatus(req: Request, res: Response) {
 
 async function updateMemoWorkspace(req: Request, res: Response) {
   try {
-    verifyWorkspaceAuth(req)
-    const workspace = await upsertMemoWorkspace(req.params.sessionId, workspacePatchFromBody(req.body))
+    const publisherId = await requireWorkspacePermission(req, req.params.sessionId, 'edit')
+    const workspace = await upsertMemoWorkspace(req.params.sessionId, {
+      actor: publisherId,
+      ...workspacePatchFromBody(req.body),
+    })
     res.json({ ok: true, workspace })
   } catch (error) {
     const message = (error as Error).message
@@ -439,9 +447,10 @@ async function updateMemoWorkspace(req: Request, res: Response) {
 
 async function recordMemoExport(req: Request, res: Response) {
   try {
-    verifyWorkspaceAuth(req)
+    const publisherId = await requireWorkspacePermission(req, req.params.sessionId, 'edit')
     const workspace = await upsertMemoWorkspace(req.params.sessionId, {
       ...workspacePatchFromBody(req.body),
+      actor: workspacePatchFromBody(req.body).actor ?? publisherId,
       recordExport: true,
       exportReady: true,
     })
@@ -456,14 +465,39 @@ function workspacePatchFromBody(body: unknown): WorkspacePatch {
   return body && typeof body === 'object' ? body as WorkspacePatch : {}
 }
 
+async function listMemoWorkspaceMembers(req: Request, res: Response) {
+  res.json({ members: await listWorkspaceMemberships(req.params.sessionId) })
+}
+
+async function upsertMemoWorkspaceMember(req: Request, res: Response) {
+  try {
+    const publisherId = await requireWorkspacePermission(req, req.params.sessionId, 'admin')
+    const membership = await upsertWorkspaceMembership(req.params.sessionId, {
+      ...membershipPatchFromBody(req.body),
+      grantedBy: publisherId,
+    })
+    res.status(201).json({ ok: true, membership })
+  } catch (error) {
+    const message = (error as Error).message
+    res.status(authStatus(message)).json({ ok: false, error: message })
+  }
+}
+
+function membershipPatchFromBody(body: unknown): MembershipPatch {
+  if (!body || typeof body !== 'object') throw new Error('membership body is required')
+  return body as MembershipPatch
+}
+
 function verifyRegistryAuth(req: Request): void {
   const secret = process.env.REGISTRY_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN
   verifySignedRequest(signedRequestFromExpress(req), secret, 'registry')
 }
 
-function verifyWorkspaceAuth(req: Request): void {
+async function requireWorkspacePermission(req: Request, sessionId: string, action: 'edit' | 'admin'): Promise<string | undefined> {
   const secret = process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN
-  verifySignedRequest(signedRequestFromExpress(req), secret, 'workspace')
+  const publisherId = verifySignedRequest(signedRequestFromExpress(req), secret, 'workspace')
+  if (secret) await ensureWorkspacePermission({ sessionId, publisherId, action })
+  return publisherId
 }
 
 function signedRequestFromExpress(req: Request) {
@@ -476,7 +510,7 @@ function signedRequestFromExpress(req: Request) {
 }
 
 function authStatus(message: string): number {
-  return message.includes('auth') || message.includes('signature') ? 401 : 400
+  return message.includes('auth') || message.includes('signature') || message.includes('membership') || message.includes('permission') ? 401 : 400
 }
 
 function registrationInput(body: unknown): { manifest: unknown; status?: RegistryStatus } {
