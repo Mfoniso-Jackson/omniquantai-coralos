@@ -260,6 +260,9 @@ The first signed writer for a new workspace is auto-granted `owner` unless
 }
 ```
 
+The dashboard Saved Memo Workspace includes a compact members panel for team pilots. Owners/admins can
+invite a publisher, change roles, or revoke non-owner members from the selected session workspace.
+
 ## Execution Flow And Recovery
 
 | Step | Input | Output | Failure mode | Recovery |

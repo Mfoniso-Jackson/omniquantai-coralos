@@ -107,6 +107,27 @@ export interface MemoWorkspacePatch {
   actor?: string
 }
 
+export type WorkspaceRole = 'owner' | 'admin' | 'editor' | 'viewer'
+
+export interface WorkspaceMembershipRecord {
+  id: string
+  sessionId: string
+  publisherId: string
+  role: WorkspaceRole
+  displayName?: string
+  status: 'active' | 'revoked'
+  grantedBy?: string
+  grantedAt: string
+  updatedAt: string
+}
+
+export interface WorkspaceMemberPatch {
+  publisherId: string
+  role: WorkspaceRole
+  displayName?: string
+  status?: 'active' | 'revoked'
+}
+
 export interface SavedMarketDetail {
   session: MarketSessionSummary
   requests: {
@@ -147,10 +168,15 @@ export interface SessionHistoryState {
   updatedAt?: string
   workspaceSaving: boolean
   workspaceError?: UiError
+  workspaceMembers: WorkspaceMembershipRecord[]
+  membersLoading: boolean
+  membersSaving: boolean
+  membersError?: UiError
   selectSession: (sessionId: string) => void
   refresh: () => void
   updateWorkspace: (patch: MemoWorkspacePatch) => Promise<void>
   recordExport: (patch?: MemoWorkspacePatch) => Promise<void>
+  upsertMember: (patch: WorkspaceMemberPatch) => Promise<void>
 }
 
 export function useApiHealth(intervalMs = 15000): ApiHealthState {
@@ -251,6 +277,10 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
   const [error, setError] = useState<UiError>()
   const [workspaceSaving, setWorkspaceSaving] = useState(false)
   const [workspaceError, setWorkspaceError] = useState<UiError>()
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMembershipRecord[]>([])
+  const [membersLoading, setMembersLoading] = useState(false)
+  const [membersSaving, setMembersSaving] = useState(false)
+  const [membersError, setMembersError] = useState<UiError>()
   const [updatedAt, setUpdatedAt] = useState<string>()
   const [refreshNonce, setRefreshNonce] = useState(0)
 
@@ -261,6 +291,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
       setSessions([])
       setWorkspaces([])
       setSelected(undefined)
+      setWorkspaceMembers([])
       setError(undefined)
       return
     }
@@ -301,29 +332,43 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     let stopped = false
     if (apiHealth.status !== 'online' || !selectedSessionId) {
       setSelected(undefined)
+      setWorkspaceMembers([])
       setLoadingDetail(false)
+      setMembersLoading(false)
       return
     }
     const loadDetail = async () => {
       setLoadingDetail(true)
+      setMembersLoading(true)
       try {
-        const res = await fetch(`${FEED_URL}/api/markets/${encodeURIComponent(selectedSessionId)}`)
-        const body = (await res.json().catch(() => ({}))) as SavedMarketDetail & { error?: string }
-        if (!res.ok) throw new Error(body.error ?? `saved market ${res.status}`)
+        const [marketRes, membersRes] = await Promise.all([
+          fetch(`${FEED_URL}/api/markets/${encodeURIComponent(selectedSessionId)}`),
+          fetch(`${FEED_URL}/api/workspace/memos/${encodeURIComponent(selectedSessionId)}/members`),
+        ])
+        const body = (await marketRes.json().catch(() => ({}))) as SavedMarketDetail & { error?: string }
+        const membersBody = (await membersRes.json().catch(() => ({}))) as { members?: WorkspaceMembershipRecord[]; error?: string }
+        if (!marketRes.ok) throw new Error(body.error ?? `saved market ${marketRes.status}`)
+        if (!membersRes.ok) throw new Error(membersBody.error ?? `workspace members ${membersRes.status}`)
         if (!stopped) {
           setSelected(body)
+          setWorkspaceMembers(membersBody.members ?? [])
           setError(undefined)
           setWorkspaceError(undefined)
+          setMembersError(undefined)
           setUpdatedAt(new Date().toISOString())
         }
       } catch (detailError) {
         if (!stopped) {
           setSelected(undefined)
           setError(friendlyHistoryError(detailError))
+          setMembersError(friendlyMembersError(detailError))
           setUpdatedAt(new Date().toISOString())
         }
       } finally {
-        if (!stopped) setLoadingDetail(false)
+        if (!stopped) {
+          setLoadingDetail(false)
+          setMembersLoading(false)
+        }
       }
     }
     void loadDetail()
@@ -359,6 +404,35 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     }
   }
 
+  const saveMember = async (patch: WorkspaceMemberPatch) => {
+    if (apiHealth.status !== 'online' || !selectedSessionId) return
+    setMembersSaving(true)
+    setMembersError(undefined)
+    try {
+      const path = `/api/workspace/memos/${encodeURIComponent(selectedSessionId)}/members`
+      const requestBody = JSON.stringify(patch)
+      const signedHeaders = await signedWorkspaceHeaders('POST', path, requestBody)
+      const res = await fetch(`${FEED_URL}${path}`, {
+        method: 'POST',
+        headers: { ...signedHeaders, 'content-type': 'application/json' },
+        body: requestBody,
+      })
+      const responseBody = (await res.json().catch(() => ({}))) as { membership?: WorkspaceMembershipRecord; error?: string }
+      if (!res.ok || !responseBody.membership) throw new Error(responseBody.error ?? `workspace member save ${res.status}`)
+      const savedMembership = responseBody.membership
+      setWorkspaceMembers((current) => {
+        const rest = current.filter((member) => member.publisherId !== savedMembership.publisherId)
+        return [...rest, savedMembership].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.publisherId.localeCompare(b.publisherId))
+      })
+      setMembersError(undefined)
+      setUpdatedAt(new Date().toISOString())
+    } catch (memberError) {
+      setMembersError(friendlyMembersError(memberError))
+    } finally {
+      setMembersSaving(false)
+    }
+  }
+
   return {
     status,
     sessions,
@@ -370,10 +444,15 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     updatedAt,
     workspaceSaving,
     workspaceError,
+    workspaceMembers,
+    membersLoading,
+    membersSaving,
+    membersError,
     selectSession: setSelectedSessionId,
     refresh: () => setRefreshNonce((value) => value + 1),
     updateWorkspace: (patch) => saveWorkspace(patch),
     recordExport: (patch = {}) => saveWorkspace(patch, true),
+    upsertMember: (patch) => saveMember(patch),
   }
 }
 
@@ -642,6 +721,44 @@ function friendlyWorkspaceError(error: unknown): UiError {
     likelyCause: 'The workspace endpoint rejected the update.',
     suggestedFix: 'Check the reviewer, review status, and export fields, then retry.',
   }
+}
+
+function friendlyMembersError(error: unknown): UiError {
+  const message = (error as Error).message || 'Workspace member request failed'
+  if (/auth|signature/i.test(message)) {
+    return {
+      title: 'Member update not authorized',
+      what: 'The API rejected the member change because it was not signed with a valid workspace token.',
+      likelyCause: 'The dashboard is missing VITE_WORKSPACE_API_TOKEN or the token does not match the server secret.',
+      suggestedFix: 'Configure the workspace token, then retry the member update.',
+    }
+  }
+  if (/membership|permission/i.test(message)) {
+    return {
+      title: 'Workspace permission denied',
+      what: 'Your signed publisher is not an owner or admin for this workspace.',
+      likelyCause: message,
+      suggestedFix: 'Ask a workspace owner/admin to grant access, or use the owner publisher token.',
+    }
+  }
+  if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(message)) {
+    return {
+      title: 'Workspace members unavailable',
+      what: 'The dashboard could not reach the workspace membership API.',
+      likelyCause: 'The marketplace API is offline or the browser lost connection.',
+      suggestedFix: 'Confirm the API is online, then retry.',
+    }
+  }
+  return {
+    title: 'Workspace member change failed',
+    what: message,
+    likelyCause: 'The workspace membership endpoint rejected the request.',
+    suggestedFix: 'Check the publisher ID and role, then retry.',
+  }
+}
+
+function roleRank(role: WorkspaceRole): number {
+  return role === 'owner' ? 0 : role === 'admin' ? 1 : role === 'editor' ? 2 : 3
 }
 
 async function signedRegistryHeaders(method: string, path: string, body: string): Promise<Record<string, string>> {

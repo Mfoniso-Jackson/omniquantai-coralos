@@ -46,6 +46,8 @@ Goal: make `omniquantai.com` function as the public face of the Financial Intell
   while preserving unsigned local demo mode.
 - Added workspace membership roles so signed publishers must be `owner`, `admin`, or `editor` before
   editing memo workspace state.
+- Added a compact workspace members panel for inviting publishers, changing roles, and revoking
+  non-owner members from the Saved Memo Workspace.
 - Preserved the existing Start Market, reconnect, presentation, diagnostics, market, memo, and settlement flows.
 
 ## Remaining Work
@@ -53,5 +55,5 @@ Goal: make `omniquantai.com` function as the public face of the Financial Intell
 - Add true `/market`, `/research`, `/developers`, `/architecture`, `/docs`, `/roadmap`, `/blog`, and `/about` routes when hosting supports SPA fallback reliably.
 - Add a dedicated docs index page fed by repo documentation.
 - Add memo export to PDF.
-- Add user-facing team management UI and durable account identity around the workspace membership API.
+- Add durable account identity, organization-level workspaces, and audit-log views around membership changes.
 - Add public API uptime/status once `api.omniquantai.com` is deployed.

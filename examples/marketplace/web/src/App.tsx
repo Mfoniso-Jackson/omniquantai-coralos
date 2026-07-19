@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import {
   API_BASE_URL,
   REGISTRY_ADMIN_ENABLED,
@@ -18,6 +18,7 @@ import {
   type RegistryState,
   type SessionHistoryState,
   type UiError,
+  type WorkspaceRole,
 } from './api'
 import { MarketView } from './components/MarketView'
 import { Explainer } from './components/Explainer'
@@ -246,6 +247,25 @@ function SessionHistoryWorkspace({
   const selectedWorkspace: WorkspaceViewState = selected?.workspace ?? defaultWorkspaceState
   const reviewedCount = history.workspaces.filter((item) => item.reviewStatus === 'Approved' || item.reviewStatus === 'Watchlist').length
   const exportReadyCount = history.workspaces.filter((item) => item.exportReady).length
+  const [memberPublisherId, setMemberPublisherId] = useState('')
+  const [memberDisplayName, setMemberDisplayName] = useState('')
+  const [memberRole, setMemberRole] = useState<WorkspaceRole>('editor')
+
+  function submitMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const publisherId = memberPublisherId.trim()
+    if (!publisherId) return
+    void history.upsertMember({
+      publisherId,
+      role: memberRole,
+      displayName: memberDisplayName.trim() || undefined,
+      status: 'active',
+    }).then(() => {
+      setMemberPublisherId('')
+      setMemberDisplayName('')
+      setMemberRole('editor')
+    })
+  }
 
   return (
     <section className="session-workspace" id="workspace" aria-labelledby="workspace-title">
@@ -398,6 +418,108 @@ function SessionHistoryWorkspace({
                       ))
                       : <li><span>No exports recorded yet</span><em>Mark export-ready, then record a packet handoff.</em></li>}
                   </ul>
+                </div>
+                <div className="members-panel">
+                  <div className="members-panel-head">
+                    <div>
+                      <strong>Workspace Members</strong>
+                      <span>{history.workspaceMembers.length} active role record(s)</span>
+                    </div>
+                    {history.membersLoading && <em>Loading members...</em>}
+                  </div>
+                  <form className="member-form" onSubmit={submitMember} aria-busy={history.membersSaving}>
+                    <label htmlFor="member-publisher">
+                      Publisher ID
+                      <input
+                        id="member-publisher"
+                        type="text"
+                        value={memberPublisherId}
+                        onChange={(event) => setMemberPublisherId(event.target.value)}
+                        placeholder="research-lead"
+                        autoComplete="username"
+                        spellCheck={false}
+                        disabled={history.membersSaving}
+                        required
+                      />
+                    </label>
+                    <label htmlFor="member-name">
+                      Display Name
+                      <input
+                        id="member-name"
+                        type="text"
+                        value={memberDisplayName}
+                        onChange={(event) => setMemberDisplayName(event.target.value)}
+                        placeholder="Research Lead"
+                        autoComplete="name"
+                        disabled={history.membersSaving}
+                      />
+                    </label>
+                    <label htmlFor="member-role">
+                      Role
+                      <select
+                        id="member-role"
+                        value={memberRole}
+                        onChange={(event) => setMemberRole(event.target.value as WorkspaceRole)}
+                        disabled={history.membersSaving}
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="editor">Editor</option>
+                        <option value="viewer">Viewer</option>
+                      </select>
+                    </label>
+                    <button type="submit" disabled={history.membersSaving || !memberPublisherId.trim()}>
+                      {history.membersSaving ? 'Saving...' : 'Invite / Update'}
+                    </button>
+                  </form>
+                  {history.membersError && (
+                    <div className="workspace-state workspace-error">
+                      <strong>{history.membersError.title}</strong>
+                      <span>{history.membersError.what}</span>
+                      <button onClick={() => history.refresh()}>Retry Load</button>
+                    </div>
+                  )}
+                  <div className="member-list" aria-label="Workspace members">
+                    {history.workspaceMembers.length > 0 ? history.workspaceMembers.map((member) => (
+                      <div className={member.status === 'revoked' ? 'member-row member-row-revoked' : 'member-row'} key={member.id}>
+                        <div>
+                          <strong>{member.displayName || member.publisherId}</strong>
+                          <span>{member.publisherId} · {member.status} · updated {formatDate(member.updatedAt)}</span>
+                        </div>
+                        <select
+                          aria-label={`Role for ${member.publisherId}`}
+                          value={member.role}
+                          onChange={(event) => void history.upsertMember({
+                            publisherId: member.publisherId,
+                            displayName: member.displayName,
+                            role: event.target.value as WorkspaceRole,
+                            status: 'active',
+                          })}
+                          disabled={history.membersSaving || member.status === 'revoked'}
+                        >
+                          <option value="owner">Owner</option>
+                          <option value="admin">Admin</option>
+                          <option value="editor">Editor</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                        <button
+                          onClick={() => void history.upsertMember({
+                            publisherId: member.publisherId,
+                            displayName: member.displayName,
+                            role: member.role,
+                            status: 'revoked',
+                          })}
+                          disabled={history.membersSaving || member.role === 'owner' || member.status === 'revoked'}
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    )) : (
+                      <div className="member-empty">
+                        <strong>No members loaded yet</strong>
+                        <span>The first signed workspace writer becomes owner, then can invite the team.</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="workspace-proof-row">
                   {latestSettlement?.depositSignature && (

@@ -38,6 +38,7 @@ Workspace write protection:
 - dashboard builds: set `VITE_WORKSPACE_API_TOKEN` and optionally `VITE_WORKSPACE_PUBLISHER_ID`
 - roles: `owner`/`admin` can manage members; `owner`/`admin`/`editor` can edit memo workspace state; `viewer` is read-only
 - first signed writer auto-becomes `owner` for a new workspace unless `WORKSPACE_AUTO_GRANT_FIRST_OWNER=0`
+- dashboard workspace panel can invite/update publishers and revoke non-owner members for the selected session
 - reads remain available for history/proof views
 
 ## Developer Registry APIs
