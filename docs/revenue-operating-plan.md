@@ -137,13 +137,13 @@ Prioritize these because they connect directly to revenue:
 2. Agent registry storefront with status, specialization, reputation, and earnings.
 3. API key and usage reporting foundation.
 4. Paid pilot packaging docs: scope, success criteria, security boundaries, and pricing hypothesis.
-5. Workspace collaboration: shared team notes, reviewer assignment, and API-backed memo trail.
+5. Workspace collaboration: authenticated team workspaces, reviewer permissions, and shared export packets.
 
 Recently shipped:
 
 - Session History / Saved Memo Workspace with saved sessions, memo previews, proof links, and data
   provenance hooks.
-- Local workspace review controls for analyst notes, review status, and export-ready state.
+- API-backed workspace review controls for analyst notes, reviewer assignment, review status, export-ready state, and export history.
 
 ## Company Rule
 

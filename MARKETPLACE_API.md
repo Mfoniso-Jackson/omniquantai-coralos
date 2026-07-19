@@ -17,6 +17,18 @@ GET /api/reputation/:agent
 GET /api/graph/session/:id
 ```
 
+Saved memo workspace endpoints:
+
+```text
+GET /api/workspace/memos
+GET /api/workspace/memos/:sessionId
+PATCH /api/workspace/memos/:sessionId
+POST /api/workspace/memos/:sessionId/export
+```
+
+Workspace records store reviewer assignment, analyst notes, review status, export-ready state, and
+export history for completed memos while preserving the original market transcript.
+
 ## Developer Registry APIs
 
 Implemented by the marketplace feed server:
@@ -101,6 +113,7 @@ The SDK client and `oq register` / `oq set-status` generate these headers when
 Production auth should still add:
 
 - developer API keys
+- workspace/user scoped permissions
 - rate limits
 - scoped permissions
 - audit logs

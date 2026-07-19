@@ -560,18 +560,18 @@ body {
 .memo-facts dt { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
 .memo-facts dd { margin: 4px 0 0; color: var(--txt); font-size: 12px; overflow-wrap: anywhere; }
 .review-controls {
-  display: grid; grid-template-columns: minmax(210px, .8fr) minmax(180px, .55fr) minmax(0, 1fr);
+  display: grid; grid-template-columns: minmax(180px, .8fr) minmax(180px, .8fr) minmax(160px, .55fr) minmax(0, 1fr);
   gap: 10px; align-items: end; border: 1px solid var(--line); border-radius: 8px; padding: 11px;
   background: rgba(5, 7, 11, .32);
 }
 .review-controls label, .workspace-note {
   display: grid; gap: 6px; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
 }
-.review-controls select, .workspace-note textarea {
+.review-controls select, .review-controls input[type="text"], .workspace-note textarea {
   width: 100%; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 7, 11, .78);
   color: var(--txt); font: inherit; font-size: 13px; letter-spacing: 0; text-transform: none;
 }
-.review-controls select { min-height: 40px; padding: 0 10px; }
+.review-controls select, .review-controls input[type="text"] { min-height: 40px; padding: 0 10px; }
 .review-controls span { color: var(--dim); font-size: 12px; line-height: 1.35; }
 .export-toggle {
   min-height: 40px; align-items: center; grid-template-columns: 18px 1fr; cursor: pointer;
@@ -588,10 +588,21 @@ body {
 .saved-memo-preview p { margin: 0; color: var(--dim); line-height: 1.55; }
 .export-card {
   border: 1px solid rgba(83, 209, 140, .28); border-radius: 8px; padding: 11px 12px;
-  background: rgba(27, 84, 55, .12); display: grid; gap: 5px;
+  background: rgba(27, 84, 55, .12); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start;
 }
 .export-card strong { color: var(--won); font-size: 13px; }
 .export-card span { color: var(--dim); font-size: 12px; line-height: 1.4; }
+.export-card button {
+  min-height: 40px; border: 1px solid rgba(83,209,140,.42); border-radius: 8px; padding: 8px 11px;
+  background: rgba(83,209,140,.1); color: var(--txt); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
+}
+.export-card button:disabled { opacity: .5; cursor: default; }
+.export-card ul { grid-column: 1 / -1; list-style: none; padding: 0; margin: 2px 0 0; display: grid; gap: 6px; }
+.export-card li {
+  border: 1px solid rgba(83,209,140,.18); border-radius: 8px; padding: 8px 9px;
+  background: rgba(5, 7, 11, .32); display: grid; gap: 3px;
+}
+.export-card li em { color: var(--dim); font-style: normal; font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
 .workspace-proof-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .workspace-proof-row a, .workspace-proof-row span {
   border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: var(--link);

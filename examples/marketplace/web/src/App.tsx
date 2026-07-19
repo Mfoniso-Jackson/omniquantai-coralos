@@ -10,6 +10,8 @@ import {
   useApiHealth,
   useAgentRegistry,
   type ApiHealthState,
+  type MemoWorkspaceRecord,
+  type ReviewStatus,
   type SavedMarketDetail,
   type SavedMemoRecord,
   type SavedSettlementRecord,
@@ -30,16 +32,13 @@ const proofReleaseUrl = 'https://github.com/Mfoniso-Jackson/omniquantai-coralos/
 const proofVideoUrl = 'https://github.com/Mfoniso-Jackson/omniquantai-coralos/releases/download/proof-2026-07-16/omniquantai-data-provenance-proof.webm'
 const depositProofUrl = 'https://explorer.solana.com/tx/4YqJfxV4hWaj2VzNaCVfaDwNeU18aVrJg64borLAMfdBxxULPXD4niU234ucWe4XB5Q9F2ya536mfFss7bvshiFX?cluster=devnet'
 const releaseProofUrl = 'https://explorer.solana.com/tx/5R8QLMFdRshz7iKan11ZN4upKG7Dia5mtEAxQWqupn2j1QbBxJudCRgXqPkkTDKDeSm8gMuD1R8zVM3mVSvTBgE7?cluster=devnet'
-const workspaceStorageKey = 'omniquantai.workspace.v1'
-type ReviewStatus = 'Needs Review' | 'Approved' | 'Watchlist' | 'Rejected'
-interface WorkspaceSessionState {
-  reviewStatus: ReviewStatus
-  note: string
-  exportReady: boolean
-  updatedAt?: string
+const defaultWorkspaceState: Pick<MemoWorkspaceRecord, 'reviewStatus' | 'note' | 'exportReady' | 'exportHistory'> = {
+  reviewStatus: 'Needs Review',
+  note: '',
+  exportReady: false,
+  exportHistory: [],
 }
-type WorkspaceStore = Record<string, WorkspaceSessionState>
-const defaultWorkspaceState: WorkspaceSessionState = { reviewStatus: 'Needs Review', note: '', exportReady: false }
+type WorkspaceViewState = Pick<MemoWorkspaceRecord, 'reviewStatus' | 'note' | 'exportReady' | 'exportHistory'> & Partial<MemoWorkspaceRecord>
 
 export default function App() {
   const [session, setSession] = useState(initialSession)
@@ -238,35 +237,15 @@ function SessionHistoryWorkspace({
   history: SessionHistoryState
   onOpenSession: (sessionId: string, namespace?: string) => void
 }) {
-  const [workspaceStore, setWorkspaceStore] = useState<WorkspaceStore>(() => loadWorkspaceStore())
   const selected = history.selected
   const latestMemo = selected ? latestMemoFor(selected) : undefined
   const latestSettlement = selected ? latestSettlementFor(selected) : undefined
   const latestRequest = selected?.requests.at(-1)
   const completedCount = history.sessions.filter((item) => item.completedAt || item.currentStage === 'released' || item.status === 'settled').length
   const memoCount = selected?.memos.length ?? 0
-  const selectedWorkspace = selected ? workspaceStore[selected.session.sessionId] ?? defaultWorkspaceState : defaultWorkspaceState
-  const reviewedCount = history.sessions.filter((item) => {
-    const state = workspaceStore[item.sessionId]
-    return state?.reviewStatus === 'Approved' || state?.reviewStatus === 'Watchlist'
-  }).length
-  const exportReadyCount = history.sessions.filter((item) => workspaceStore[item.sessionId]?.exportReady).length
-
-  function updateSelectedWorkspace(patch: Partial<WorkspaceSessionState>) {
-    if (!selected) return
-    setWorkspaceStore((current) => {
-      const next = {
-        ...current,
-        [selected.session.sessionId]: {
-          ...(current[selected.session.sessionId] ?? defaultWorkspaceState),
-          ...patch,
-          updatedAt: new Date().toISOString(),
-        },
-      }
-      saveWorkspaceStore(next)
-      return next
-    })
-  }
+  const selectedWorkspace: WorkspaceViewState = selected?.workspace ?? defaultWorkspaceState
+  const reviewedCount = history.workspaces.filter((item) => item.reviewStatus === 'Approved' || item.reviewStatus === 'Watchlist').length
+  const exportReadyCount = history.workspaces.filter((item) => item.exportReady).length
 
   return (
     <section className="session-workspace" id="workspace" aria-labelledby="workspace-title">
@@ -342,7 +321,8 @@ function SessionHistoryWorkspace({
                     Review Status
                     <select
                       value={selectedWorkspace.reviewStatus}
-                      onChange={(event) => updateSelectedWorkspace({ reviewStatus: event.target.value as ReviewStatus })}
+                      onChange={(event) => void history.updateWorkspace({ reviewStatus: event.target.value as ReviewStatus })}
+                      disabled={history.workspaceSaving}
                     >
                       <option>Needs Review</option>
                       <option>Approved</option>
@@ -350,23 +330,43 @@ function SessionHistoryWorkspace({
                       <option>Rejected</option>
                     </select>
                   </label>
+                  <label>
+                    Reviewer
+                    <input
+                      type="text"
+                      value={selectedWorkspace.reviewer ?? ''}
+                      onChange={(event) => void history.updateWorkspace({ reviewer: event.target.value })}
+                      placeholder="Assign reviewer"
+                      autoComplete="name"
+                      disabled={history.workspaceSaving}
+                    />
+                  </label>
                   <label className="export-toggle">
                     <input
                       type="checkbox"
                       checked={selectedWorkspace.exportReady}
-                      onChange={(event) => updateSelectedWorkspace({ exportReady: event.target.checked })}
+                      onChange={(event) => void history.updateWorkspace({ exportReady: event.target.checked })}
+                      disabled={history.workspaceSaving}
                     />
                     Mark export-ready
                   </label>
-                  <span>{selectedWorkspace.updatedAt ? `Updated ${formatDate(selectedWorkspace.updatedAt)}` : 'No review state saved yet'}</span>
+                  <span>{selectedWorkspace.updatedAt ? `Saved ${formatDate(selectedWorkspace.updatedAt)}` : 'No API workspace state saved yet'}</span>
                 </div>
+                {history.workspaceError && (
+                  <div className="workspace-state workspace-error">
+                    <strong>{history.workspaceError.title}</strong>
+                    <span>{history.workspaceError.what}</span>
+                    <button onClick={() => history.refresh()}>Retry Load</button>
+                  </div>
+                )}
                 <label className="workspace-note">
                   Analyst Notes
                   <textarea
                     value={selectedWorkspace.note}
-                    onChange={(event) => updateSelectedWorkspace({ note: event.target.value })}
+                    onChange={(event) => void history.updateWorkspace({ note: event.target.value })}
                     placeholder="Capture IC comments, objections, follow-up data requests, or client context."
                     rows={4}
+                    disabled={history.workspaceSaving}
                   />
                 </label>
                 <div className="saved-memo-preview">
@@ -374,12 +374,30 @@ function SessionHistoryWorkspace({
                   <p>{memoSummary(latestMemo)}</p>
                 </div>
                 <div className="export-card">
-                  <strong>Export State</strong>
-                  <span>
-                    {selectedWorkspace.exportReady
-                      ? 'Ready for investment committee packet export.'
-                      : 'Add review status and notes before marking this memo export-ready.'}
-                  </span>
+                  <div>
+                    <strong>Export History</strong>
+                    <span>
+                      {selectedWorkspace.exportReady
+                        ? 'Ready for investment committee packet export.'
+                        : 'Add review status and notes before marking this memo export-ready.'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => void history.recordExport({ actor: selectedWorkspace.reviewer, exportNote: 'Investment committee packet recorded from workspace.' })}
+                    disabled={history.workspaceSaving || !selectedWorkspace.exportReady}
+                  >
+                    Record Export
+                  </button>
+                  <ul>
+                    {selectedWorkspace.exportHistory.length > 0
+                      ? selectedWorkspace.exportHistory.slice(-3).reverse().map((item) => (
+                        <li key={item.id}>
+                          <span>{formatDate(item.timestamp)}</span>
+                          <em>{item.actor ?? 'workspace'}{item.note ? ` · ${item.note}` : ''}</em>
+                        </li>
+                      ))
+                      : <li><span>No exports recorded yet</span><em>Mark export-ready, then record a packet handoff.</em></li>}
+                  </ul>
                 </div>
                 <div className="workspace-proof-row">
                   {latestSettlement?.depositSignature && (
@@ -460,25 +478,6 @@ function memoConfidence(memo?: SavedMemoRecord): string | undefined {
 
 function explorerTx(sig: string): string {
   return `https://explorer.solana.com/tx/${sig}?cluster=devnet`
-}
-
-function loadWorkspaceStore(): WorkspaceStore {
-  try {
-    const raw = window.localStorage.getItem(workspaceStorageKey)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as WorkspaceStore
-    return parsed && typeof parsed === 'object' ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveWorkspaceStore(store: WorkspaceStore): void {
-  try {
-    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(store))
-  } catch {
-    /* Local workspace state is helpful, not mission critical. */
-  }
 }
 
 function formatDate(value: string): string {

@@ -13,6 +13,7 @@ import type {
   SettlementRecord,
   WinnerRecord,
 } from './models.js'
+import { getMemoWorkspace } from './workspaceStore.js'
 
 export function dataDirFromEnv(): string {
   return process.env.OMNIQUANT_DATA_DIR ?? '.omniquant-data'
@@ -25,7 +26,7 @@ export async function listMarkets(dataDir = dataDirFromEnv()): Promise<MarketSes
 }
 
 export async function getMarket(sessionId: string, dataDir = dataDirFromEnv()) {
-  const [sessions, requests, bids, winners, memos, settlements, events] = await Promise.all([
+  const [sessions, requests, bids, winners, memos, settlements, events, workspace] = await Promise.all([
     readJsonl<MarketSessionRecord>(dataDir, 'market_sessions'),
     readJsonl<ResearchRequestRecord>(dataDir, 'research_requests'),
     readJsonl<AgentBidRecord>(dataDir, 'agent_bids'),
@@ -33,6 +34,7 @@ export async function getMarket(sessionId: string, dataDir = dataDirFromEnv()) {
     readJsonl<InvestmentMemoRecord>(dataDir, 'investment_memos'),
     readJsonl<SettlementRecord>(dataDir, 'settlements'),
     readJsonl<MarketEventRecord>(dataDir, 'market_events'),
+    getMemoWorkspace(sessionId, dataDir),
   ])
   const session = latestBy(sessions.filter((item) => item.sessionId === sessionId), (item) => item.sessionId, (item) => item.updatedAt)[0]
   if (!session) return undefined
@@ -44,6 +46,7 @@ export async function getMarket(sessionId: string, dataDir = dataDirFromEnv()) {
     memos: memos.filter((item) => item.sessionId === sessionId),
     settlements: settlements.filter((item) => item.sessionId === sessionId),
     timeline: events.filter((item) => item.sessionId === sessionId).sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    workspace,
   }
 }
 

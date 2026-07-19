@@ -73,6 +73,38 @@ export interface SavedSettlementRecord {
   timestamp: string
 }
 
+export type ReviewStatus = 'Needs Review' | 'Approved' | 'Watchlist' | 'Rejected'
+
+export interface MemoExportHistoryRecord {
+  id: string
+  timestamp: string
+  actor?: string
+  note?: string
+}
+
+export interface MemoWorkspaceRecord {
+  id: string
+  sessionId: string
+  memoId?: string
+  reviewStatus: ReviewStatus
+  note: string
+  reviewer?: string
+  exportReady: boolean
+  exportHistory: MemoExportHistoryRecord[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MemoWorkspacePatch {
+  memoId?: string
+  reviewStatus?: ReviewStatus
+  note?: string
+  reviewer?: string
+  exportReady?: boolean
+  exportNote?: string
+  actor?: string
+}
+
 export interface SavedMarketDetail {
   session: MarketSessionSummary
   requests: {
@@ -99,18 +131,24 @@ export interface SavedMarketDetail {
   memos: SavedMemoRecord[]
   settlements: SavedSettlementRecord[]
   timeline: { id: string; sessionId: string; round: number; type: string; timestamp: string; payload: unknown }[]
+  workspace?: MemoWorkspaceRecord
 }
 
 export interface SessionHistoryState {
   status: 'checking' | 'online' | 'offline'
   sessions: MarketSessionSummary[]
+  workspaces: MemoWorkspaceRecord[]
   selectedSessionId?: string
   selected?: SavedMarketDetail
   loadingDetail: boolean
   error?: UiError
   updatedAt?: string
+  workspaceSaving: boolean
+  workspaceError?: UiError
   selectSession: (sessionId: string) => void
   refresh: () => void
+  updateWorkspace: (patch: MemoWorkspacePatch) => Promise<void>
+  recordExport: (patch?: MemoWorkspacePatch) => Promise<void>
 }
 
 export function useApiHealth(intervalMs = 15000): ApiHealthState {
@@ -203,11 +241,14 @@ export function useAgentRegistry(apiHealth: ApiHealthState, intervalMs = 15000):
 
 export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000): SessionHistoryState {
   const [sessions, setSessions] = useState<MarketSessionSummary[]>([])
+  const [workspaces, setWorkspaces] = useState<MemoWorkspaceRecord[]>([])
   const [selectedSessionId, setSelectedSessionId] = useState<string>()
   const [selected, setSelected] = useState<SavedMarketDetail>()
   const [status, setStatus] = useState<SessionHistoryState['status']>(apiHealth.status === 'online' ? 'checking' : 'offline')
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [error, setError] = useState<UiError>()
+  const [workspaceSaving, setWorkspaceSaving] = useState(false)
+  const [workspaceError, setWorkspaceError] = useState<UiError>()
   const [updatedAt, setUpdatedAt] = useState<string>()
   const [refreshNonce, setRefreshNonce] = useState(0)
 
@@ -216,6 +257,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     if (apiHealth.status !== 'online') {
       setStatus('offline')
       setSessions([])
+      setWorkspaces([])
       setSelected(undefined)
       setError(undefined)
       return
@@ -223,12 +265,18 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     const load = async () => {
       setStatus((current) => current === 'online' ? current : 'checking')
       try {
-        const res = await fetch(`${FEED_URL}/api/markets`)
-        const body = (await res.json().catch(() => ({}))) as { markets?: MarketSessionSummary[]; error?: string }
-        if (!res.ok) throw new Error(body.error ?? `session history ${res.status}`)
-        const nextSessions = body.markets ?? []
+        const [marketsRes, workspaceRes] = await Promise.all([
+          fetch(`${FEED_URL}/api/markets`),
+          fetch(`${FEED_URL}/api/workspace/memos`),
+        ])
+        const marketsBody = (await marketsRes.json().catch(() => ({}))) as { markets?: MarketSessionSummary[]; error?: string }
+        const workspaceBody = (await workspaceRes.json().catch(() => ({}))) as { workspaces?: MemoWorkspaceRecord[]; error?: string }
+        if (!marketsRes.ok) throw new Error(marketsBody.error ?? `session history ${marketsRes.status}`)
+        if (!workspaceRes.ok) throw new Error(workspaceBody.error ?? `workspace history ${workspaceRes.status}`)
+        const nextSessions = marketsBody.markets ?? []
         if (!stopped) {
           setSessions(nextSessions)
+          setWorkspaces(workspaceBody.workspaces ?? [])
           setStatus('online')
           setError(undefined)
           setUpdatedAt(new Date().toISOString())
@@ -263,6 +311,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
         if (!stopped) {
           setSelected(body)
           setError(undefined)
+          setWorkspaceError(undefined)
           setUpdatedAt(new Date().toISOString())
         }
       } catch (detailError) {
@@ -279,16 +328,48 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     return () => { stopped = true }
   }, [apiHealth.status, selectedSessionId])
 
+  const saveWorkspace = async (patch: MemoWorkspacePatch, exportAction = false) => {
+    if (apiHealth.status !== 'online' || !selectedSessionId) return
+    setWorkspaceSaving(true)
+    setWorkspaceError(undefined)
+    try {
+      const latestMemo = selected?.memos ? [...selected.memos].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] : undefined
+      const path = exportAction
+        ? `/api/workspace/memos/${encodeURIComponent(selectedSessionId)}/export`
+        : `/api/workspace/memos/${encodeURIComponent(selectedSessionId)}`
+      const res = await fetch(`${FEED_URL}${path}`, {
+        method: exportAction ? 'POST' : 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ memoId: latestMemo?.memoId, ...patch }),
+      })
+      const body = (await res.json().catch(() => ({}))) as { workspace?: MemoWorkspaceRecord; error?: string }
+      if (!res.ok || !body.workspace) throw new Error(body.error ?? `workspace save ${res.status}`)
+      setSelected((current) => current ? { ...current, workspace: body.workspace } : current)
+      setWorkspaceError(undefined)
+      setUpdatedAt(new Date().toISOString())
+      setRefreshNonce((value) => value + 1)
+    } catch (saveError) {
+      setWorkspaceError(friendlyWorkspaceError(saveError))
+    } finally {
+      setWorkspaceSaving(false)
+    }
+  }
+
   return {
     status,
-    sessions,
-    selectedSessionId,
+      sessions,
+      workspaces,
+      selectedSessionId,
     selected,
     loadingDetail,
     error,
     updatedAt,
+    workspaceSaving,
+    workspaceError,
     selectSession: setSelectedSessionId,
     refresh: () => setRefreshNonce((value) => value + 1),
+    updateWorkspace: (patch) => saveWorkspace(patch),
+    recordExport: (patch = {}) => saveWorkspace(patch, true),
   }
 }
 
@@ -530,6 +611,24 @@ function friendlyHistoryError(error: unknown): UiError {
     what: message,
     likelyCause: 'The history endpoint returned an unexpected response.',
     suggestedFix: 'Check /api/markets, /api/markets/:id, and the feed server logs.',
+  }
+}
+
+function friendlyWorkspaceError(error: unknown): UiError {
+  const message = (error as Error).message || 'Workspace save failed'
+  if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(message)) {
+    return {
+      title: 'Workspace API unavailable',
+      what: 'The memo workspace changes could not be saved to the API.',
+      likelyCause: 'The marketplace API is offline or the browser lost connection while saving.',
+      suggestedFix: 'Retry after the live API is reachable. Your visible selection has not been changed on the server.',
+    }
+  }
+  return {
+    title: 'Workspace changes were not saved',
+    what: message,
+    likelyCause: 'The workspace endpoint rejected the update.',
+    suggestedFix: 'Check the reviewer, review status, and export fields, then retry.',
   }
 }
 

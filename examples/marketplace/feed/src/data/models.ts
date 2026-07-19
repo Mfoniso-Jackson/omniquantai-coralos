@@ -155,6 +155,28 @@ export interface InvestmentMemoRecord {
   createdAt: string
 }
 
+export type MemoReviewStatus = 'Needs Review' | 'Approved' | 'Watchlist' | 'Rejected'
+
+export interface MemoExportHistoryRecord {
+  id: string
+  timestamp: string
+  actor?: string
+  note?: string
+}
+
+export interface MemoWorkspaceRecord {
+  id: string
+  sessionId: string
+  memoId?: string
+  reviewStatus: MemoReviewStatus
+  note: string
+  reviewer?: string
+  exportReady: boolean
+  exportHistory: MemoExportHistoryRecord[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AgentProfileRecord {
   id: string
   agentId: string

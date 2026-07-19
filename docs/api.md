@@ -178,6 +178,50 @@ ERROR
 
 Use `marketStatus` for automation and dashboards. Use `diagnostics` for debugging runtime health.
 
+## Saved Memo Workspace
+
+The session history workspace persists analyst review state separately from the immutable market
+transcript. This lets a team review, assign, and export delivered memos without mutating the original
+agent evidence.
+
+```http
+GET /api/workspace/memos
+GET /api/workspace/memos/:sessionId
+PATCH /api/workspace/memos/:sessionId
+POST /api/workspace/memos/:sessionId/export
+```
+
+`PATCH /api/workspace/memos/:sessionId` accepts:
+
+```json
+{
+  "memoId": "session:memo:1",
+  "reviewStatus": "Approved",
+  "reviewer": "Research Lead",
+  "note": "Ready for the weekly IC packet.",
+  "exportReady": true
+}
+```
+
+`POST /api/workspace/memos/:sessionId/export` records an export-history event and marks the memo
+export-ready:
+
+```json
+{
+  "actor": "Research Lead",
+  "exportNote": "Shared with the design partner."
+}
+```
+
+Review statuses:
+
+```text
+Needs Review
+Approved
+Watchlist
+Rejected
+```
+
 ## Execution Flow And Recovery
 
 | Step | Input | Output | Failure mode | Recovery |

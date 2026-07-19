@@ -25,6 +25,7 @@ import type { RawMessage, Round } from './foldRounds.js'
 import { persistMarketplaceData } from './data/persistence.js'
 import { getPersistedStartMarketJob } from './data/jobStore.js'
 import { getAgent, getMarket, getMemo, getReputation, getSessionGraph, getSettlement, listAgents, listMarkets } from './data/history.js'
+import { getMemoWorkspace, listMemoWorkspaces, upsertMemoWorkspace, type WorkspacePatch } from './data/workspaceStore.js'
 import {
   discoverRegisteredAgents,
   getRegisteredAgent,
@@ -221,6 +222,28 @@ app.get('/v1/markets/:id/events', async (req, res) => {
   return res.json({ sessionId: req.params.id, events: market.timeline })
 })
 
+app.get('/api/workspace/memos', async (_req, res) => {
+  res.json({ workspaces: await listMemoWorkspaces() })
+})
+
+app.get('/api/workspace/memos/:sessionId', async (req, res) => {
+  res.json({ workspace: await getMemoWorkspace(req.params.sessionId) ?? null })
+})
+
+app.patch('/api/workspace/memos/:sessionId', updateMemoWorkspace)
+app.post('/api/workspace/memos/:sessionId/export', recordMemoExport)
+
+app.get('/v1/workspace/memos', async (_req, res) => {
+  res.json({ workspaces: await listMemoWorkspaces() })
+})
+
+app.get('/v1/workspace/memos/:sessionId', async (req, res) => {
+  res.json({ workspace: await getMemoWorkspace(req.params.sessionId) ?? null })
+})
+
+app.patch('/v1/workspace/memos/:sessionId', updateMemoWorkspace)
+app.post('/v1/workspace/memos/:sessionId/export', recordMemoExport)
+
 app.get('/v1/markets/:id/stream', marketStreamResponse)
 
 app.get('/api/agents', async (_req, res) => {
@@ -398,6 +421,32 @@ async function updateRegisteredAgentStatus(req: Request, res: Response) {
     const message = (error as Error).message
     res.status(message.includes('auth') || message.includes('signature') ? 401 : 400).json({ ok: false, error: message })
   }
+}
+
+async function updateMemoWorkspace(req: Request, res: Response) {
+  try {
+    const workspace = await upsertMemoWorkspace(req.params.sessionId, workspacePatchFromBody(req.body))
+    res.json({ ok: true, workspace })
+  } catch (error) {
+    res.status(400).json({ ok: false, error: (error as Error).message })
+  }
+}
+
+async function recordMemoExport(req: Request, res: Response) {
+  try {
+    const workspace = await upsertMemoWorkspace(req.params.sessionId, {
+      ...workspacePatchFromBody(req.body),
+      recordExport: true,
+      exportReady: true,
+    })
+    res.status(201).json({ ok: true, workspace })
+  } catch (error) {
+    res.status(400).json({ ok: false, error: (error as Error).message })
+  }
+}
+
+function workspacePatchFromBody(body: unknown): WorkspacePatch {
+  return body && typeof body === 'object' ? body as WorkspacePatch : {}
 }
 
 function verifyRegistryAuth(req: Request): void {
