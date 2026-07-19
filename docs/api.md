@@ -222,6 +222,17 @@ Watchlist
 Rejected
 ```
 
+Workspace reads are public in local/demo mode. Workspace writes are unsigned only when no server secret
+is configured. In shared testnet or production environments, set `WORKSPACE_AUTH_SECRET` or
+`MARKETPLACE_API_TOKEN` on the API server and `VITE_WORKSPACE_API_TOKEN` on the dashboard build. Signed
+workspace writes use the same HMAC headers as registry admin writes:
+
+```text
+x-oq-publisher
+x-oq-timestamp
+x-oq-signature
+```
+
 ## Execution Flow And Recovery
 
 | Step | Input | Output | Failure mode | Recovery |

@@ -4,6 +4,8 @@ import type { AgentRegistration, Feed, FeedDiagnostics } from './types'
 const FEED_URL = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_FEED_URL ?? ''
 const REGISTRY_ADMIN_TOKEN = import.meta.env.VITE_REGISTRY_ADMIN_TOKEN ?? ''
 const REGISTRY_PUBLISHER_ID = import.meta.env.VITE_REGISTRY_PUBLISHER_ID ?? 'dashboard-admin'
+const WORKSPACE_API_TOKEN = import.meta.env.VITE_WORKSPACE_API_TOKEN ?? ''
+const WORKSPACE_PUBLISHER_ID = import.meta.env.VITE_WORKSPACE_PUBLISHER_ID ?? REGISTRY_PUBLISHER_ID
 export const API_BASE_URL = FEED_URL || 'same-origin /api proxy'
 export const LIVE_API_MODE = Boolean(FEED_URL)
 export const REGISTRY_ADMIN_ENABLED = Boolean(REGISTRY_ADMIN_TOKEN)
@@ -337,14 +339,16 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
       const path = exportAction
         ? `/api/workspace/memos/${encodeURIComponent(selectedSessionId)}/export`
         : `/api/workspace/memos/${encodeURIComponent(selectedSessionId)}`
+      const requestBody = JSON.stringify({ memoId: latestMemo?.memoId, ...patch })
+      const signedHeaders = await signedWorkspaceHeaders(exportAction ? 'POST' : 'PATCH', path, requestBody)
       const res = await fetch(`${FEED_URL}${path}`, {
         method: exportAction ? 'POST' : 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ memoId: latestMemo?.memoId, ...patch }),
+        headers: { ...signedHeaders, 'content-type': 'application/json' },
+        body: requestBody,
       })
-      const body = (await res.json().catch(() => ({}))) as { workspace?: MemoWorkspaceRecord; error?: string }
-      if (!res.ok || !body.workspace) throw new Error(body.error ?? `workspace save ${res.status}`)
-      setSelected((current) => current ? { ...current, workspace: body.workspace } : current)
+      const responseBody = (await res.json().catch(() => ({}))) as { workspace?: MemoWorkspaceRecord; error?: string }
+      if (!res.ok || !responseBody.workspace) throw new Error(responseBody.error ?? `workspace save ${res.status}`)
+      setSelected((current) => current ? { ...current, workspace: responseBody.workspace } : current)
       setWorkspaceError(undefined)
       setUpdatedAt(new Date().toISOString())
       setRefreshNonce((value) => value + 1)
@@ -357,9 +361,9 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
 
   return {
     status,
-      sessions,
-      workspaces,
-      selectedSessionId,
+    sessions,
+    workspaces,
+    selectedSessionId,
     selected,
     loadingDetail,
     error,
@@ -616,6 +620,14 @@ function friendlyHistoryError(error: unknown): UiError {
 
 function friendlyWorkspaceError(error: unknown): UiError {
   const message = (error as Error).message || 'Workspace save failed'
+  if (/auth|signature/i.test(message)) {
+    return {
+      title: 'Workspace write not authorized',
+      what: 'The API rejected the memo workspace update because it was not signed with a valid workspace token.',
+      likelyCause: 'The feed server has WORKSPACE_AUTH_SECRET or MARKETPLACE_API_TOKEN set, but the dashboard is missing VITE_WORKSPACE_API_TOKEN or it does not match.',
+      suggestedFix: 'Set VITE_WORKSPACE_API_TOKEN for the dashboard build, or remove the server workspace secret in local demo mode.',
+    }
+  }
   if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(message)) {
     return {
       title: 'Workspace API unavailable',
@@ -633,18 +645,28 @@ function friendlyWorkspaceError(error: unknown): UiError {
 }
 
 async function signedRegistryHeaders(method: string, path: string, body: string): Promise<Record<string, string>> {
+  if (!REGISTRY_ADMIN_TOKEN) return {}
+  return signedHeaders({ token: REGISTRY_ADMIN_TOKEN, publisher: REGISTRY_PUBLISHER_ID, method, path, body })
+}
+
+async function signedWorkspaceHeaders(method: string, path: string, body: string): Promise<Record<string, string>> {
+  if (!WORKSPACE_API_TOKEN) return {}
+  return signedHeaders({ token: WORKSPACE_API_TOKEN, publisher: WORKSPACE_PUBLISHER_ID, method, path, body })
+}
+
+async function signedHeaders(input: { token: string; publisher: string; method: string; path: string; body: string }): Promise<Record<string, string>> {
   const timestamp = new Date().toISOString()
-  const payload = `${method.toUpperCase()}\n${path}\n${timestamp}\n${body}`
+  const payload = `${input.method.toUpperCase()}\n${input.path}\n${timestamp}\n${input.body}`
   const key = await window.crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(REGISTRY_ADMIN_TOKEN),
+    new TextEncoder().encode(input.token),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign'],
   )
   const signature = await window.crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload))
   return {
-    'x-oq-publisher': REGISTRY_PUBLISHER_ID,
+    'x-oq-publisher': input.publisher,
     'x-oq-timestamp': timestamp,
     'x-oq-signature': [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, '0')).join(''),
   }

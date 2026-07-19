@@ -16,7 +16,6 @@
  */
 import express from 'express'
 import type { Request, Response } from 'express'
-import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { foldRounds } from './foldRounds.js'
@@ -38,6 +37,7 @@ import {
 import { deriveMarketStatus, type MarketStatus } from './marketStatus.js'
 import { launchMarketSession, launcherCommand } from './marketLauncher.js'
 import { enqueueStartMarketJob, getJob, redisAvailable } from './redisQueue.js'
+import { verifySignedRequest } from './signedRequest.js'
 
 const BASE = process.env.CORAL_SERVER_URL ?? 'http://localhost:5555'
 const TOKEN = process.env.CORAL_TOKEN ?? 'dev'
@@ -124,8 +124,11 @@ async function listNamespaces(): Promise<string[]> {
 const app = express()
 app.use((_req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Idempotency-Key,x-oq-publisher,x-oq-timestamp,x-oq-signature')
   next()
 })
+app.options('*', (_req, res) => res.sendStatus(204))
 
 app.use(express.json({
   verify: (req, _res, buf) => {
@@ -425,15 +428,18 @@ async function updateRegisteredAgentStatus(req: Request, res: Response) {
 
 async function updateMemoWorkspace(req: Request, res: Response) {
   try {
+    verifyWorkspaceAuth(req)
     const workspace = await upsertMemoWorkspace(req.params.sessionId, workspacePatchFromBody(req.body))
     res.json({ ok: true, workspace })
   } catch (error) {
-    res.status(400).json({ ok: false, error: (error as Error).message })
+    const message = (error as Error).message
+    res.status(authStatus(message)).json({ ok: false, error: message })
   }
 }
 
 async function recordMemoExport(req: Request, res: Response) {
   try {
+    verifyWorkspaceAuth(req)
     const workspace = await upsertMemoWorkspace(req.params.sessionId, {
       ...workspacePatchFromBody(req.body),
       recordExport: true,
@@ -441,7 +447,8 @@ async function recordMemoExport(req: Request, res: Response) {
     })
     res.status(201).json({ ok: true, workspace })
   } catch (error) {
-    res.status(400).json({ ok: false, error: (error as Error).message })
+    const message = (error as Error).message
+    res.status(authStatus(message)).json({ ok: false, error: message })
   }
 }
 
@@ -451,25 +458,25 @@ function workspacePatchFromBody(body: unknown): WorkspacePatch {
 
 function verifyRegistryAuth(req: Request): void {
   const secret = process.env.REGISTRY_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN
-  if (!secret) return
-  const publisher = req.header('x-oq-publisher')
-  const timestamp = req.header('x-oq-timestamp')
-  const signature = req.header('x-oq-signature')
-  if (!publisher || !timestamp || !signature) throw new Error('registry auth headers are required')
-  const driftMs = Math.abs(Date.now() - Date.parse(timestamp))
-  if (!Number.isFinite(driftMs) || driftMs > 5 * 60_000) throw new Error('registry auth timestamp is outside allowed window')
-  const body = (req as Request & { rawBody?: string }).rawBody ?? ''
-  const expected = createHmac('sha256', secret)
-    .update(`${req.method.toUpperCase()}\n${req.path}\n${timestamp}\n${body}`)
-    .digest('hex')
-  if (!safeEqual(signature, expected)) throw new Error('registry signature verification failed')
+  verifySignedRequest(signedRequestFromExpress(req), secret, 'registry')
 }
 
-function safeEqual(a: string, b: string): boolean {
-  const left = Buffer.from(a, 'hex')
-  const right = Buffer.from(b, 'hex')
-  if (left.length !== right.length) return false
-  return timingSafeEqual(left, right)
+function verifyWorkspaceAuth(req: Request): void {
+  const secret = process.env.WORKSPACE_AUTH_SECRET ?? process.env.MARKETPLACE_API_TOKEN
+  verifySignedRequest(signedRequestFromExpress(req), secret, 'workspace')
+}
+
+function signedRequestFromExpress(req: Request) {
+  return {
+    method: req.method,
+    path: req.path,
+    rawBody: (req as Request & { rawBody?: string }).rawBody ?? '',
+    header: (name: string) => req.header(name),
+  }
+}
+
+function authStatus(message: string): number {
+  return message.includes('auth') || message.includes('signature') ? 401 : 400
 }
 
 function registrationInput(body: unknown): { manifest: unknown; status?: RegistryStatus } {

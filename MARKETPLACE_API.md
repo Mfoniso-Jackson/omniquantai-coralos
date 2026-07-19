@@ -29,6 +29,13 @@ POST /api/workspace/memos/:sessionId/export
 Workspace records store reviewer assignment, analyst notes, review status, export-ready state, and
 export history for completed memos while preserving the original market transcript.
 
+Workspace write protection:
+
+- local/demo mode: unsigned writes are allowed when no secret is configured
+- shared testnet/production: set `WORKSPACE_AUTH_SECRET` or `MARKETPLACE_API_TOKEN` on the feed API
+- dashboard builds: set `VITE_WORKSPACE_API_TOKEN` and optionally `VITE_WORKSPACE_PUBLISHER_ID`
+- reads remain available for history/proof views
+
 ## Developer Registry APIs
 
 Implemented by the marketplace feed server:
@@ -96,8 +103,9 @@ POST /api/markets/:id/results
 ## Authentication
 
 Registry write/admin endpoints support HMAC signatures when `REGISTRY_AUTH_SECRET` or
-`MARKETPLACE_API_TOKEN` is set on the feed server. Unsigned writes remain allowed only when no secret
-is configured, which keeps local development simple.
+`MARKETPLACE_API_TOKEN` is set on the feed server. Workspace writes support the same signature model
+with `WORKSPACE_AUTH_SECRET` or `MARKETPLACE_API_TOKEN`. Unsigned writes remain allowed only when no
+secret is configured, which keeps local development simple.
 
 Signed requests include:
 
