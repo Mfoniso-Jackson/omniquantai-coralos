@@ -31,6 +31,88 @@ export interface RegistryState {
   updatedAt?: string
 }
 
+export interface MarketSessionSummary {
+  id: string
+  sessionId: string
+  namespace: string
+  status: string
+  currentStage: string
+  createdAt: string
+  completedAt?: string
+  winningAgentId?: string
+  settlementStatus?: string
+  dataSource?: string
+  updatedAt: string
+}
+
+export interface SavedMemoRecord {
+  id: string
+  sessionId: string
+  round: number
+  memoId: string
+  agentId?: string
+  question?: string
+  recommendation?: string
+  confidence?: number
+  dataSources: unknown[]
+  providerObservability: unknown[]
+  memo: unknown
+  createdAt: string
+}
+
+export interface SavedSettlementRecord {
+  id: string
+  sessionId: string
+  round: number
+  status: 'REQUESTED' | 'DEPOSITED' | 'VERIFIED' | 'RELEASED' | 'REFUNDED'
+  reference?: string
+  depositSignature?: string
+  releaseSignature?: string
+  amountSol?: number
+  sellerWallet?: string
+  timestamp: string
+}
+
+export interface SavedMarketDetail {
+  session: MarketSessionSummary
+  requests: {
+    id: string
+    sessionId: string
+    round: number
+    service: string
+    argument: string
+    budgetSol: number
+    timestamp: string
+  }[]
+  bids: {
+    id: string
+    sessionId: string
+    round: number
+    sellerId: string
+    bidPriceSol: number
+    confidence?: number
+    deliveryTimeSeconds?: number
+    reasoning?: string
+    timestamp: string
+  }[]
+  winners: { id: string; sessionId: string; round: number; sellerId: string; reason?: string; timestamp: string }[]
+  memos: SavedMemoRecord[]
+  settlements: SavedSettlementRecord[]
+  timeline: { id: string; sessionId: string; round: number; type: string; timestamp: string; payload: unknown }[]
+}
+
+export interface SessionHistoryState {
+  status: 'checking' | 'online' | 'offline'
+  sessions: MarketSessionSummary[]
+  selectedSessionId?: string
+  selected?: SavedMarketDetail
+  loadingDetail: boolean
+  error?: UiError
+  updatedAt?: string
+  selectSession: (sessionId: string) => void
+  refresh: () => void
+}
+
 export function useApiHealth(intervalMs = 15000): ApiHealthState {
   const [state, setState] = useState<ApiHealthState>({ status: 'checking', apiUrl: API_BASE_URL })
 
@@ -117,6 +199,97 @@ export function useAgentRegistry(apiHealth: ApiHealthState, intervalMs = 15000):
   }, [apiHealth.status, intervalMs])
 
   return state
+}
+
+export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000): SessionHistoryState {
+  const [sessions, setSessions] = useState<MarketSessionSummary[]>([])
+  const [selectedSessionId, setSelectedSessionId] = useState<string>()
+  const [selected, setSelected] = useState<SavedMarketDetail>()
+  const [status, setStatus] = useState<SessionHistoryState['status']>(apiHealth.status === 'online' ? 'checking' : 'offline')
+  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [error, setError] = useState<UiError>()
+  const [updatedAt, setUpdatedAt] = useState<string>()
+  const [refreshNonce, setRefreshNonce] = useState(0)
+
+  useEffect(() => {
+    let stopped = false
+    if (apiHealth.status !== 'online') {
+      setStatus('offline')
+      setSessions([])
+      setSelected(undefined)
+      setError(undefined)
+      return
+    }
+    const load = async () => {
+      setStatus((current) => current === 'online' ? current : 'checking')
+      try {
+        const res = await fetch(`${FEED_URL}/api/markets`)
+        const body = (await res.json().catch(() => ({}))) as { markets?: MarketSessionSummary[]; error?: string }
+        if (!res.ok) throw new Error(body.error ?? `session history ${res.status}`)
+        const nextSessions = body.markets ?? []
+        if (!stopped) {
+          setSessions(nextSessions)
+          setStatus('online')
+          setError(undefined)
+          setUpdatedAt(new Date().toISOString())
+          setSelectedSessionId((current) => current ?? nextSessions[0]?.sessionId)
+        }
+      } catch (loadError) {
+        if (!stopped) {
+          setStatus('offline')
+          setError(friendlyHistoryError(loadError))
+          setUpdatedAt(new Date().toISOString())
+        }
+      }
+    }
+    void load()
+    const id = window.setInterval(load, intervalMs)
+    return () => { stopped = true; window.clearInterval(id) }
+  }, [apiHealth.status, intervalMs, refreshNonce])
+
+  useEffect(() => {
+    let stopped = false
+    if (apiHealth.status !== 'online' || !selectedSessionId) {
+      setSelected(undefined)
+      setLoadingDetail(false)
+      return
+    }
+    const loadDetail = async () => {
+      setLoadingDetail(true)
+      try {
+        const res = await fetch(`${FEED_URL}/api/markets/${encodeURIComponent(selectedSessionId)}`)
+        const body = (await res.json().catch(() => ({}))) as SavedMarketDetail & { error?: string }
+        if (!res.ok) throw new Error(body.error ?? `saved market ${res.status}`)
+        if (!stopped) {
+          setSelected(body)
+          setError(undefined)
+          setUpdatedAt(new Date().toISOString())
+        }
+      } catch (detailError) {
+        if (!stopped) {
+          setSelected(undefined)
+          setError(friendlyHistoryError(detailError))
+          setUpdatedAt(new Date().toISOString())
+        }
+      } finally {
+        if (!stopped) setLoadingDetail(false)
+      }
+    }
+    void loadDetail()
+    return () => { stopped = true }
+  }, [apiHealth.status, selectedSessionId])
+
+  return {
+    status,
+    sessions,
+    selectedSessionId,
+    selected,
+    loadingDetail,
+    error,
+    updatedAt,
+    selectSession: setSelectedSessionId,
+    refresh: () => setRefreshNonce((value) => value + 1),
+  }
 }
 
 export async function setRegistryAgentStatus(agentId: string, status: AgentRegistration['status']): Promise<void> {
@@ -339,6 +512,24 @@ function friendlyRegistryError(error: unknown): UiError {
     what: message,
     likelyCause: 'The registry endpoint returned an unexpected response.',
     suggestedFix: 'Check /api/registry/agents and the feed server logs.',
+  }
+}
+
+function friendlyHistoryError(error: unknown): UiError {
+  const message = (error as Error).message || 'Session history request failed'
+  if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(message)) {
+    return {
+      title: 'Session history unavailable',
+      what: 'The dashboard could not reach saved market history.',
+      likelyCause: 'The marketplace API is offline or the public site is running without a live API host.',
+      suggestedFix: 'Run the local/Codespaces API or connect VITE_API_BASE_URL to a hosted testnet API, then retry.',
+    }
+  }
+  return {
+    title: 'Session history could not load',
+    what: message,
+    likelyCause: 'The history endpoint returned an unexpected response.',
+    suggestedFix: 'Check /api/markets, /api/markets/:id, and the feed server logs.',
   }
 }
 

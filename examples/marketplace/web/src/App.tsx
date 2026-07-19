@@ -4,12 +4,17 @@ import {
   REGISTRY_ADMIN_ENABLED,
   friendlyError,
   setRegistryAgentStatus,
+  useSessionHistory,
   useFeed,
   startMarket,
   useApiHealth,
   useAgentRegistry,
   type ApiHealthState,
+  type SavedMarketDetail,
+  type SavedMemoRecord,
+  type SavedSettlementRecord,
   type RegistryState,
+  type SessionHistoryState,
   type UiError,
 } from './api'
 import { MarketView } from './components/MarketView'
@@ -34,7 +39,18 @@ export default function App() {
   const [startErr, setStartErr] = useState<UiError>()
   const apiHealth = useApiHealth()
   const registry = useAgentRegistry(apiHealth)
+  const sessionHistory = useSessionHistory(apiHealth)
   const { rounds, connected, error, diagnostics, updatedAt, polling, apiUrl } = useFeed(session, namespace)
+
+  function openSavedSession(sessionId: string, nextNamespace?: string) {
+    setSession(sessionId)
+    setNamespace(nextNamespace ?? '')
+    const url = new URL(window.location.href)
+    url.searchParams.set('session', sessionId)
+    if (nextNamespace) url.searchParams.set('namespace', nextNamespace)
+    else url.searchParams.delete('namespace')
+    window.history.replaceState({}, '', url)
+  }
 
   async function onStart() {
     setStarting(true)
@@ -89,6 +105,7 @@ export default function App() {
         </div>
         <nav className="top-nav" aria-label="Dashboard sections">
           <a href="#home">Home</a>
+          <a href="#workspace">Workspace</a>
           <a href="#market">Market</a>
           <a href="#research">Research</a>
           <a href="#developers">Developers</a>
@@ -121,17 +138,21 @@ export default function App() {
       <DebugPanel session={session} connected={connected} error={error ?? startErr} diagnostics={diagnostics} rounds={rounds} updatedAt={updatedAt} polling={polling} apiUrl={apiUrl} />
 
       <main>
-        {session ? <MarketView rounds={rounds} /> : (
+        {session ? (
+          <>
+            <MarketView rounds={rounds} />
+            <SessionHistoryWorkspace history={sessionHistory} onOpenSession={openSavedSession} />
+          </>
+        ) : (
         <StartMarketPanel
           starting={starting}
           session={session}
           apiHealth={apiHealth}
           registry={registry}
+          history={sessionHistory}
           onStart={onStart}
-          onSession={(nextSession) => {
-              setSession(nextSession)
-              setNamespace('')
-            }}
+          onSession={(nextSession) => openSavedSession(nextSession)}
+          onOpenSavedSession={openSavedSession}
           />
         )}
       </main>
@@ -148,21 +169,26 @@ function StartMarketPanel({
   session,
   apiHealth,
   registry,
+  history,
   onStart,
   onSession,
+  onOpenSavedSession,
 }: {
   starting: boolean
   session: string
   apiHealth: ApiHealthState
   registry: RegistryState
+  history: SessionHistoryState
   onStart: () => void
   onSession: (session: string) => void
+  onOpenSavedSession: (sessionId: string, namespace?: string) => void
 }) {
   const [draft, setDraft] = useState(session)
   return (
     <section className="empty-market">
       <PublicHero starting={starting} apiHealth={apiHealth} onStart={onStart} />
       <ProofModePanel apiHealth={apiHealth} />
+      <SessionHistoryWorkspace history={history} onOpenSession={onOpenSavedSession} />
       <details className="reconnect-panel">
         <summary>Reconnect to Existing Session</summary>
         <div className="session-bar">
@@ -193,6 +219,179 @@ function StartMarketPanel({
       <MissionCard />
     </section>
   )
+}
+
+function SessionHistoryWorkspace({
+  history,
+  onOpenSession,
+}: {
+  history: SessionHistoryState
+  onOpenSession: (sessionId: string, namespace?: string) => void
+}) {
+  const selected = history.selected
+  const latestMemo = selected ? latestMemoFor(selected) : undefined
+  const latestSettlement = selected ? latestSettlementFor(selected) : undefined
+  const latestRequest = selected?.requests.at(-1)
+  const completedCount = history.sessions.filter((item) => item.completedAt || item.currentStage === 'released' || item.status === 'settled').length
+  const memoCount = selected?.memos.length ?? 0
+  return (
+    <section className="session-workspace" id="workspace" aria-labelledby="workspace-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Saved Memo Workspace</span>
+          <h3 id="workspace-title">Session history for paid pilots and team retention</h3>
+        </div>
+        <div className="workspace-actions">
+          <button onClick={history.refresh} disabled={history.status === 'checking' || history.loadingDetail}>
+            {history.status === 'checking' ? 'Refreshing...' : 'Refresh History'}
+          </button>
+        </div>
+      </div>
+      <div className="workspace-metrics" aria-label="Session history metrics">
+        <WorkspaceMetric label="Saved Sessions" value={String(history.sessions.length)} />
+        <WorkspaceMetric label="Completed" value={String(completedCount)} />
+        <WorkspaceMetric label="Selected Memos" value={String(memoCount)} />
+        <WorkspaceMetric label="Updated" value={history.updatedAt ? formatDate(history.updatedAt) : 'never'} />
+      </div>
+      {history.status === 'checking' && history.sessions.length === 0 && <HistorySkeleton />}
+      {history.status === 'offline' && (
+        <div className="workspace-state workspace-error">
+          <strong>{history.error?.title ?? 'Session history offline'}</strong>
+          <span>{history.error?.what ?? 'Start the marketplace API to load saved markets.'}</span>
+          <button onClick={history.refresh}>Retry</button>
+        </div>
+      )}
+      {history.status === 'online' && history.sessions.length === 0 && (
+        <div className="workspace-state">
+          <strong>No saved market sessions yet</strong>
+          <span>Run a live market and verified memos will appear here as reusable workspace memory.</span>
+        </div>
+      )}
+      {history.sessions.length > 0 && (
+        <div className="workspace-grid">
+          <div className="history-list" aria-label="Saved market sessions">
+            {history.sessions.slice(0, 8).map((item) => (
+              <button
+                key={item.sessionId}
+                className={item.sessionId === history.selectedSessionId ? 'history-item history-item-active' : 'history-item'}
+                onClick={() => history.selectSession(item.sessionId)}
+                aria-pressed={item.sessionId === history.selectedSessionId}
+              >
+                <span>{shortId(item.sessionId)}</span>
+                <strong>{stageLabel(item)}</strong>
+                <em>{item.winningAgentId ?? 'winner pending'} · {item.dataSource ?? 'data unknown'}</em>
+                <small>{formatDate(item.updatedAt)}</small>
+              </button>
+            ))}
+          </div>
+          <article className="memo-workbench" aria-busy={history.loadingDetail}>
+            {history.loadingDetail && <HistorySkeleton compact />}
+            {!history.loadingDetail && selected && (
+              <>
+                <div className="memo-workbench-head">
+                  <div>
+                    <span className="eyebrow">Selected Session</span>
+                    <h4>{shortId(selected.session.sessionId)} · {stageLabel(selected.session)}</h4>
+                  </div>
+                  <button onClick={() => onOpenSession(selected.session.sessionId, selected.session.namespace)}>
+                    Reopen Session
+                  </button>
+                </div>
+                <dl className="memo-facts">
+                  <div><dt>Request</dt><dd>{latestRequest?.argument ?? latestMemo?.question ?? 'unknown request'}</dd></div>
+                  <div><dt>Winner</dt><dd>{selected.session.winningAgentId ?? latestMemo?.agentId ?? 'pending'}</dd></div>
+                  <div><dt>Recommendation</dt><dd>{latestMemo?.recommendation ?? memoRecommendation(latestMemo) ?? 'pending'}</dd></div>
+                  <div><dt>Confidence</dt><dd>{latestMemo?.confidence ?? memoConfidence(latestMemo) ?? 'unknown'}</dd></div>
+                </dl>
+                <div className="saved-memo-preview">
+                  <h5>{memoTitle(latestMemo)}</h5>
+                  <p>{memoSummary(latestMemo)}</p>
+                </div>
+                <div className="workspace-proof-row">
+                  {latestSettlement?.depositSignature && (
+                    <a href={explorerTx(latestSettlement.depositSignature)} target="_blank" rel="noreferrer">Deposit Proof</a>
+                  )}
+                  {latestSettlement?.releaseSignature && (
+                    <a href={explorerTx(latestSettlement.releaseSignature)} target="_blank" rel="noreferrer">Release Proof</a>
+                  )}
+                  <span>{selected.timeline.length} graph event(s)</span>
+                  <span>{selected.bids.length} bid(s)</span>
+                </div>
+              </>
+            )}
+          </article>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function WorkspaceMetric({ label, value }: { label: string; value: string }) {
+  return <div className="workspace-metric"><span>{label}</span><strong>{value}</strong></div>
+}
+
+function HistorySkeleton({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={compact ? 'history-skeleton history-skeleton-compact' : 'history-skeleton'} aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </div>
+  )
+}
+
+function latestMemoFor(detail: SavedMarketDetail): SavedMemoRecord | undefined {
+  return [...detail.memos].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+}
+
+function latestSettlementFor(detail: SavedMarketDetail): SavedSettlementRecord | undefined {
+  return [...detail.settlements].sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0]
+}
+
+function stageLabel(session: { currentStage?: string; status?: string }): string {
+  return (session.currentStage || session.status || 'unknown').replace(/_/g, ' ')
+}
+
+function memoPayload(memo?: SavedMemoRecord): Record<string, unknown> {
+  return memo && typeof memo.memo === 'object' && memo.memo !== null ? memo.memo as Record<string, unknown> : {}
+}
+
+function memoNested(memo?: SavedMemoRecord): Record<string, unknown> {
+  const payload = memoPayload(memo)
+  const nested = payload.investment_committee_memo
+  return typeof nested === 'object' && nested !== null ? nested as Record<string, unknown> : payload
+}
+
+function memoTitle(memo?: SavedMemoRecord): string {
+  const nested = memoNested(memo)
+  return typeof nested.title === 'string' ? nested.title : 'Investment Committee Memo'
+}
+
+function memoSummary(memo?: SavedMemoRecord): string {
+  const nested = memoNested(memo)
+  return typeof nested.executive_summary === 'string'
+    ? nested.executive_summary
+    : 'The saved memo will appear here once the selected market has delivered intelligence.'
+}
+
+function memoRecommendation(memo?: SavedMemoRecord): string | undefined {
+  const nested = memoNested(memo)
+  return typeof nested.recommendation === 'string' ? nested.recommendation : undefined
+}
+
+function memoConfidence(memo?: SavedMemoRecord): string | undefined {
+  const nested = memoNested(memo)
+  return typeof nested.confidence_score === 'number' ? `${nested.confidence_score}/100` : undefined
+}
+
+function explorerTx(sig: string): string {
+  return `https://explorer.solana.com/tx/${sig}?cluster=devnet`
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function ModeBanner({ apiHealth }: { apiHealth: ApiHealthState }) {

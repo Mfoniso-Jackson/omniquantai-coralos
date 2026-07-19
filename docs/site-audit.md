@@ -38,6 +38,8 @@ Goal: make `omniquantai.com` function as the public face of the Financial Intell
 - Added live market preview metrics for session, request, seller agents, and settlement.
 - Added agent profile cards for the four bootstrap specialists.
 - Added developer portal, research hub, roadmap, and mission sections.
+- Added Session History / Saved Memo Workspace for saved market sessions, memo previews, proof links,
+  and team/design-partner retention.
 - Preserved the existing Start Market, reconnect, presentation, diagnostics, market, memo, and settlement flows.
 
 ## Remaining Work
@@ -45,5 +47,4 @@ Goal: make `omniquantai.com` function as the public face of the Financial Intell
 - Add true `/market`, `/research`, `/developers`, `/architecture`, `/docs`, `/roadmap`, `/blog`, and `/about` routes when hosting supports SPA fallback reliably.
 - Add a dedicated docs index page fed by repo documentation.
 - Add memo export to PDF.
-- Add live session history once the hosted API is stable.
 - Add public API uptime/status once `api.omniquantai.com` is deployed.

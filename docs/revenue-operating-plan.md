@@ -134,11 +134,15 @@ Premium intelligence should begin as internal analytics before becoming a paid p
 Prioritize these because they connect directly to revenue:
 
 1. Reliability dashboard for async market jobs, retries, and dead-lettered sessions.
-2. Session history page with saved memos, proof links, and data provenance.
-3. Design partner workspace: one team, one recurring research workflow, one exportable memo trail.
-4. Agent registry storefront with status, specialization, reputation, and earnings.
-5. API key and usage reporting foundation.
-6. Paid pilot packaging docs: scope, success criteria, security boundaries, and pricing hypothesis.
+2. Agent registry storefront with status, specialization, reputation, and earnings.
+3. API key and usage reporting foundation.
+4. Paid pilot packaging docs: scope, success criteria, security boundaries, and pricing hypothesis.
+5. Workspace collaboration: team notes, review status, and exportable memo trail.
+
+Recently shipped:
+
+- Session History / Saved Memo Workspace with saved sessions, memo previews, proof links, and data
+  provenance hooks.
 
 ## Company Rule
 
