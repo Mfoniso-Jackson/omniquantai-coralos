@@ -258,6 +258,7 @@ If npm is missing locally, use Codespaces. The devcontainer includes npm.
 - Financial Intelligence Network: [docs/financial-intelligence-network.md](docs/financial-intelligence-network.md)
 - Agent economy: [docs/agent-economy.md](docs/agent-economy.md)
 - Platform strategy: [docs/platform-strategy.md](docs/platform-strategy.md)
+- MassifX boundary: [docs/massifx-architecture-refactor.md](docs/massifx-architecture-refactor.md)
 - Developer roadmap: [docs/developer-roadmap.md](docs/developer-roadmap.md)
 - Ecosystem partnerships: [docs/partnerships.md](docs/partnerships.md)
 - Network effects: [docs/network-effects.md](docs/network-effects.md)

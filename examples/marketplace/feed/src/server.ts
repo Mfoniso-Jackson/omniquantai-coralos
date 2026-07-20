@@ -56,6 +56,7 @@ import { deriveMarketStatus, type MarketStatus } from './marketStatus.js'
 import { launchMarketSession, launcherCommand } from './marketLauncher.js'
 import { enqueueStartMarketJob, getJob, redisAvailable } from './redisQueue.js'
 import { verifySignedRequest } from './signedRequest.js'
+import { installPrivateQuantApi } from './privateQuantApi.js'
 
 const BASE = process.env.CORAL_SERVER_URL ?? 'http://localhost:5555'
 const TOKEN = process.env.CORAL_TOKEN ?? 'dev'
@@ -205,6 +206,8 @@ app.get('/api/status', async (req, res) => {
 })
 
 app.get('/api/ready', readinessResponse)
+
+installPrivateQuantApi(app)
 
 app.post('/api/sessions/start', startSession)
 app.post('/api/start', startSession)
