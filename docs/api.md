@@ -329,6 +329,9 @@ assigned sessions, memo status counts, reviewers, export-ready memos, settlement
 and access audit activity. Use this endpoint for paid-pilot dashboards instead of recomputing the whole
 organization workspace in the browser.
 
+The dashboard Pilot Workspace panel consumes this endpoint when an organization is selected and falls
+back to the local session/workspace projection if the endpoint is unavailable during local upgrades.
+
 ## Persistence Reads
 
 When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured, core read APIs prefer Supabase and

@@ -276,11 +276,19 @@ function SessionHistoryWorkspace({
     : new Set<string>()
   const organizationSessions = history.sessions.filter((item) => organizationSessionIds.has(item.sessionId))
   const organizationWorkspaces = history.workspaces.filter((workspace) => organizationSessionIds.has(workspace.sessionId))
+  const dashboardForCurrentOrganization = history.organizationDashboard?.organization.id === currentOrganization?.id
+    ? history.organizationDashboard
+    : undefined
   const organizationStatusCounts = (['Needs Review', 'Approved', 'Watchlist', 'Rejected'] as ReviewStatus[])
-    .map((status) => ({ status, count: organizationWorkspaces.filter((workspace) => workspace.reviewStatus === status).length }))
-  const organizationReviewers = [...new Set(organizationWorkspaces.map((workspace) => workspace.reviewer).filter((reviewer): reviewer is string => Boolean(reviewer)))]
-  const organizationExportReady = organizationWorkspaces.filter((workspace) => workspace.exportReady).length
-  const organizationProofCount = organizationSessions.filter((item) => /released|settled|payment_released/i.test(`${item.currentStage}:${item.status}:${item.settlementStatus ?? ''}`)).length
+    .map((status) => ({ status, count: dashboardForCurrentOrganization?.memoStatusCounts[status] ?? organizationWorkspaces.filter((workspace) => workspace.reviewStatus === status).length }))
+  const organizationReviewers = dashboardForCurrentOrganization?.reviewers
+    ?? [...new Set(organizationWorkspaces.map((workspace) => workspace.reviewer).filter((reviewer): reviewer is string => Boolean(reviewer)))]
+  const organizationExportReady = dashboardForCurrentOrganization?.summary.exportReady ?? organizationWorkspaces.filter((workspace) => workspace.exportReady).length
+  const organizationProofCount = dashboardForCurrentOrganization?.summary.settlementProof
+    ?? organizationSessions.filter((item) => /released|settled|payment_released/i.test(`${item.currentStage}:${item.status}:${item.settlementStatus ?? ''}`)).length
+  const visibleOrganizationSessions = dashboardForCurrentOrganization?.sessions ?? organizationSessions
+  const visibleOrganizationMembers = dashboardForCurrentOrganization?.members ?? history.organizationMembers
+  const visibleOrganizationAudit = dashboardForCurrentOrganization?.audit ?? history.organizationMemberAudit
 
   function submitMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -451,7 +459,7 @@ function SessionHistoryWorkspace({
                       <strong>Pilot / Team Workspace</strong>
                       <span>
                         {currentOrganization
-                          ? `${currentOrganization.name} owns ${currentOrganizationSessionCount} saved session(s)`
+                          ? `${currentOrganization.name} owns ${dashboardForCurrentOrganization?.summary.sessions ?? currentOrganizationSessionCount} saved session(s)`
                           : 'Assign this session to a pilot or team so research history compounds across markets.'}
                       </span>
                     </div>
@@ -531,15 +539,16 @@ function SessionHistoryWorkspace({
                       <div className="pilot-dashboard-head">
                         <div>
                           <strong>Saved Pilot Workspace</strong>
-                          <span>{currentOrganization.name} · {organizationSessions.length} saved session(s)</span>
+                          <span>{currentOrganization.name} · {dashboardForCurrentOrganization ? 'API-backed view' : 'local projection'} · {visibleOrganizationSessions.length} saved session(s)</span>
                         </div>
                         <em>{organizationExportReady} export-ready memo(s)</em>
                       </div>
+                      {history.organizationDashboardLoading && !dashboardForCurrentOrganization && <HistorySkeleton compact />}
                       <div className="pilot-metrics" aria-label="Pilot workspace metrics">
-                        <WorkspaceMetric label="Sessions" value={String(organizationSessions.length)} />
+                        <WorkspaceMetric label="Sessions" value={String(visibleOrganizationSessions.length)} />
                         <WorkspaceMetric label="Proof Ready" value={String(organizationProofCount)} />
                         <WorkspaceMetric label="Reviewers" value={String(organizationReviewers.length)} />
-                        <WorkspaceMetric label="Access Events" value={String(history.organizationMemberAudit.length)} />
+                        <WorkspaceMetric label="Access Events" value={String(visibleOrganizationAudit.length)} />
                       </div>
                       <div className="pilot-status-grid" aria-label="Memo review status counts">
                         {organizationStatusCounts.map((item) => (
@@ -550,7 +559,7 @@ function SessionHistoryWorkspace({
                         ))}
                       </div>
                       <div className="pilot-session-list" aria-label="Organization sessions">
-                        {organizationSessions.length > 0 ? organizationSessions.slice(0, 5).map((item) => {
+                        {visibleOrganizationSessions.length > 0 ? visibleOrganizationSessions.slice(0, 5).map((item) => {
                           const workspace = history.workspaces.find((record) => record.sessionId === item.sessionId)
                           return (
                             <button
@@ -585,9 +594,9 @@ function SessionHistoryWorkspace({
                       <div className="members-panel-head">
                         <div>
                           <strong>Organization Members</strong>
-                          <span>{history.organizationMembers.length} inherited role record(s) for {currentOrganization.name}</span>
+                          <span>{visibleOrganizationMembers.length} inherited role record(s) for {currentOrganization.name}</span>
                         </div>
-                        {history.organizationMembersLoading && <em>Loading members...</em>}
+                        {(history.organizationMembersLoading || history.organizationDashboardLoading) && <em>Loading members...</em>}
                       </div>
                       <form className="member-form" onSubmit={submitOrganizationMember} aria-busy={history.organizationMembersSaving}>
                         <label htmlFor="organization-member-publisher">
@@ -634,7 +643,7 @@ function SessionHistoryWorkspace({
                         </button>
                       </form>
                       <div className="member-list" aria-label="Organization members">
-                        {history.organizationMembers.length > 0 ? history.organizationMembers.map((member) => (
+                        {visibleOrganizationMembers.length > 0 ? visibleOrganizationMembers.map((member) => (
                           <div className={member.status === 'revoked' ? 'member-row member-row-revoked' : 'member-row'} key={member.id}>
                             <div>
                               <strong>{member.displayName || member.publisherId}</strong>
@@ -678,12 +687,12 @@ function SessionHistoryWorkspace({
                       <div className="member-audit" aria-label="Organization membership audit log">
                         <div className="member-audit-head">
                           <strong>Organization Access Audit</strong>
-                          <span>{history.organizationMemberAudit.length} trace event(s)</span>
+                          <span>{visibleOrganizationAudit.length} trace event(s)</span>
                         </div>
-                        {history.organizationMembersLoading && history.organizationMemberAudit.length === 0 && <HistorySkeleton compact />}
-                        {!history.organizationMembersLoading && history.organizationMemberAudit.length > 0 ? (
+                        {(history.organizationMembersLoading || history.organizationDashboardLoading) && visibleOrganizationAudit.length === 0 && <HistorySkeleton compact />}
+                        {!history.organizationMembersLoading && !history.organizationDashboardLoading && visibleOrganizationAudit.length > 0 ? (
                           <ol>
-                            {history.organizationMemberAudit.slice(0, 6).map((event) => (
+                            {visibleOrganizationAudit.slice(0, 6).map((event) => (
                               <li key={event.id}>
                                 <span>{auditActionLabel(event.action)}</span>
                                 <strong>{event.displayName || event.publisherId}</strong>
@@ -696,7 +705,7 @@ function SessionHistoryWorkspace({
                               </li>
                             ))}
                           </ol>
-                        ) : !history.organizationMembersLoading && (
+                        ) : !history.organizationMembersLoading && !history.organizationDashboardLoading && (
                           <div className="member-empty">
                             <strong>No organization access changes recorded yet</strong>
                             <span>Organization invites, promotions, demotions, and revocations will appear here.</span>

@@ -169,6 +169,48 @@ export interface WorkspaceMemberPatch {
   status?: 'active' | 'revoked'
 }
 
+export interface OrganizationDashboardSettlementProof {
+  sessionId: string
+  status: string
+  reference?: string
+  depositSignature?: string
+  releaseSignature?: string
+  depositExplorerUrl?: string
+  releaseExplorerUrl?: string
+  timestamp: string
+}
+
+export interface OrganizationDashboardExportReadyMemo {
+  sessionId: string
+  memoId?: string
+  reviewStatus: ReviewStatus
+  reviewer?: string
+  updatedAt: string
+  exportCount: number
+}
+
+export interface OrganizationDashboardSummary {
+  sessions: number
+  memos: number
+  exportReady: number
+  members: number
+  settlementProof: number
+}
+
+export interface OrganizationDashboardRecord {
+  organization: OrganizationWorkspaceRecord
+  summary: OrganizationDashboardSummary
+  sessions: MarketSessionSummary[]
+  assignments: OrganizationSessionRecord[]
+  memoStatusCounts: Record<ReviewStatus, number>
+  reviewers: string[]
+  exportReadyMemos: OrganizationDashboardExportReadyMemo[]
+  settlementProof: OrganizationDashboardSettlementProof[]
+  members: WorkspaceMembershipRecord[]
+  audit: WorkspaceMembershipAuditRecord[]
+  updatedAt: string
+}
+
 export interface SavedMarketDetail {
   session: MarketSessionSummary
   requests: {
@@ -220,6 +262,8 @@ export interface SessionHistoryState {
   membersError?: UiError
   organizationMembers: WorkspaceMembershipRecord[]
   organizationMemberAudit: WorkspaceMembershipAuditRecord[]
+  organizationDashboard?: OrganizationDashboardRecord
+  organizationDashboardLoading: boolean
   organizationMembersLoading: boolean
   organizationMembersSaving: boolean
   organizationSaving: boolean
@@ -341,6 +385,8 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
   const [membersError, setMembersError] = useState<UiError>()
   const [organizationMembers, setOrganizationMembers] = useState<WorkspaceMembershipRecord[]>([])
   const [organizationMemberAudit, setOrganizationMemberAudit] = useState<WorkspaceMembershipAuditRecord[]>([])
+  const [organizationDashboard, setOrganizationDashboard] = useState<OrganizationDashboardRecord>()
+  const [organizationDashboardLoading, setOrganizationDashboardLoading] = useState(false)
   const [organizationMembersLoading, setOrganizationMembersLoading] = useState(false)
   const [organizationMembersSaving, setOrganizationMembersSaving] = useState(false)
   const [organizationSaving, setOrganizationSaving] = useState(false)
@@ -361,6 +407,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
       setWorkspaceMemberAudit([])
       setOrganizationMembers([])
       setOrganizationMemberAudit([])
+      setOrganizationDashboard(undefined)
       setError(undefined)
       return
     }
@@ -416,14 +463,17 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
       setWorkspaceMemberAudit([])
       setOrganizationMembers([])
       setOrganizationMemberAudit([])
+      setOrganizationDashboard(undefined)
       setLoadingDetail(false)
       setMembersLoading(false)
+      setOrganizationDashboardLoading(false)
       setOrganizationMembersLoading(false)
       return
     }
     const loadDetail = async () => {
       setLoadingDetail(true)
       setMembersLoading(true)
+      setOrganizationDashboardLoading(true)
       setOrganizationMembersLoading(true)
       try {
         const [marketRes, membersRes, auditRes] = await Promise.all([
@@ -438,15 +488,14 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
         if (!membersRes.ok) throw new Error(membersBody.error ?? `workspace members ${membersRes.status}`)
         if (!auditRes.ok) throw new Error(auditBody.error ?? `workspace member audit ${auditRes.status}`)
         const organizationId = body.organization?.id ?? body.organizationAssignment?.organizationId
-        const [organizationMembersBody, organizationAuditBody] = organizationId
-          ? await loadOrganizationAccess(organizationId)
-          : [{ members: [] }, { audit: [] }]
+        const organizationDashboardBody = organizationId ? await loadOrganizationDashboard(organizationId) : undefined
         if (!stopped) {
           setSelected(body)
           setWorkspaceMembers(membersBody.members ?? [])
           setWorkspaceMemberAudit(auditBody.audit ?? [])
-          setOrganizationMembers(organizationMembersBody.members ?? [])
-          setOrganizationMemberAudit(organizationAuditBody.audit ?? [])
+          setOrganizationDashboard(organizationDashboardBody)
+          setOrganizationMembers(organizationDashboardBody?.members ?? [])
+          setOrganizationMemberAudit(organizationDashboardBody?.audit ?? [])
           setError(undefined)
           setWorkspaceError(undefined)
           setMembersError(undefined)
@@ -458,6 +507,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
           setSelected(undefined)
           setError(friendlyHistoryError(detailError))
           setMembersError(friendlyMembersError(detailError))
+          setOrganizationDashboard(undefined)
           setOrganizationMembers([])
           setOrganizationMemberAudit([])
           setOrganizationError(friendlyOrganizationError(detailError))
@@ -467,6 +517,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
         if (!stopped) {
           setLoadingDetail(false)
           setMembersLoading(false)
+          setOrganizationDashboardLoading(false)
           setOrganizationMembersLoading(false)
         }
       }
@@ -590,7 +641,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
         return { ...current, organizationAssignment: savedAssignment, organization: organization ?? current.organization }
       })
       setOrganizationError(undefined)
-      await refreshOrganizationAccess(savedAssignment.organizationId)
+      await refreshOrganizationDashboard(savedAssignment.organizationId)
       setUpdatedAt(new Date().toISOString())
       setRefreshNonce((value) => value + 1)
     } catch (orgError) {
@@ -620,7 +671,7 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
         const rest = current.filter((member) => member.publisherId !== savedMembership.publisherId)
         return [...rest, savedMembership].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.publisherId.localeCompare(b.publisherId))
       })
-      await refreshOrganizationAccess(organizationId)
+      await refreshOrganizationDashboard(organizationId)
       setOrganizationError(undefined)
       setUpdatedAt(new Date().toISOString())
     } catch (memberError) {
@@ -650,6 +701,8 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     membersError,
     organizationMembers,
     organizationMemberAudit,
+    organizationDashboard,
+    organizationDashboardLoading,
     organizationMembersLoading,
     organizationMembersSaving,
     organizationSaving,
@@ -664,26 +717,19 @@ export function useSessionHistory(apiHealth: ApiHealthState, intervalMs = 20000)
     upsertOrganizationMember: (patch, organizationId) => saveOrganizationMember(patch, organizationId),
   }
 
-  async function loadOrganizationAccess(organizationId: string): Promise<[
-    { members?: WorkspaceMembershipRecord[]; error?: string },
-    { audit?: WorkspaceMembershipAuditRecord[]; error?: string },
-  ]> {
-    const [membersRes, auditRes] = await Promise.all([
-      fetch(`${FEED_URL}/api/organizations/${encodeURIComponent(organizationId)}/members`),
-      fetch(`${FEED_URL}/api/organizations/${encodeURIComponent(organizationId)}/members/audit`),
-    ])
-    const membersBody = (await membersRes.json().catch(() => ({}))) as { members?: WorkspaceMembershipRecord[]; error?: string }
-    const auditBody = (await auditRes.json().catch(() => ({}))) as { audit?: WorkspaceMembershipAuditRecord[]; error?: string }
-    if (!membersRes.ok) throw new Error(membersBody.error ?? `organization members ${membersRes.status}`)
-    if (!auditRes.ok) throw new Error(auditBody.error ?? `organization member audit ${auditRes.status}`)
-    return [membersBody, auditBody]
+  async function loadOrganizationDashboard(organizationId: string): Promise<OrganizationDashboardRecord> {
+    const dashboardRes = await fetch(`${FEED_URL}/api/organizations/${encodeURIComponent(organizationId)}/dashboard`)
+    const dashboardBody = (await dashboardRes.json().catch(() => ({}))) as OrganizationDashboardRecord & { error?: string }
+    if (!dashboardRes.ok) throw new Error(dashboardBody.error ?? `organization dashboard ${dashboardRes.status}`)
+    return dashboardBody
   }
 
-  async function refreshOrganizationAccess(organizationId: string): Promise<void> {
+  async function refreshOrganizationDashboard(organizationId: string): Promise<void> {
     try {
-      const [membersBody, auditBody] = await loadOrganizationAccess(organizationId)
-      setOrganizationMembers(membersBody.members ?? [])
-      setOrganizationMemberAudit(auditBody.audit ?? [])
+      const dashboard = await loadOrganizationDashboard(organizationId)
+      setOrganizationDashboard(dashboard)
+      setOrganizationMembers(dashboard.members ?? [])
+      setOrganizationMemberAudit(dashboard.audit ?? [])
     } catch (orgError) {
       setOrganizationError(friendlyOrganizationError(orgError))
     }
