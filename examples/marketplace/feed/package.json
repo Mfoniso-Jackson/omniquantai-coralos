@@ -6,6 +6,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "build": "npm run build --prefix ../../../packages/agent-runtime",
     "start": "tsx src/server.ts",
     "worker": "tsx src/worker.ts",
     "typecheck": "tsc --noEmit",
