@@ -36,7 +36,7 @@ jobs:
       - name: Build omniquantai.com
         run: npm run build --prefix examples/marketplace/web
         env:
-          VITE_API_BASE_URL: https://api.omniquantai.com
+          VITE_API_BASE_URL: https://omniquantai-private-api.onrender.com
 
       - uses: actions/configure-pages@v5
 

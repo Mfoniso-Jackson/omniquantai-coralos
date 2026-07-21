@@ -18,8 +18,11 @@ npm run build --prefix examples/marketplace/web
 Environment:
 
 ```ini
-VITE_API_BASE_URL=https://api.omniquantai.com
+VITE_API_BASE_URL=https://omniquantai-private-api.onrender.com
 ```
+
+The public frontend checks `/api/ready` before enabling Start Market. A hosted feed service with
+no reachable CoralOS runtime remains in Public Proof Mode, even if `/api/health` is online.
 
 Output:
 

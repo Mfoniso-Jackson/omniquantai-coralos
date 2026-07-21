@@ -43,10 +43,10 @@ The repository includes a GitHub Pages workflow:
 .github/workflows/deploy-omniquantai-com.yml
 ```
 
-It builds the React dashboard with:
+It builds the React dashboard with the current free API host:
 
 ```ini
-VITE_API_BASE_URL=https://api.omniquantai.com
+VITE_API_BASE_URL=https://omniquantai-private-api.onrender.com
 ```
 
 and publishes `examples/marketplace/web/dist`.
@@ -55,7 +55,7 @@ For local verification:
 
 ```sh
 cd examples/marketplace/web
-VITE_API_BASE_URL=https://api.omniquantai.com npm run build
+VITE_API_BASE_URL=https://omniquantai-private-api.onrender.com npm run build
 ```
 
 Output:
@@ -104,6 +104,12 @@ Recommended public shape:
 
 - `omniquantai.com` -> frontend
 - `api.omniquantai.com` -> marketplace API/feed
+
+Current free posture:
+
+- `omniquantai.com` -> GitHub Pages frontend
+- `VITE_API_BASE_URL` -> `https://omniquantai-private-api.onrender.com`
+- frontend readiness checks call `/api/ready`, so the public site stays in Public Proof Mode until the hosted API can reach CoralOS
 
 The frontend ships with:
 

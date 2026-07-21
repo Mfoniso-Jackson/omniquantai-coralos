@@ -287,13 +287,19 @@ export function useApiHealth(intervalMs = 15000): ApiHealthState {
       const controller = new AbortController()
       const timeout = window.setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS)
       try {
-        const res = await fetch(`${FEED_URL}/api/health?quick=1`, { signal: controller.signal })
-        const body = (await res.json().catch(() => ({}))) as { ok?: boolean; build?: string; error?: string }
+        const res = await fetch(`${FEED_URL}/api/ready`, { signal: controller.signal })
+        const body = (await res.json().catch(() => ({}))) as {
+          ok?: boolean
+          build?: string
+          error?: string
+          coralStatus?: string
+          coralReachable?: boolean
+        }
         if (!stopped) {
           setState({
             status: res.ok && body.ok !== false ? 'online' : 'offline',
             apiUrl: API_BASE_URL,
-            detail: body.build ?? body.error ?? `health ${res.status}`,
+            detail: body.build ?? body.error ?? body.coralStatus ?? `readiness ${res.status}`,
           })
         }
       } catch (error) {
