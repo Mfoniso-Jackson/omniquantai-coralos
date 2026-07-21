@@ -1,12 +1,13 @@
 /**
  * foldRounds — turn a CoralOS session transcript into typed market Round objects.
  *
- * Pure and network-free, so it's fully unit-testable. Reuses the SAME parsers the agents use
- * (`@pay/agent-runtime`) — the market wire protocol has one source of truth.
+ * Pure and network-free, so it's fully unit-testable. Reuses the SAME pure protocol source the
+ * agents use — the market wire protocol has one source of truth without pulling the full runtime
+ * package into feed-only deploys.
  */
 import {
   verb, messageRound, parseWant, parseBid, parseAward, parseEscrowRequired, parseDeposited,
-} from '@pay/agent-runtime'
+} from '../../../../packages/agent-runtime/src/market/protocol.js'
 
 export interface RawMessage {
   sender: string

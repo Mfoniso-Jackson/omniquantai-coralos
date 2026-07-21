@@ -6,7 +6,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "npm run build --prefix ../../../packages/agent-runtime",
+    "build": "npm run typecheck",
     "start": "tsx src/server.ts",
     "worker": "tsx src/worker.ts",
     "typecheck": "tsc --noEmit",
@@ -14,7 +14,6 @@
     "smoke:testnet": "vitest run src/marketLifecycle.smoke.test.ts"
   },
   "dependencies": {
-    "@pay/agent-runtime": "file:../../../packages/agent-runtime",
     "express": "^4.19.2",
     "solana-coralos": "file:../../.."
   },
