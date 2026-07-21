@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { privateQuantHealth, privateQuantModels, privateQuantNotImplemented } from './privateQuantApi.js'
+import { authenticatePrivateQuantRequest, privateQuantHealth, privateQuantModels, privateQuantNotImplemented, requestIdFrom } from './privateQuantApi.js'
 import { runPrivateBacktest } from './privateQuantBacktest.js'
 import { evaluatePrivateRisk } from './privateQuantRisk.js'
 import { generatePrivateSignal } from './privateQuantSignals.js'
 import { executePrivatePaperOrder, preparePrivateOrder } from './privateQuantOrders.js'
 
 describe('private quant API boundary', () => {
+  const originalApiKey = process.env.OMNIQUANT_API_KEY
+
   it('identifies the MassifX-facing private API as boundary-ready', () => {
     expect(privateQuantHealth()).toEqual({
       ok: true,
@@ -17,6 +19,37 @@ describe('private quant API boundary', () => {
 
   it('starts with an empty model registry projection', () => {
     expect(privateQuantModels()).toEqual([])
+  })
+
+  it('enforces private API bearer auth only when configured', () => {
+    process.env.OMNIQUANT_API_KEY = 'secret'
+
+    expect(authenticatePrivateQuantRequest({
+      headers: {
+        authorization: 'Bearer secret',
+      },
+    } as never)).toEqual({ ok: true })
+    expect(authenticatePrivateQuantRequest({
+      headers: {
+        authorization: 'Bearer wrong',
+      },
+    } as never)).toEqual({
+      ok: false,
+      message: 'Valid OMNIQUANT_API_KEY bearer token is required.',
+    })
+
+    restoreApiKey(originalApiKey)
+    expect(authenticatePrivateQuantRequest({
+      headers: {},
+    } as never)).toEqual({ ok: true })
+  })
+
+  it('uses caller request ids when present', () => {
+    expect(requestIdFrom({
+      headers: {
+        'x-request-id': 'req_test_123',
+      },
+    } as never)).toBe('req_test_123')
   })
 
   it('runs the first private backtest implementation with a stable response shape', () => {
@@ -216,6 +249,73 @@ describe('private quant API boundary', () => {
     })
   })
 
+  it('runs the full private quant workflow from backtest to paper execution', () => {
+    const backtest = runPrivateBacktest({
+      strategyId: 'moving-average-trend',
+      symbol: 'BTCUSDT',
+      timeframe: '1h',
+      initialCapital: 100_000,
+    })
+    const signal = generatePrivateSignal({
+      strategyId: backtest.strategyId,
+      symbol: backtest.symbol,
+      portfolioValue: 100_000,
+    })
+    const risk = evaluatePrivateRisk({
+      portfolioId: 'demo-paper',
+      symbol: signal.symbol,
+      side: signal.decision.signal === 'sell' ? 'sell' : 'buy',
+      notional: signal.decision.suggestedPositionSize,
+      leverage: 1,
+      stopLoss: signal.decision.stopLossPct,
+      marketDataTimestamp: new Date().toISOString(),
+      decision: signal.decision,
+      state: {
+        portfolioValue: 100_000,
+        dailyPnlPct: 0,
+        openPositions: 0,
+        volatilityScore: signal.decision.riskScore,
+      },
+    })
+    const price = 70_000
+    const quantity = Math.max(0.01, Math.min(risk.cappedPositionSize, 50_000) / price)
+    const preparedOrder = preparePrivateOrder({
+      portfolioId: 'demo-paper',
+      signalId: signal.id,
+      riskApprovalId: risk.id,
+      symbol: signal.symbol,
+      side: signal.decision.signal === 'sell' ? 'sell' : 'buy',
+      type: 'market',
+      quantity,
+      price,
+      riskApproved: risk.approved,
+      riskReasons: risk.reasons,
+      mode: 'paper',
+    })
+    const execution = executePrivatePaperOrder({
+      orderId: preparedOrder.id,
+      mode: 'paper',
+      account: {
+        balance: 50_000,
+        openPositions: [],
+        trades: [],
+      },
+      preparedOrder,
+      price,
+      strategy: signal.decision.strategy,
+    })
+
+    expect(backtest.engine.model).toBe('deterministic-trend-following-v1')
+    expect(signal.engine.model).toBe('deterministic-signal-engine-v1')
+    expect(risk.engine.model).toBe('deterministic-risk-controls-v1')
+    expect(preparedOrder.status).toBe(risk.approved ? 'prepared' : 'rejected')
+    expect(execution.status).toBe(risk.approved ? 'filled' : 'rejected')
+    if (risk.approved) {
+      expect(execution.account.trades).toHaveLength(1)
+      expect(execution.account.balance).toBeLessThan(50_000)
+    }
+  })
+
   it('rejects paper execution when the account cannot fund the prepared order', () => {
     const preparedOrder = preparePrivateOrder({
       portfolioId: 'demo-paper',
@@ -290,3 +390,11 @@ describe('private quant API boundary', () => {
     })
   })
 })
+
+function restoreApiKey(value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env.OMNIQUANT_API_KEY
+  } else {
+    process.env.OMNIQUANT_API_KEY = value
+  }
+}

@@ -72,3 +72,7 @@ Current behavior:
   status with deterministic refusal reasons.
 - `POST /v1/orders/execute` executes paper-only prepared orders against a supplied paper account and
   returns filled/rejected status plus the updated paper account.
+- Private `/v1` requests receive an `x-request-id` response header and emit structured JSON request
+  logs.
+- When `OMNIQUANT_API_KEY` is configured, private `/v1` requests must include
+  `Authorization: Bearer <key>`.

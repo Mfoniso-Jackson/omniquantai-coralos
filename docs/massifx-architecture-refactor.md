@@ -138,6 +138,11 @@ with deterministic refusal reasons. MassifX still owns the customer-facing paper
 paper account. It updates paper balance, open positions, and trades deterministically. Live exchange
 execution remains explicitly unsupported.
 
+All private `/v1` requests now carry request IDs for traceability. The server returns `x-request-id`,
+emits structured JSON request logs, and enforces bearer-token auth whenever `OMNIQUANT_API_KEY` is
+configured. MassifX clients send `x-request-id` and the optional `OMNIQUANT_API_KEY` bearer token on
+each private API call.
+
 ## Initial Workflow Boundary
 
 MassifX should orchestrate the customer workflow:

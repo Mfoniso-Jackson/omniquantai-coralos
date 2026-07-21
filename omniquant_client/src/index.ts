@@ -288,9 +288,14 @@ export class OmniQuantClient {
   private headers(payload?: string): Record<string, string> {
     const headers: Record<string, string> = {
       accept: 'application/json',
+      'x-request-id': createRequestId(),
     }
     if (payload !== undefined) headers['content-type'] = 'application/json'
     if (this.apiKey) headers.authorization = `Bearer ${this.apiKey}`
     return headers
   }
+}
+
+function createRequestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `req_${Date.now()}_${Math.random().toString(36).slice(2)}`
 }
