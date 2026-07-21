@@ -1,0 +1,125 @@
+services:
+  coral:
+    image: ghcr.io/coral-protocol/coral-server:latest@sha256:2acd1701aed63367583b4ff4496d3a4255112f7363b4daae7c3a700acf35c6eb
+    container_name: omniquant-coral
+    ports:
+      - "5555:5555"
+    environment:
+      - CONFIG_FILE_PATH=/config/coral.toml
+      - SELLER_WALLET=${WALLET}
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      - BUYER_KEYPAIR_B58=${BUYER_KEYPAIR_B58}
+      - ARBITER_KEYPAIR_B58=${ARBITER_KEYPAIR_B58:-}
+      - SETTLEMENT_MODE=${SETTLEMENT_MODE:-arbiter}
+      - BUYER_MAX_SOL=${BUYER_MAX_SOL:-0.001}
+      - VENICE_API_KEY=${VENICE_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - NEWS_API_KEY=${NEWS_API_KEY:-}
+      - FMP_API_KEY=${FMP_API_KEY:-}
+      - PYTH_SOL_USD_FEED_ID=${PYTH_SOL_USD_FEED_ID:-}
+      - TRACE=${TRACE:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../../.runtime/coral.toml:/config/coral.toml:ro
+      - ../../coral-agents:/agents:ro
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: omniquant-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - omniquant-redis:/data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/api.Dockerfile
+    container_name: omniquant-api
+    depends_on:
+      - coral
+      - redis
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      - PORT=4000
+      - NODE_ENV=production
+      - CORAL_SERVER_URL=http://coral:5555
+      - CORAL_NAMESPACE=${CORAL_NAMESPACE:-omniquant}
+      - CORAL_TOKEN=${CORAL_TOKEN:-dev}
+      - REDIS_URL=redis://redis:6379
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      - WALLET=${WALLET}
+      - BUYER_KEYPAIR_B58=${BUYER_KEYPAIR_B58}
+      - ARBITER_KEYPAIR_B58=${ARBITER_KEYPAIR_B58:-}
+      - SETTLEMENT_MODE=${SETTLEMENT_MODE:-arbiter}
+      - BUYER_MAX_SOL=${BUYER_MAX_SOL:-0.03}
+      - VENICE_API_KEY=${VENICE_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - NEWS_API_KEY=${NEWS_API_KEY:-}
+      - FMP_API_KEY=${FMP_API_KEY:-}
+      - PYTH_SOL_USD_FEED_ID=${PYTH_SOL_USD_FEED_ID:-}
+      - TRACE=${TRACE:-}
+      - OMNIQUANT_PERSIST=${OMNIQUANT_PERSIST:-1}
+      - OMNIQUANT_DATA_DIR=${OMNIQUANT_DATA_DIR:-.omniquant-data}
+      - MARKETPLACE_API_URL=http://api:4000
+      - OMNIQUANT_API_KEY=${OMNIQUANT_API_KEY:-}
+      - WORKSPACE_API_TOKEN=${WORKSPACE_API_TOKEN:-}
+      - REGISTRY_ADMIN_TOKEN=${REGISTRY_ADMIN_TOKEN:-}
+    volumes:
+      - omniquant-data:/app/.omniquant-data
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/worker.Dockerfile
+    container_name: omniquant-worker
+    depends_on:
+      - coral
+      - redis
+      - api
+    environment:
+      - NODE_ENV=production
+      - CORAL_SERVER_URL=http://coral:5555
+      - CORAL_NAMESPACE=${CORAL_NAMESPACE:-omniquant}
+      - CORAL_TOKEN=${CORAL_TOKEN:-dev}
+      - REDIS_URL=redis://redis:6379
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      - WALLET=${WALLET}
+      - BUYER_KEYPAIR_B58=${BUYER_KEYPAIR_B58}
+      - ARBITER_KEYPAIR_B58=${ARBITER_KEYPAIR_B58:-}
+      - SETTLEMENT_MODE=${SETTLEMENT_MODE:-arbiter}
+      - BUYER_MAX_SOL=${BUYER_MAX_SOL:-0.03}
+      - VENICE_API_KEY=${VENICE_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - NEWS_API_KEY=${NEWS_API_KEY:-}
+      - FMP_API_KEY=${FMP_API_KEY:-}
+      - PYTH_SOL_USD_FEED_ID=${PYTH_SOL_USD_FEED_ID:-}
+      - TRACE=${TRACE:-}
+      - OMNIQUANT_PERSIST=${OMNIQUANT_PERSIST:-1}
+      - OMNIQUANT_DATA_DIR=${OMNIQUANT_DATA_DIR:-.omniquant-data}
+      - START_MARKET_MAX_ATTEMPTS=${START_MARKET_MAX_ATTEMPTS:-3}
+      - START_MARKET_RETRY_BACKOFF_MS=${START_MARKET_RETRY_BACKOFF_MS:-5000}
+    volumes:
+      - omniquant-data:/app/.omniquant-data
+    restart: unless-stopped
+
+volumes:
+  omniquant-data:
+  omniquant-redis:

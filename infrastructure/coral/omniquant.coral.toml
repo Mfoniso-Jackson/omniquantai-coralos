@@ -1,0 +1,24 @@
+# CoralOS config for the OmniQuantAI live market runtime.
+#
+# Mounted into the coral-server container at /config/coral.toml. The deployment helper copies this
+# template to .runtime/coral.toml and replaces the Docker callback address for the target host.
+
+[auth]
+keys = ["dev"]
+
+[network]
+allowAnyHost = true
+
+[registry]
+localAgents = [
+  "/agents/buyer-agent",
+  "/agents/market-analyst",
+  "/agents/news-earnings",
+  "/agents/macro-risk",
+  "/agents/portfolio-risk",
+]
+includeCoralHomeAgents = true
+localAgentRescanTimer = "5s"
+
+[docker]
+address = "host.docker.internal"

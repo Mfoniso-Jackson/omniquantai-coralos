@@ -73,13 +73,11 @@ If neither is set, the app uses same-origin `/api` routes, which is correct for 
 
 ## API Host
 
-Run the feed service on a Docker-capable host:
+Run the full market runtime on a Docker-capable host:
 
 ```sh
-cd examples/marketplace/feed
-npm install
-npm run build
-npm start
+npm run runtime:up
+npm run runtime:ready
 ```
 
 Required runtime:
@@ -88,8 +86,10 @@ Required runtime:
 - Docker daemon
 - CoralOS reachable on port `5555`
 - feed API reachable on port `4000`
+- Redis reachable by the worker
 - funded devnet buyer wallet
 - `.env` created from `.env.testnet.example`
+- `/var/run/docker.sock` mounted for CoralOS agent spawning
 
 Required checks:
 
@@ -97,6 +97,11 @@ Required checks:
 npm run health
 npm run milestone:market
 ```
+
+The current free Render service at `https://omniquantai-private-api.onrender.com` is an API/proof
+host. It does not make Start Market live until CoralOS can run beside it with Docker access. The
+frontend checks `/api/ready`, not only `/api/health`, so it stays in Public Proof Mode until that
+runtime is truly available.
 
 ## Domain Routing
 

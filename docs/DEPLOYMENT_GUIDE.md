@@ -62,6 +62,16 @@ SOLANA_RPC_URL=https://api.devnet.solana.com
 OMNIQUANT_PERSIST=1
 ```
 
+For a single Docker-capable host, prefer the bundled runtime compose file:
+
+```sh
+npm run runtime:up
+npm run runtime:ready
+```
+
+It starts CoralOS, API/feed, Redis, and the worker on one private Docker network. CoralOS still needs
+access to `/var/run/docker.sock` because it launches buyer/seller agents as containers.
+
 ## 3. Worker On Railway
 
 Service name:
