@@ -62,5 +62,13 @@ Current behavior:
 
 - `GET /v1/health` returns a private API boundary health payload.
 - `GET /v1/models` returns an empty model registry projection.
-- Backtest, signal, risk, and order endpoints return structured `501 not_implemented` responses until
-  the quant engine is migrated behind this API.
+- `POST /v1/backtests` runs the first OmniQuantAI-owned deterministic backtest implementation. It
+  accepts provided candles when available and otherwise falls back to deterministic demo candles.
+- `POST /v1/signals/generate` runs deterministic strategy signal generation for trend, mean
+  reversion, breakout, and volatility-regime strategies.
+- `POST /v1/risk/evaluate` runs deterministic controls for max position size, leverage, stop-loss,
+  drawdown, daily loss, stale data, volatility, open positions, and kill switch.
+- `POST /v1/orders/prepare` prepares paper orders after risk approval and returns prepared/rejected
+  status with deterministic refusal reasons.
+- `POST /v1/orders/execute` executes paper-only prepared orders against a supplied paper account and
+  returns filled/rejected status plus the updated paper account.

@@ -1,4 +1,8 @@
 import type { Express, Request, Response } from 'express'
+import { runPrivateBacktest } from './privateQuantBacktest.js'
+import { evaluatePrivateRisk } from './privateQuantRisk.js'
+import { generatePrivateSignal } from './privateQuantSignals.js'
+import { executePrivatePaperOrder, preparePrivateOrder } from './privateQuantOrders.js'
 
 export const PRIVATE_QUANT_API_VERSION = 'v1'
 
@@ -27,11 +31,81 @@ export function installPrivateQuantApi(app: Express): void {
     res.json({ models: privateQuantModels() })
   })
 
-  app.post('/v1/backtests', notImplemented('run backtests', '/v1/backtests'))
-  app.post('/v1/signals/generate', notImplemented('generate trading signals', '/v1/signals/generate'))
-  app.post('/v1/risk/evaluate', notImplemented('evaluate deterministic risk controls', '/v1/risk/evaluate'))
-  app.post('/v1/orders/prepare', notImplemented('prepare paper-trading orders', '/v1/orders/prepare'))
-  app.post('/v1/orders/execute', notImplemented('execute paper-trading orders', '/v1/orders/execute'))
+  app.post('/v1/backtests', runBacktestHandler)
+  app.post('/v1/signals/generate', generateSignalHandler)
+  app.post('/v1/risk/evaluate', evaluateRiskHandler)
+  app.post('/v1/orders/prepare', prepareOrderHandler)
+  app.post('/v1/orders/execute', executeOrderHandler)
+}
+
+export function runBacktestHandler(req: Request, res: Response): void {
+  try {
+    res.status(201).json(runPrivateBacktest(req.body))
+  } catch (error) {
+    res.status(400).json({
+      error: {
+        code: 'invalid_backtest_request',
+        message: (error as Error).message,
+        owner: 'OmniQuantAI',
+      },
+    })
+  }
+}
+
+export function generateSignalHandler(req: Request, res: Response): void {
+  try {
+    res.status(201).json(generatePrivateSignal(req.body))
+  } catch (error) {
+    res.status(400).json({
+      error: {
+        code: 'invalid_signal_request',
+        message: (error as Error).message,
+        owner: 'OmniQuantAI',
+      },
+    })
+  }
+}
+
+export function prepareOrderHandler(req: Request, res: Response): void {
+  try {
+    res.status(201).json(preparePrivateOrder(req.body))
+  } catch (error) {
+    res.status(400).json({
+      error: {
+        code: 'invalid_order_request',
+        message: (error as Error).message,
+        owner: 'OmniQuantAI',
+      },
+    })
+  }
+}
+
+export function executeOrderHandler(req: Request, res: Response): void {
+  try {
+    res.status(201).json(executePrivatePaperOrder(req.body))
+  } catch (error) {
+    res.status(400).json({
+      error: {
+        code: 'invalid_execution_request',
+        message: (error as Error).message,
+        owner: 'OmniQuantAI',
+      },
+    })
+  }
+}
+
+export function evaluateRiskHandler(req: Request, res: Response): void {
+  try {
+    res.status(201).json(evaluatePrivateRisk(req.body))
+  } catch (error) {
+    res.status(400).json({
+      error: {
+        code: 'invalid_risk_request',
+        message: (error as Error).message,
+        owner: 'OmniQuantAI',
+      },
+    })
+  }
 }
 
 export function privateQuantHealth() {

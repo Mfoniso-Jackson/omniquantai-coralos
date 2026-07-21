@@ -18,28 +18,48 @@ export interface HealthResponse {
 export interface BacktestRequest {
   strategyId: string
   symbol: string
-  timeframe: string
-  start: string
-  end: string
-  initialCapital: number
+  timeframe?: string
+  start?: string
+  end?: string
+  initialCapital?: number
+  initialBalance?: number
+  candles?: Candle[]
   parameters?: Record<string, unknown>
+}
+
+export interface Candle {
+  timestamp: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
 }
 
 export interface BacktestResponse {
   id: string
   strategyId: string
   symbol: string
+  timeframe?: string
   totalReturn: number
   maxDrawdown: number
   sharpeRatio?: number
+  winRate?: number
   trades: unknown[]
   equityCurve: unknown[]
+  engine?: {
+    provider: 'omniquant'
+    model?: string
+    dataMode?: 'provided_candles' | 'deterministic_demo'
+  }
 }
 
 export interface SignalRequest {
-  strategyId: string
-  symbol: string
-  timeframe: string
+  strategyId?: string
+  symbol?: string
+  timeframe?: string
+  candles?: Candle[]
+  portfolioValue?: number
   marketDataRef?: string
   parameters?: Record<string, unknown>
 }
@@ -52,51 +72,133 @@ export interface SignalResponse {
   confidence: number
   rationale?: string
   createdAt: string
+  decision?: {
+    strategy: string
+    signal: 'buy' | 'sell' | 'hold'
+    confidence: number
+    riskScore: number
+    suggestedPositionSize: number
+    stopLossPct: number
+    explanation: string
+  }
+  engine?: {
+    provider: 'omniquant'
+    model?: string
+    dataMode?: 'provided_candles' | 'deterministic_demo'
+  }
 }
 
 export interface RiskRequest {
-  portfolioId: string
-  symbol: string
-  side: OrderSide
-  notional: number
+  portfolioId?: string
+  symbol?: string
+  side?: OrderSide
+  notional?: number
   leverage?: number
   stopLoss?: number
-  marketDataTimestamp: string
+  marketDataTimestamp?: string
+  killSwitchActive?: boolean
+  decision?: {
+    signal?: 'buy' | 'sell' | 'hold'
+    suggestedPositionSize?: number
+    stopLossPct?: number
+    riskScore?: number
+  }
+  state?: {
+    portfolioValue?: number
+    dailyPnlPct?: number
+    openPositions?: number
+    volatilityScore?: number
+    currentPositionNotional?: number
+    maxDrawdownPct?: number
+  }
+  limits?: {
+    maxRiskPerTradePct?: number
+    maxPositionPct?: number
+    maxLeverage?: number
+    maxDailyLossPct?: number
+    maxDrawdownPct?: number
+    maxOpenPositions?: number
+    maxVolatilityScore?: number
+    maxMarketDataAgeMs?: number
+    requireStopLoss?: boolean
+  }
 }
 
 export interface RiskResponse {
+  id?: string
   approved: boolean
   reasons: string[]
   maxPositionSize?: number
   maxLeverage?: number
+  cappedPositionSize?: number
   killSwitchActive?: boolean
+  staleMarketData?: boolean
+  checks?: {
+    maxPositionSize: boolean
+    leverage: boolean
+    stopLoss: boolean
+    maxDrawdown: boolean
+    dailyLoss: boolean
+    staleData: boolean
+    killSwitch: boolean
+    volatility: boolean
+    openPositions: boolean
+  }
+  engine?: {
+    provider: 'omniquant'
+    model?: string
+    evaluatedAt?: string
+  }
 }
 
 export interface PrepareOrderRequest {
-  portfolioId: string
-  signalId: string
-  symbol: string
-  side: OrderSide
-  type: OrderType
-  quantity: number
-  limitPrice?: number
+  portfolioId?: string
+  signalId?: string
   riskApprovalId?: string
+  symbol?: string
+  side?: OrderSide | 'hold'
+  type?: OrderType
+  quantity?: number
+  limitPrice?: number
+  price?: number
+  maxQuantity?: number
+  riskApproved?: boolean
+  riskReasons?: string[]
+  mode?: 'paper'
 }
 
 export interface PreparedOrderResponse {
   id: string
   portfolioId: string
+  signalId?: string
+  riskApprovalId?: string
   symbol: string
   side: OrderSide
   type: OrderType
   quantity: number
+  limitPrice?: number
+  notional?: number
   status: 'prepared' | 'rejected'
-  reasons?: string[]
+  reasons: string[]
+  mode?: 'paper'
+  createdAt?: string
+  engine?: {
+    provider: 'omniquant'
+    model?: string
+  }
 }
 
 export interface ExecuteOrderRequest {
-  orderId: string
+  orderId?: string
   mode: 'paper'
+  account?: {
+    balance?: number
+    openPositions?: unknown[]
+    trades?: unknown[]
+  }
+  preparedOrder?: PreparedOrderResponse
+  price?: number
+  strategy?: string
 }
 
 export interface ExecutionResponse {
@@ -106,7 +208,18 @@ export interface ExecutionResponse {
   status: 'filled' | 'rejected'
   filledQuantity?: number
   averagePrice?: number
+  message?: string
+  reasons?: string[]
+  account?: {
+    balance: number
+    openPositions: unknown[]
+    trades: unknown[]
+  }
   createdAt: string
+  engine?: {
+    provider: 'omniquant'
+    model?: string
+  }
 }
 
 export interface ModelSummary {

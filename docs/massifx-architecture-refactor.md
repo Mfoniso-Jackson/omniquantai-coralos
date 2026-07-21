@@ -1,6 +1,6 @@
 # OmniQuantAI and MassifX Architecture Refactor
 
-Status: proposed boundary and first implementation slice.
+Status: active boundary with first migrated backtest endpoint.
 
 ## Decision
 
@@ -26,7 +26,12 @@ Current strengths:
 
 Current gaps:
 
-- Trading-intelligence APIs such as `/v1/backtests`, `/v1/signals/generate`, `/v1/risk/evaluate`, and order preparation are not yet implemented.
+- `POST /v1/backtests` is implemented as the first OmniQuantAI-owned deterministic quant endpoint.
+- `POST /v1/risk/evaluate` is implemented as the second OmniQuantAI-owned deterministic quant endpoint.
+- `POST /v1/signals/generate` is implemented as the third OmniQuantAI-owned deterministic quant endpoint.
+- `POST /v1/orders/prepare` is implemented as the fourth OmniQuantAI-owned deterministic quant endpoint.
+- `POST /v1/orders/execute` is implemented as the fifth OmniQuantAI-owned deterministic quant endpoint for paper-only execution.
+- Live execution remains out of scope.
 - The working implementation still lives mostly under `examples/marketplace`.
 - Current platform focus is financial research and agent markets, not quant strategy execution.
 - There is no hosted private API deployment boundary yet.
@@ -111,6 +116,27 @@ GET  /v1/models
 ```
 
 Do not add endpoints until MassifX has an immediate workflow that needs them.
+
+`POST /v1/backtests` now accepts MassifX-style candle payloads and returns a stable deterministic
+backtest shape with totals, drawdown, Sharpe ratio, win rate, trades, equity curve, and engine
+metadata. If valid candles are not provided, OmniQuantAI uses deterministic demo candles so contract
+tests and local development remain reliable.
+
+`POST /v1/risk/evaluate` now enforces deterministic controls for max position size, leverage,
+stop-loss, max drawdown, daily loss, stale market data, kill switch, volatility, and open-position
+limits. The response returns approval, refusal reasons, caps, per-check booleans, and engine metadata.
+
+`POST /v1/signals/generate` now evaluates deterministic strategy signals for trend following, mean
+reversion, breakout, and volatility-regime strategies. MassifX keeps regime/selector orchestration
+but asks OmniQuantAI to produce the selected strategy decision before falling back locally.
+
+`POST /v1/orders/prepare` now prepares paper orders after risk approval. It validates executable side,
+positive quantity, limit price requirements, and risk approval, then returns a prepared/rejected order
+with deterministic refusal reasons. MassifX still owns the customer-facing paper account simulation.
+
+`POST /v1/orders/execute` now performs paper-only execution of a prepared order against a supplied
+paper account. It updates paper balance, open positions, and trades deterministically. Live exchange
+execution remains explicitly unsupported.
 
 ## Initial Workflow Boundary
 
@@ -197,11 +223,15 @@ examples/marketplace/feed/src/privateQuantApi.ts
 ```
 
 The client provides one typed boundary for MassifX to call OmniQuantAI. The feed API now exposes a
-minimal private quant API shell:
+minimal private quant API shell plus the first migrated quant engine:
 
 - `GET /v1/health` returns `boundary-ready`
 - `GET /v1/models` returns an empty model registry projection
-- planned quant workflow endpoints return structured `501 not_implemented` responses until the quant
-  engine migration lands
+- `POST /v1/backtests` runs the deterministic trend-following backtest engine inside OmniQuantAI
+- `POST /v1/risk/evaluate` runs deterministic non-LLM risk controls inside OmniQuantAI
+- `POST /v1/signals/generate` runs deterministic selected-strategy signal generation inside OmniQuantAI
+- `POST /v1/orders/prepare` runs deterministic paper-order preparation inside OmniQuantAI
+- `POST /v1/orders/execute` runs deterministic paper execution inside OmniQuantAI
 
-This prevents further responsibility leakage while avoiding fake trading/backtesting behavior.
+This prevents further responsibility leakage while moving customer-facing MassifX backtests behind
+the OmniQuantAI private API boundary one route at a time.
