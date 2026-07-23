@@ -107,6 +107,7 @@ npm run health
 
 For the current testnet/devnet release posture, see [docs/testnet-deployment.md](docs/testnet-deployment.md). Use `.env.testnet.example` as the host-local deployment template.
 For the public domain plan, see [docs/omniquantai-com-deployment.md](docs/omniquantai-com-deployment.md).
+For the ecosystem GTM sequence across thinkjackson.com, MassifX, and OmniQuantAI, see [docs/ecosystem-gtm.md](docs/ecosystem-gtm.md).
 
 ## Environment
 

@@ -18,6 +18,10 @@ phase is about creating product evidence:
 Every product and engineering decision should improve acquisition, activation, retention, or revenue
 inside the next 90 days.
 
+Go-to-market sequencing is now explicitly layered: thinkjackson.com builds trust, MassifX proves
+customer value and paid demand, and OmniQuantAI captures platform value as the infrastructure behind
+those workflows. See [docs/ecosystem-gtm.md](docs/ecosystem-gtm.md).
+
 ## Core Workflow
 
 This is the only workflow that must feel exceptional:

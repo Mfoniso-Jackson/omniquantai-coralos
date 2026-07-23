@@ -1,5 +1,6 @@
 import { launchMarketSession } from './marketLauncher.js'
 import { assignSessionToOrganization } from './data/organizationStore.js'
+import { recordActivationEvent } from './data/activationStore.js'
 import {
   deadLetterStartMarketJob,
   requeueStartMarketJob,
@@ -43,10 +44,11 @@ async function runJob(job: StartMarketJob): Promise<void> {
   await setJob(running)
   console.error(`[worker] job=${job.id} attempt=${running.attempts}/${running.maxAttempts} starting market namespace=${job.namespace || NS}`)
   try {
+    const launch = researchLaunchEnv(job.request)
     const result = await launchMarketSession({
       namespace: job.namespace || NS,
       timeoutMs: LAUNCH_TIMEOUT_MS,
-      env: { ...process.env, CORAL_NAMESPACE: job.namespace || NS },
+      env: { ...process.env, ...launch, CORAL_NAMESPACE: job.namespace || NS },
     })
     if (job.organizationId) {
       await assignSessionToOrganization({
@@ -55,6 +57,15 @@ async function runJob(job: StartMarketJob): Promise<void> {
         assignedBy: job.assignedBy ?? 'system:start-market-worker',
       })
     }
+    await recordActivationEvent({
+      type: 'research_started',
+      organizationId: job.organizationId,
+      sessionId: result.session,
+      asset: launch.RESEARCH_ASSET,
+      objective: launch.RESEARCH_OBJECTIVE,
+      question: launch.RESEARCH_QUESTION,
+      actor: job.assignedBy ?? 'system:start-market-worker',
+    })
     await setJob({
       ...running,
       status: 'completed',
@@ -87,6 +98,27 @@ async function runJob(job: StartMarketJob): Promise<void> {
     await deadLetterStartMarketJob(failed)
     console.error(`[worker] job=${job.id} dead-lettered after ${failed.attempts} attempt(s): ${failed.error}`)
   }
+}
+
+function researchLaunchEnv(request: Record<string, unknown>): NodeJS.ProcessEnv {
+  const asset = cleanSymbol(request.asset) ?? cleanSymbol(request.symbol) ?? 'NVDA'
+  const objective = cleanOptional(request.objective) ?? 'increase exposure over the next 3-6 months'
+  const question = cleanOptional(request.question) ?? cleanOptional(request.request) ?? `Should our fund ${objective.toLowerCase()} for ${asset}?`
+  return {
+    RESEARCH_ASSET: asset,
+    RESEARCH_OBJECTIVE: objective,
+    RESEARCH_QUESTION: question,
+    BUYER_ARG: `${asset.toLowerCase()}-${objective.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 56) || 'research'}`,
+  }
+}
+
+function cleanSymbol(value: unknown): string | undefined {
+  const text = cleanOptional(value)?.toUpperCase().replace(/[^A-Z0-9.-]/g, '')
+  return text ? text.slice(0, 12) : undefined
+}
+
+function cleanOptional(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
 function retryDelayMs(attempt: number): number {

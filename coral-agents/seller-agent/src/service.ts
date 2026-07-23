@@ -27,6 +27,8 @@ async function omniQuantService(request: string): Promise<unknown> {
   const persona = process.env.PERSONA ?? 'financial intelligence seller'
   const understood = request || 'nvda-3-6m-exposure'
   const dataContext = await getDataContext(normalizeAsset(understood))
+  const researchQuestion = process.env.RESEARCH_QUESTION ?? `Should our fund increase exposure to ${dataContext.asset} over the next 3-6 months?`
+  const companyName = dataContext.companyProfile?.name ?? dataContext.asset
   const portfolioContext = [
     { holding: 'Apple', weight: 18 },
     { holding: 'Microsoft', weight: 22 },
@@ -69,7 +71,7 @@ async function omniQuantService(request: string): Promise<unknown> {
   }
   const byAgent: Record<string, Record<string, unknown>> = {
     'market-analyst': {
-      key_evidence: [`Latest NVDA price: ${formatMoney(dataContext.price.latestPrice, dataContext.price.currency)}`, 'Valuation premium raises downside sensitivity'],
+      key_evidence: [`Latest ${dataContext.asset} price: ${formatMoney(dataContext.price.latestPrice, dataContext.price.currency)}`, 'Valuation premium raises downside sensitivity'],
       bullish_points: ['AI accelerator demand supports trend', 'Liquidity is deep enough for institutional sizing'],
       bearish_points: ['Multiple compression risk is elevated', 'Short-term expectations are demanding'],
       risks: ['Earnings miss', 'Factor rotation out of mega-cap growth'],
@@ -131,8 +133,8 @@ async function omniQuantService(request: string): Promise<unknown> {
     },
     investment_committee_memo: {
       title: 'Investment Committee Memo',
-      company: 'NVIDIA',
-      investment_question: 'Should our fund increase exposure to Nvidia over the next 3-6 months?',
+      company: companyName,
+      investment_question: researchQuestion,
       supporting_specialist_agents: ['Market Analyst Agent', 'News & Earnings Agent', 'Macro Risk Agent', 'Portfolio Risk Agent'],
       recommendation: 'HOLD',
       confidence_score: 72,

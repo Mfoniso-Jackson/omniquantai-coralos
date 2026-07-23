@@ -163,8 +163,11 @@ async function main() {
   const buyerExpectedWallet = brokerReady ? env.BROKER_WALLET : wallet
 
   // The buyer shops for a paid financial intelligence report.
+  const researchAsset = (env.RESEARCH_ASSET ?? 'NVDA').toUpperCase()
+  const researchObjective = env.RESEARCH_OBJECTIVE ?? 'increase exposure over the next 3-6 months'
+  const researchQuestion = env.RESEARCH_QUESTION ?? `Should our fund ${researchObjective.toLowerCase()} for ${researchAsset}?`
   const buyerService = env.BUYER_SERVICE ?? 'omniquant'
-  const buyerArg = env.BUYER_ARG ?? 'nvda-3-6m-exposure'
+  const buyerArg = env.BUYER_ARG ?? `${researchAsset.toLowerCase()}-${researchObjective.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 56) || 'research'}`
   const buyerArgs = env.BUYER_ARGS ?? ''
 
   const buyerOpts: Record<string, unknown> = {
@@ -178,6 +181,9 @@ async function main() {
     BUYER_MAX_SOL: f64(Number(env.BUYER_MAX_SOL ?? '0.03')),
     BUYER_SERVICE: str(buyerService),
     BUYER_ARG: str(buyerArg),
+    RESEARCH_ASSET: str(researchAsset),
+    RESEARCH_OBJECTIVE: str(researchObjective),
+    RESEARCH_QUESTION: str(researchQuestion),
     ...(buyerArgs ? { BUYER_ARGS: str(buyerArgs) } : {}),
     MARKET_SELLERS: str(buyerSellers.join(',')),
     ...llmOpts,
@@ -238,7 +244,8 @@ async function main() {
   console.log(`   settlement mode: ${settlementMode}`)
   console.log(`   receive wallet: ${wallet}`)
   if (sdkLineup) console.log(`  ${sdkLineup}`)
-  console.log('   The buyer requests NVDA financial intelligence; sellers bid; the winner settles via escrow.\n')
+  console.log(`   The buyer requests ${researchAsset} financial intelligence: ${researchQuestion}`)
+  console.log('   Sellers bid; the winner settles via escrow.\n')
   console.log('   Watch the market:')
   console.log('     docker logs -f buyer-agent      # WANT → AWARD (with a reason) → DEPOSITED → VERIFIED → RELEASED')
   console.log('     docker logs -f portfolio-risk   # BID → ESCROW_REQUIRED → DELIVERED')

@@ -18,6 +18,7 @@ import type {
 } from './models.js'
 import { marketDataProviderFromEnv } from './providers/marketDataProvider.js'
 import { mirrorCollectionRecord } from './supabasePersistence.js'
+import { recordActivationEvent } from './activationStore.js'
 
 const seen = new Set<string>()
 
@@ -163,7 +164,23 @@ async function persistRound(dataDir: string, sessionId: string, round: Round): P
       memo,
       createdAt: now,
     }
+    const memoAlreadySeen = seen.has(`investment_memos:${memoRecord.id}`)
     await writeOnce(dataDir, 'investment_memos', memoRecord.id, memoRecord)
+    if (!memoAlreadySeen) {
+      await recordActivationEvent({
+        type: 'memo_saved',
+        sessionId,
+        asset: symbolFromArg(round.want?.arg ?? 'nvda-3-6m-exposure'),
+        objective: round.want?.arg,
+        question: decision.question,
+        metadata: {
+          memoId: memoRecord.memoId,
+          agentId: memoRecord.agentId,
+          recommendation: memoRecord.recommendation,
+          confidence: memoRecord.confidence,
+        },
+      }, dataDir)
+    }
     await writeEvent(dataDir, {
       id: `${memoRecord.id}:event`,
       sessionId,

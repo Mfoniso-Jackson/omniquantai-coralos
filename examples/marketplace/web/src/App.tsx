@@ -3,7 +3,9 @@ import {
   API_BASE_URL,
   REGISTRY_ADMIN_ENABLED,
   friendlyError,
+  recordActivationEvent,
   setRegistryAgentStatus,
+  submitResearchFeedback,
   useSessionHistory,
   useFeed,
   startMarket,
@@ -43,7 +45,24 @@ type WorkspaceViewState = Pick<MemoWorkspaceRecord, 'reviewStatus' | 'note' | 'e
 interface StartMarketInput {
   organizationId?: string
   organizationName?: string
+  asset?: string
+  objective?: string
+  question?: string
 }
+
+const researchAssets = [
+  { symbol: 'NVDA', label: 'Nvidia / NVDA' },
+  { symbol: 'BTC', label: 'Bitcoin / BTC' },
+  { symbol: 'ETH', label: 'Ethereum / ETH' },
+  { symbol: 'SOL', label: 'Solana / SOL' },
+]
+
+const researchObjectives = [
+  { value: 'increase exposure over the next 3-6 months', label: 'Increase Exposure' },
+  { value: 'hold current exposure and monitor key risks', label: 'Hold / Monitor' },
+  { value: 'reduce exposure if downside risks worsen', label: 'Reduce Risk' },
+  { value: 'prepare an investment committee update', label: 'IC Update' },
+]
 
 export default function App() {
   const [session, setSession] = useState(initialSession)
@@ -74,8 +93,18 @@ export default function App() {
       if (!organizationId && input.organizationName?.trim()) {
         const organization = await sessionHistory.createOrganization({ name: input.organizationName.trim() })
         organizationId = organization?.id
+        if (organizationId) {
+          void recordActivationEvent({ type: 'workspace_created', organizationId, actor: 'dashboard' }).catch(() => undefined)
+        }
+      } else if (organizationId) {
+        void recordActivationEvent({ type: 'workspace_selected', organizationId, actor: 'dashboard' }).catch(() => undefined)
       }
-      const started = await startMarket({ organizationId })
+      const started = await startMarket({
+        organizationId,
+        asset: input.asset,
+        objective: input.objective,
+        question: input.question,
+      })
       setSession(started.session)
       setNamespace(started.namespace ?? '')
       const url = new URL(window.location.href)
@@ -729,6 +758,15 @@ function SessionHistoryWorkspace({
                   <h5>{memoTitle(latestMemo)}</h5>
                   <p>{memoSummary(latestMemo)}</p>
                 </div>
+                {latestMemo && (
+                  <ResearchFeedbackCard
+                    sessionId={selected.session.sessionId}
+                    organizationId={currentOrganization?.id}
+                    asset={assetFromMemo(latestMemo)}
+                    objective={latestMemo.question ?? latestRequest?.argument}
+                    reviewer={selectedWorkspace.reviewer}
+                  />
+                )}
                 <div className="export-card">
                   <div>
                     <strong>Export History</strong>
@@ -904,6 +942,85 @@ function SessionHistoryWorkspace({
   )
 }
 
+function ResearchFeedbackCard({
+  sessionId,
+  organizationId,
+  asset,
+  objective,
+  reviewer,
+}: {
+  sessionId: string
+  organizationId?: string
+  asset?: string
+  objective?: string
+  reviewer?: string
+}) {
+  const [rating, setRating] = useState(4)
+  const [outcome, setOutcome] = useState<'useful' | 'needs_follow_up' | 'not_useful'>('useful')
+  const [comment, setComment] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [savedAt, setSavedAt] = useState('')
+  const [error, setError] = useState('')
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      await submitResearchFeedback({
+        sessionId,
+        organizationId,
+        rating,
+        outcome,
+        comment,
+        reviewer,
+        asset,
+        objective,
+      })
+      setSavedAt(new Date().toISOString())
+      setComment('')
+    } catch (feedbackError) {
+      setError((feedbackError as Error).message || 'Feedback was not saved')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="research-feedback-card" onSubmit={submit} aria-label="Research feedback">
+      <div>
+        <strong>Feedback Capture</strong>
+        <span>Record whether this memo created useful pilot evidence.</span>
+      </div>
+      <label>
+        Rating
+        <select value={rating} onChange={(event) => setRating(Number(event.target.value))} disabled={saving}>
+          {[5, 4, 3, 2, 1].map((value) => <option key={value} value={value}>{value}/5</option>)}
+        </select>
+      </label>
+      <label>
+        Outcome
+        <select value={outcome} onChange={(event) => setOutcome(event.target.value as 'useful' | 'needs_follow_up' | 'not_useful')} disabled={saving}>
+          <option value="useful">Useful</option>
+          <option value="needs_follow_up">Needs Follow-up</option>
+          <option value="not_useful">Not Useful</option>
+        </select>
+      </label>
+      <label>
+        Comment
+        <input
+          value={comment}
+          onChange={(event) => setComment(event.target.value)}
+          placeholder="What should improve before this becomes paid workflow?"
+          disabled={saving}
+        />
+      </label>
+      <button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Feedback'}</button>
+      {(savedAt || error) && <em>{error || `Saved ${formatDate(savedAt)}`}</em>}
+    </form>
+  )
+}
+
 function WorkspaceMetric({ label, value }: { label: string; value: string }) {
   return <div className="workspace-metric"><span>{label}</span><strong>{value}</strong></div>
 }
@@ -950,6 +1067,17 @@ function memoSummary(memo?: SavedMemoRecord): string {
   return typeof nested.executive_summary === 'string'
     ? nested.executive_summary
     : 'The saved memo will appear here once the selected market has delivered intelligence.'
+}
+
+function assetFromMemo(memo?: SavedMemoRecord): string | undefined {
+  const payload = memoPayload(memo)
+  const nested = memoNested(memo)
+  const latestPrice = nested.latest_price
+  if (typeof payload.asset === 'string') return payload.asset
+  if (latestPrice && typeof latestPrice === 'object' && typeof (latestPrice as { symbol?: unknown }).symbol === 'string') {
+    return (latestPrice as { symbol: string }).symbol
+  }
+  return undefined
 }
 
 function memoRecommendation(memo?: SavedMemoRecord): string | undefined {
@@ -1025,7 +1153,10 @@ function PublicHero({
   const apiOnline = apiHealth.status === 'online'
   const [launchOrganizationId, setLaunchOrganizationId] = useState('')
   const [launchOrganizationName, setLaunchOrganizationName] = useState('')
+  const [asset, setAsset] = useState('NVDA')
+  const [objective, setObjective] = useState(researchObjectives[0].value)
   const hasWorkspaceChoice = Boolean(launchOrganizationId || launchOrganizationName.trim())
+  const question = `Should our fund ${objective.toLowerCase()} for ${asset}?`
   return (
     <section className="public-hero" aria-labelledby="public-hero-title">
       <div className="public-copy">
@@ -1036,10 +1167,24 @@ function PublicHero({
           Autonomous financial-intelligence agents compete to produce investment research and earn
           through programmable settlement.
         </p>
-        <form className="launch-workspace-form" onSubmit={(event) => {
+        <form className="launch-workspace-form activation-form" onSubmit={(event) => {
           event.preventDefault()
-          onStart({ organizationId: launchOrganizationId || undefined, organizationName: launchOrganizationName.trim() || undefined })
+          onStart({
+            organizationId: launchOrganizationId || undefined,
+            organizationName: launchOrganizationName.trim() || undefined,
+            asset,
+            objective,
+            question,
+          })
         }}>
+          <div className="activation-path" aria-label="Research activation path">
+            <span>Workspace</span>
+            <span>Asset</span>
+            <span>Objective</span>
+            <span>Launch Research</span>
+            <span>Memo Saved</span>
+            <span>Feedback</span>
+          </div>
           <label htmlFor="launch-organization-select">
             Pilot / Team Workspace
             <select
@@ -1072,9 +1217,35 @@ function PublicHero({
               disabled={starting || !apiOnline}
             />
           </label>
+          <label htmlFor="launch-asset">
+            Asset
+            <select
+              id="launch-asset"
+              value={asset}
+              onChange={(event) => setAsset(event.target.value)}
+              disabled={starting || !apiOnline}
+            >
+              {researchAssets.map((item) => (
+                <option key={item.symbol} value={item.symbol}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor="launch-objective">
+            Research Objective
+            <select
+              id="launch-objective"
+              value={objective}
+              onChange={(event) => setObjective(event.target.value)}
+              disabled={starting || !apiOnline}
+            >
+              {researchObjectives.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </select>
+          </label>
           <span>
             {apiOnline
-              ? 'Choose or create a pilot workspace before launch. The new session will be assigned automatically.'
+              ? question
               : 'Live organization launch needs a reachable API runtime.'}
           </span>
           <button
@@ -1082,9 +1253,9 @@ function PublicHero({
             type="submit"
             disabled={starting || !apiOnline || !hasWorkspaceChoice}
             data-testid="start"
-            title={apiOnline ? 'Start a live market session for this workspace' : 'Live market requires a reachable Codespaces or Docker API runtime'}
+            title={apiOnline ? 'Launch a research market and save the memo to this workspace' : 'Live market requires a reachable Codespaces or Docker API runtime'}
           >
-            {starting ? 'Starting Market...' : apiOnline ? 'Start Live Market' : 'Live Market Offline'}
+            {starting ? 'Launching Research...' : apiOnline ? 'Launch Research Market' : 'Live Market Offline'}
           </button>
         </form>
         <div className="empty-actions">

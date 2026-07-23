@@ -768,6 +768,31 @@ export async function setRegistryAgentStatus(agentId: string, status: AgentRegis
 
 export interface StartMarketOptions {
   organizationId?: string
+  asset?: string
+  objective?: string
+  question?: string
+}
+
+export interface ActivationEventInput {
+  type: 'workspace_selected' | 'workspace_created' | 'research_started' | 'memo_saved' | 'feedback_submitted'
+  organizationId?: string
+  sessionId?: string
+  asset?: string
+  objective?: string
+  question?: string
+  actor?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface FeedbackInput {
+  sessionId: string
+  organizationId?: string
+  rating: number
+  outcome?: 'useful' | 'needs_follow_up' | 'not_useful'
+  comment?: string
+  reviewer?: string
+  asset?: string
+  objective?: string
 }
 
 /** Ask the feed server to launch a market session; returns its id. (Fund wallets first.) */
@@ -777,6 +802,9 @@ export async function startMarket(options: StartMarketOptions = {}): Promise<{ s
     const path = '/api/start'
     const requestBody = JSON.stringify({
       organizationId: options.organizationId,
+      asset: options.asset,
+      objective: options.objective,
+      question: options.question,
     })
     const signedHeaders = await signedWorkspaceHeaders('POST', path, requestBody)
     const r = await fetch(`${FEED_URL}/api/start`, {
@@ -821,8 +849,10 @@ async function startMarketViaJob(options: StartMarketOptions): Promise<{ session
   const path = '/v1/markets'
   const requestBody = JSON.stringify({
     namespace: 'omniquant',
-    request: 'Should our fund increase exposure to Nvidia over the next 3-6 months?',
-    asset: 'NVDA',
+    request: options.question ?? defaultResearchQuestion(options.asset ?? 'NVDA', options.objective ?? 'increase exposure over the next 3-6 months'),
+    asset: options.asset ?? 'NVDA',
+    objective: options.objective ?? 'increase exposure over the next 3-6 months',
+    question: options.question,
     organizationId: options.organizationId,
   })
   const signedHeaders = await signedWorkspaceHeaders('POST', path, requestBody)
@@ -860,6 +890,34 @@ async function pollMarketJob(jobId: string, statusUrl: string): Promise<{ sessio
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+export async function recordActivationEvent(input: ActivationEventInput): Promise<void> {
+  const r = await fetch(`${FEED_URL}/api/research/activation`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!r.ok) {
+    const body = (await r.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `activation event failed (${r.status})`)
+  }
+}
+
+export async function submitResearchFeedback(input: FeedbackInput): Promise<void> {
+  const r = await fetch(`${FEED_URL}/api/research/feedback`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!r.ok) {
+    const body = (await r.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `feedback failed (${r.status})`)
+  }
+}
+
+function defaultResearchQuestion(asset: string, objective: string): string {
+  return `Should our fund ${objective.toLowerCase()} for ${asset.toUpperCase()}?`
 }
 
 export interface FeedState {

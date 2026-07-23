@@ -42,6 +42,12 @@ import {
   upsertWorkspaceMembership,
   type MembershipPatch,
 } from './data/workspaceMembershipStore.js'
+import {
+  listActivationEvents,
+  listResearchFeedback,
+  recordActivationEvent,
+  recordResearchFeedback,
+} from './data/activationStore.js'
 import { ensureSessionOrOrganizationPermission, organizationScope } from './data/workspacePermissionPolicy.js'
 import {
   discoverRegisteredAgents,
@@ -73,6 +79,13 @@ const sessionNamespaces = new Map<string, string>()
 const sessionStartedAt = new Map<string, number>()
 const SELLERS = (process.env.MARKET_SELLERS ?? 'market-analyst,news-earnings,macro-risk,portfolio-risk')
   .split(',').map((s) => s.trim()).filter(Boolean)
+
+interface ResearchLaunchRequest {
+  organizationId?: string
+  asset?: string
+  objective?: string
+  question?: string
+}
 
 /** Fetch a session's raw extended state — from the FEED_FIXTURE file, else from coral. */
 async function readState(session: string, namespace = NS): Promise<unknown> {
@@ -295,6 +308,14 @@ app.post('/api/workspace/memos/:sessionId/export', recordMemoExport)
 app.get('/api/workspace/memos/:sessionId/members', listMemoWorkspaceMembers)
 app.post('/api/workspace/memos/:sessionId/members', upsertMemoWorkspaceMember)
 app.get('/api/workspace/memos/:sessionId/members/audit', listMemoWorkspaceMemberAudit)
+app.get('/api/research/activation', async (_req, res) => {
+  res.json({ events: await listActivationEvents() })
+})
+app.post('/api/research/activation', createResearchActivationEvent)
+app.get('/api/research/feedback', async (_req, res) => {
+  res.json({ feedback: await listResearchFeedback() })
+})
+app.post('/api/research/feedback', createResearchFeedback)
 
 app.get('/v1/workspace/memos', async (_req, res) => {
   res.json({ workspaces: await listMemoWorkspaces() })
@@ -309,6 +330,14 @@ app.post('/v1/workspace/memos/:sessionId/export', recordMemoExport)
 app.get('/v1/workspace/memos/:sessionId/members', listMemoWorkspaceMembers)
 app.post('/v1/workspace/memos/:sessionId/members', upsertMemoWorkspaceMember)
 app.get('/v1/workspace/memos/:sessionId/members/audit', listMemoWorkspaceMemberAudit)
+app.get('/v1/research/activation', async (_req, res) => {
+  res.json({ events: await listActivationEvents() })
+})
+app.post('/v1/research/activation', createResearchActivationEvent)
+app.get('/v1/research/feedback', async (_req, res) => {
+  res.json({ feedback: await listResearchFeedback() })
+})
+app.post('/v1/research/feedback', createResearchFeedback)
 
 app.get('/v1/markets/:id/stream', marketStreamResponse)
 
@@ -402,12 +431,13 @@ app.get('/api/graph/session/:id', async (req, res) => {
 /** Operator trigger: launch a market session synchronously for local/Codespaces demo mode. */
 async function startSession(_req: Request, res: Response) {
   try {
-    const body = _req.body && typeof _req.body === 'object' ? _req.body as { organizationId?: unknown } : {}
-    const organizationId = typeof body.organizationId === 'string' && body.organizationId.trim() ? body.organizationId.trim() : undefined
+    const launch = parseResearchLaunchRequest(_req.body)
+    const organizationId = launch.organizationId
     const publisherId = organizationId ? await authorizeMarketOrganization(_req, organizationId) : undefined
     const result = await launchMarketSession({
       namespace: NS,
       timeoutMs: Math.max(60_000, START_READY_RETRIES * START_READY_RETRY_MS + 10_000),
+      env: { ...process.env, ...researchLaunchEnv(launch), CORAL_NAMESPACE: NS },
       onSession: ({ session, namespace }) => {
         sessionNamespaces.set(session, namespace)
         sessionStartedAt.set(session, Date.now())
@@ -421,6 +451,15 @@ async function startSession(_req: Request, res: Response) {
         assignedBy: publisherId ?? 'system:start-market-api',
       })
     }
+    await recordActivationEvent({
+      type: 'research_started',
+      organizationId,
+      sessionId: result.session,
+      asset: launch.asset,
+      objective: launch.objective,
+      question: launch.question,
+      actor: publisherId,
+    })
     res.status(200).json({ session: result.session, namespace: result.namespace })
     void waitForWant(result.session, result.namespace)
       .catch(async (error) => {
@@ -446,12 +485,13 @@ async function enqueueMarketSession(req: Request, res: Response) {
   }
   try {
     const namespace = typeof req.body?.namespace === 'string' ? req.body.namespace : NS
-    const organizationId = typeof req.body?.organizationId === 'string' && req.body.organizationId.trim() ? req.body.organizationId.trim() : undefined
+    const launch = parseResearchLaunchRequest(req.body)
+    const organizationId = launch.organizationId
     const publisherId = organizationId ? await authorizeMarketOrganization(req, organizationId) : undefined
     const idempotencyKey = idempotencyKeyFromRequest(req)
     const { job, existing } = await enqueueStartMarketJob({
       namespace,
-      request: req.body && typeof req.body === 'object' ? req.body as Record<string, unknown> : {},
+      request: { ...(req.body && typeof req.body === 'object' ? req.body as Record<string, unknown> : {}), ...launch },
       idempotencyKey,
       organizationId,
       assignedBy: publisherId,
@@ -487,6 +527,94 @@ function idempotencyKeyFromRequest(req: Request): string | undefined {
   if (header) return header
   const bodyKey = (req.body as { idempotencyKey?: unknown } | undefined)?.idempotencyKey
   return typeof bodyKey === 'string' && bodyKey.trim() ? bodyKey.trim() : undefined
+}
+
+function parseResearchLaunchRequest(body: unknown): ResearchLaunchRequest {
+  const input = body && typeof body === 'object' ? body as Record<string, unknown> : {}
+  const asset = cleanSymbol(input.asset) ?? cleanSymbol(input.symbol) ?? 'NVDA'
+  const objective = cleanOptional(input.objective) ?? 'Increase exposure over the next 3-6 months'
+  const question = cleanOptional(input.question) ?? cleanOptional(input.request) ?? defaultResearchQuestion(asset, objective)
+  return {
+    organizationId: cleanOptional(input.organizationId),
+    asset,
+    objective,
+    question,
+  }
+}
+
+function researchLaunchEnv(launch: ResearchLaunchRequest): NodeJS.ProcessEnv {
+  const asset = cleanSymbol(launch.asset) ?? 'NVDA'
+  const objective = cleanOptional(launch.objective) ?? 'increase exposure over the next 3-6 months'
+  const question = cleanOptional(launch.question) ?? defaultResearchQuestion(asset, objective)
+  return {
+    RESEARCH_ASSET: asset,
+    RESEARCH_OBJECTIVE: objective,
+    RESEARCH_QUESTION: question,
+    BUYER_ARG: buyerArgFor(asset, objective),
+  }
+}
+
+function buyerArgFor(asset: string, objective: string): string {
+  const slug = objective.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 56)
+  return `${asset.toLowerCase()}-${slug || 'research'}`
+}
+
+function defaultResearchQuestion(asset: string, objective: string): string {
+  return `Should our fund ${objective.toLowerCase()} for ${asset.toUpperCase()}?`
+}
+
+function cleanSymbol(value: unknown): string | undefined {
+  const text = cleanOptional(value)?.toUpperCase().replace(/[^A-Z0-9.-]/g, '')
+  return text ? text.slice(0, 12) : undefined
+}
+
+function cleanOptional(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+async function createResearchActivationEvent(req: Request, res: Response) {
+  try {
+    const event = await recordActivationEvent({
+      type: req.body?.type,
+      organizationId: req.body?.organizationId,
+      sessionId: req.body?.sessionId,
+      asset: req.body?.asset,
+      objective: req.body?.objective,
+      question: req.body?.question,
+      actor: req.body?.actor,
+      metadata: req.body?.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : undefined,
+    })
+    res.status(201).json({ event })
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message })
+  }
+}
+
+async function createResearchFeedback(req: Request, res: Response) {
+  try {
+    const feedback = await recordResearchFeedback({
+      sessionId: req.body?.sessionId,
+      organizationId: req.body?.organizationId,
+      rating: Number(req.body?.rating),
+      outcome: req.body?.outcome,
+      comment: req.body?.comment,
+      reviewer: req.body?.reviewer,
+      asset: req.body?.asset,
+      objective: req.body?.objective,
+    })
+    await recordActivationEvent({
+      type: 'feedback_submitted',
+      organizationId: feedback.organizationId,
+      sessionId: feedback.sessionId,
+      asset: feedback.asset,
+      objective: feedback.objective,
+      actor: feedback.reviewer,
+      metadata: { rating: feedback.rating, outcome: feedback.outcome },
+    })
+    res.status(201).json({ feedback })
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message })
+  }
 }
 
 async function upsertOrganizationWorkspace(req: Request, res: Response) {

@@ -226,6 +226,39 @@ export interface OrganizationSessionRecord {
   updatedAt: string
 }
 
+export type ResearchActivationEventType =
+  | 'workspace_selected'
+  | 'workspace_created'
+  | 'research_started'
+  | 'memo_saved'
+  | 'feedback_submitted'
+
+export interface ResearchActivationEventRecord {
+  id: string
+  type: ResearchActivationEventType
+  organizationId?: string
+  sessionId?: string
+  asset?: string
+  objective?: string
+  question?: string
+  actor?: string
+  metadata?: Record<string, unknown>
+  createdAt: string
+}
+
+export interface ResearchFeedbackRecord {
+  id: string
+  sessionId: string
+  organizationId?: string
+  rating: number
+  outcome?: 'useful' | 'needs_follow_up' | 'not_useful'
+  comment?: string
+  reviewer?: string
+  asset?: string
+  objective?: string
+  createdAt: string
+}
+
 export interface AgentProfileRecord {
   id: string
   agentId: string
